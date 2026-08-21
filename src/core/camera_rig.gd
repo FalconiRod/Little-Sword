@@ -25,6 +25,7 @@ const DIST_MIN := 4.2
 const DIST_MAX := 34.0
 
 var _shake := 0.0
+var _cam_pos := Vector3.ZERO
 var _bounds := Rect2(0, 0, 26, 30)
 var _auto_orbit := false
 
@@ -36,13 +37,15 @@ func setup(bounds: Rect2) -> void:
 	cam.fov = 40.0
 	add_child(cam)
 	cam.current = true
-	_apply(true)
+	_apply(0.0, true)
 
 func set_focus(p: Vector3) -> void:
 	_pivot_t = p
 
 func _process(delta: float) -> void:
-	var s := 1.0 - exp(-10.0 * delta)
+	var s_rot := 1.0 - exp(-5.0 * delta)     # órbita: pesada, como mesa real
+	var s_zoom := 1.0 - exp(-6.0 * delta)
+	var s_pivot := 1.0 - exp(-8.0 * delta)
 
 	if _auto_orbit:
 		_yaw_t += 0.5 * delta
@@ -68,12 +71,12 @@ func _process(delta: float) -> void:
 		_pivot_t += (right * pan.x + f * pan.y) * k
 	_clamp_pivot()
 
-	yaw += (_yaw_t - yaw) * s
-	pitch += (_pitch_t - pitch) * s
-	dist += (_dist_t - dist) * s
-	position += (_pivot_t - position) * s
+	yaw += (_yaw_t - yaw) * s_rot
+	pitch += (_pitch_t - pitch) * s_rot
+	dist += (_dist_t - dist) * s_zoom
+	position += (_pivot_t - position) * s_pivot
 
-	_apply(false)
+	_apply(delta, false)
 
 	if _shake > 0.005:
 		cam.h_offset = randf_range(-1, 1) * _shake * 0.25
@@ -88,14 +91,18 @@ func _clamp_pivot() -> void:
 	_pivot_t.z = clampf(_pivot_t.z, _bounds.position.y - 4.0, _bounds.end.y + 6.0)
 
 ## Posiciona a câmera na esfera do pivô e resolve colisão com paredes.
-func _apply(instant: bool) -> void:
+func _apply(delta: float, instant: bool) -> void:
 	if cam == null:
 		return
 	var horiz := cos(pitch) * dist
 	var offset := Vector3(sin(yaw) * horiz, sin(pitch) * dist, cos(yaw) * horiz)
 	var desired := position + offset
-	var final_pos := desired if instant else _collide(position, desired)
-	cam.global_position = final_pos
+	var target := desired if instant else _collide(position, desired)
+	if instant:
+		_cam_pos = target
+	else:
+		_cam_pos = _cam_pos.lerp(target, 1.0 - exp(-16.0 * delta))
+	cam.global_position = _cam_pos
 	cam.look_at(position + Vector3(0, 0.6, 0))
 
 ## Amostra o segmento pivô->câmera: se atravessar célula de parede abaixo da
@@ -121,14 +128,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
-				_dist_t = clampf(_dist_t * 0.90, DIST_MIN, DIST_MAX)
+				_dist_t = clampf(_dist_t * 0.92, DIST_MIN, DIST_MAX)
 			MOUSE_BUTTON_WHEEL_DOWN:
-				_dist_t = clampf(_dist_t / 0.90, DIST_MIN, DIST_MAX)
+				_dist_t = clampf(_dist_t / 0.92, DIST_MIN, DIST_MAX)
 	elif event is InputEventMouseMotion:
 		var mask := int(event.button_mask)
 		if mask & MOUSE_BUTTON_MASK_LEFT:
-			_yaw_t += event.relative.x * 0.006
-			_pitch_t = clampf(_pitch_t + event.relative.y * 0.006, deg_to_rad(PITCH_MIN), deg_to_rad(PITCH_MAX))
+			_yaw_t += event.relative.x * 0.007
+			_pitch_t = clampf(_pitch_t + event.relative.y * 0.007, deg_to_rad(PITCH_MIN), deg_to_rad(PITCH_MAX))
 		elif mask & MOUSE_BUTTON_MASK_MIDDLE:
 			var k := dist * 0.0017
 			var f := Vector3(-sin(yaw), 0.0, -cos(yaw))

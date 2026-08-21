@@ -79,3 +79,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Mudado
 - Padrão continua isométrico tático (yaw 45°, pitch 47°); ângulos baixos
   revelam vista cinematográfica rente à mesa.
+
+## v0.2.1 — 2026-08-21 — Câmera mais suave
+### Mudado
+- Interpolação desacoplada por eixo: órbita k=5 (pesada), zoom k=6,
+  pan k=8; posição final da câmera também interpolada (k=16), eliminando
+  o pop ao colidir com paredes.
+- Passo da roda menor (0.92) e arrasto levemente mais sensível (0.007).
