@@ -12,16 +12,19 @@ var max_mana := 0
 var mana := 0
 var base_ac := 10
 var ac := 10
+var base_atk_bonus := 0
 var atk_bonus := 0
 var dmg := "1d6"
 var move_max := 4
 var moves_left := 0
 var attack_range := 1
+var vision_range := 0
 var strength := 10
 var dexterity := 10
 var intelligence := 10
 var grid_pos := Vector2i.ZERO
 var defending := false
+var alerted := false
 var alive := true
 
 var visual: Node3D
@@ -41,10 +44,12 @@ func setup(uid: String, cell: Vector2i) -> void:
 	mana = max_mana
 	base_ac = d["ac"]
 	ac = base_ac
-	atk_bonus = d["atk_bonus"]
+	base_atk_bonus = d["atk_bonus"]
+	atk_bonus = base_atk_bonus
 	dmg = d["dmg"]
 	move_max = d["move_max"]
 	attack_range = d["attack_range"]
+	vision_range = d["vision_range"]
 	strength = d["strength"]
 	dexterity = d["dexterity"]
 	intelligence = d["intelligence"]

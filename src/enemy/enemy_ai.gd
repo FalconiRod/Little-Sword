@@ -4,6 +4,16 @@ extends Node
 ## O arqueiro mantém distância; o boss alterna habilidades.
 
 func run_turn(u) -> void:
+	if not u.alerted:
+		var h0 = _hero()
+		if h0 != null and _can_see(u, h0):
+			u.alerted = true
+			u.spawn_float_text("!", "#ffd166")
+			EventBus.log_msg.emit("%s te avistou!" % u.display_name, "#ffb84d")
+			await get_tree().create_timer(0.35).timeout
+		else:
+			EventBus.log_msg.emit("%s mantém a guarda." % u.display_name, "#5f6472")
+			return
 	match u.id:
 		"goblin_warrior":
 			await _melee(u)
@@ -11,6 +21,12 @@ func run_turn(u) -> void:
 			await _archer(u)
 		"boss_knight":
 			await _boss(u)
+
+func _can_see(u, target) -> bool:
+	var d: int = BoardGrid.chebyshev(u.grid_pos, target.grid_pos)
+	if d > u.vision_range:
+		return false
+	return BoardGrid.has_line_of_sight(u.grid_pos, target.grid_pos)
 
 func _hero():
 	for x in TurnManager.order:
@@ -65,7 +81,7 @@ func _archer(u) -> void:
 				EventBus.unit_moved.emit(u)
 				await u.animate_move(step)
 	d = BoardGrid.chebyshev(u.grid_pos, h.grid_pos)
-	if h.alive and d <= u.attack_range:
+	if h.alive and d <= u.attack_range and BoardGrid.has_line_of_sight(u.grid_pos, h.grid_pos):
 		await get_tree().create_timer(0.3).timeout
 		await CombatSystem.attack(u, h)
 
@@ -79,12 +95,12 @@ func _boss(u) -> void:
 		return
 	await get_tree().create_timer(0.3).timeout
 	var r := randf()
-	if u.hp < u.max_hp / 2 and r < 0.2:
+	if u.hp < u.max_hp / 2 and r < 0.15:
 		EventBus.combat_message.emit("Escudo Sombrio!")
 		CombatSystem.defend(u)
-	elif r < 0.42:
+	elif r < 0.3:
 		await CombatSystem.attack(u, h, "Golpe Pesado", "1d12+6")
-	elif r < 0.68:
+	elif r < 0.45:
 		await CombatSystem.attack(u, h, "Lâmina Sombria", "2d8+4")
 	else:
 		await CombatSystem.attack(u, h)

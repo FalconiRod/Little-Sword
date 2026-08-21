@@ -18,3 +18,10 @@
 
 ## Estado final da sessão
 Demo v0.1.0 jogável e validada. Documentação completa. Pronto para iterar.
+
+## Sessão 2 — 2026-08-21 (percepção + balance)
+- LOS por amostragem de segmento no grid (passos de TILE*0.25)
+- Aggro: alerted individual + propagação em área no primeiro golpe recebido
+- Bug morto: apply_to_unit órfão (anel de defesa inerte desde v0.1.0)
+- Demo bot validou: guarda -> avistou -> combate; derrota do bot no boss é
+  esperada (bot não usa defender/poções/habilidade)

@@ -11,12 +11,17 @@ func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 	await get_tree().create_timer(1.05).timeout
 	if TurnManager.game_ended:
 		return
+	_alert_victims(target)
 	var tgt_ac: int = target.effective_ac()
 	if chk["hit"]:
 		var nota: String = skill_dmg if is_skill else attacker.dmg
 		if chk["crit"]:
 			nota = DiceManager.double_dice(nota)
 		var dmg := DiceManager.roll_notation(nota)
+		# Runas mágicas do chão amplificam golpes de quem está sobre elas.
+		if BoardGrid.special.get(attacker.grid_pos, "") == "r":
+			dmg += 2
+			EventBus.log_msg.emit("As runas amplificam o golpe! (+2)", "#37e0ff")
 		target.take_damage(dmg)
 		if chk["crit"]:
 			EventBus.log_msg.emit("ACERTO CRÍTICO! %s causa %d de dano (%d vs CA %d)." % [attacker.display_name, dmg, chk["total"], tgt_ac], "#ffd166")
@@ -33,3 +38,17 @@ func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 func defend(u) -> void:
 	u.defending = true
 	EventBus.log_msg.emit("%s ergue a guarda (+4 CA até seu próximo turno)." % u.display_name, "#7fd1ff")
+
+## Atacar ou ser atacado desperta: o alvo e aliados próximos entram em combate.
+func _alert_victims(target) -> void:
+	if target == null or not is_instance_valid(target) or not target.alive:
+		return
+	if target.team != "enemy" or target.alerted:
+		return
+	target.alerted = true
+	for c in BoardGrid.occupied.keys():
+		var ally = BoardGrid.occupied[c]
+		if is_instance_valid(ally) and ally.alive and ally.team == "enemy" and ally != target:
+			if BoardGrid.chebyshev(c, target.grid_pos) <= 2:
+				ally.alerted = true
+	EventBus.log_msg.emit("%s entra em combate!" % target.display_name, "#ffb84d")

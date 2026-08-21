@@ -72,6 +72,21 @@ func neighbors4(c: Vector2i) -> Array:
 func chebyshev(a: Vector2i, b: Vector2i) -> int:
 	return max(abs(a.x - b.x), abs(a.y - b.y))
 
+## Linha de visão: amostra o segmento entre os centros das células;
+## qualquer parede no caminho bloqueia.
+func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
+	var wa := world_pos(a) + Vector3(0, 0.5, 0)
+	var wb := world_pos(b) + Vector3(0, 0.5, 0)
+	var dist := wa.distance_to(wb)
+	if dist < 0.01:
+		return true
+	var steps := int(ceil(dist / (TILE * 0.25)))
+	for i in range(1, steps):
+		var p := wa.lerp(wb, float(i) / float(steps))
+		if not is_walkable(cell_of(p)):
+			return false
+	return true
+
 ## Células alcançáveis com `max_steps` passos ortogonais,
 ## desviando de peças. Retorna {dist, came} para reconstruir caminho.
 func compute_reachable(start: Vector2i, max_steps: int) -> Dictionary:

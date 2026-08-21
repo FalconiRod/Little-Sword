@@ -47,6 +47,7 @@ func _spawn_units() -> void:
 		boss = _make_unit("boss_knight", BoardGrid.spawns["B"][0])
 		units.append(boss)
 	board.boss_unit = boss
+	InventorySystem.apply_to_unit(knight)
 
 func _make_unit(id: String, cell: Vector2i) -> BoardUnit:
 	var u: BoardUnit = KnightScene.new()
@@ -86,6 +87,9 @@ func _wire_systems() -> void:
 	EventBus.unit_healed.connect(func(u, _amt):
 		if u == knight:
 			hud.update_vitals(knight))
+	EventBus.inventory_changed.connect(func():
+		InventorySystem.apply_to_unit(knight)
+		hud.update_vitals(knight))
 	EventBus.turn_ended.connect(func(_u): hud.refresh_buttons(ctl))
 	EventBus.unit_moved.connect(func(_u): hud.refresh_buttons(ctl))
 	TurnManager.setup(units, ctl, ai)

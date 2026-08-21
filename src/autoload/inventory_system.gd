@@ -37,7 +37,7 @@ func atk_bonus() -> int:
 
 func apply_to_unit(u) -> void:
 	u.ac = u.base_ac + ac_bonus()
-	u.atk_bonus += 0
+	u.atk_bonus = u.base_atk_bonus + atk_bonus()
 
 func equip(item_id: String) -> void:
 	if not ITEMS.has(item_id):
