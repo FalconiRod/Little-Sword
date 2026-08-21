@@ -39,3 +39,15 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   Lâmina Sombria 15%, Escudo Sombrio 15% (só abaixo de metade da vida)
 - Resultado: luta aperta mas justa — ciclo Defender/Golpe Poderoso + poções
   + runas vence por pouca margem; jogada errada perde
+
+## v0.1.2 — 2026-08-21 — Movimento fixo inimigo + IA de aproximação
+### Corrigido (BUG raiz)
+- Inimigos jogavam com movimento 0 desde a v0.1.0 (_enemy_turn não definia
+  moves_left). Agora cada inimigo usa seu valor ÚNICO FIXO por turno:
+  goblin 4, arqueiro 3, boss 3 — sem rolagem, sem modificador.
+
+### Mudado
+- Nova IA de perseguição (_step_toward): dentro das casas alcançáveis no turno,
+  escolhe sempre a que aproxima mais do herói (empate: menos passos). Progresso
+  garantido mesmo com aliados bloqueando portas; impossível sobrepor peças.
+- Arqueiro escolhe a melhor casa de tiro (dentro do alcance + linha de visão).

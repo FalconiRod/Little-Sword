@@ -1,7 +1,9 @@
 class_name EnemyAI
 extends Node
-## IA simples dos inimigos: perseguem o herói e atacam quando possível.
-## O arqueiro mantém distância; o boss alterna habilidades.
+## IA dos inimigos. Regra de movimento: valor fixo por turno (goblin 4,
+## arqueiro 3, boss 3) — nunca rola dados nem recebe modificadores.
+## Comportamento: manter a guarda até detectar o herói (visão + linha de
+## visão); após o alerta, avançar todo turno e atacar ao alcançá-lo.
 
 func run_turn(u) -> void:
 	if not u.alerted:
@@ -22,37 +24,74 @@ func run_turn(u) -> void:
 		"boss_knight":
 			await _boss(u)
 
-func _can_see(u, target) -> bool:
-	var d: int = BoardGrid.chebyshev(u.grid_pos, target.grid_pos)
-	if d > u.vision_range:
-		return false
-	return BoardGrid.has_line_of_sight(u.grid_pos, target.grid_pos)
-
 func _hero():
 	for x in TurnManager.order:
 		if is_instance_valid(x) and x.alive and x.team == "hero":
 			return x
 	return null
 
-func _approach(u, goal: Vector2i) -> void:
-	if BoardGrid.chebyshev(u.grid_pos, goal) <= 1 or u.moves_left <= 0:
+func _can_see(u, target) -> bool:
+	var d: int = BoardGrid.chebyshev(u.grid_pos, target.grid_pos)
+	if d > u.vision_range:
+		return false
+	return BoardGrid.has_line_of_sight(u.grid_pos, target.grid_pos)
+
+## Movimento fixo em direção ao alvo: dentro das células alcançáveis neste
+## turno, escolhe a que deixa o inimigo mais perto do herói (empate: menos
+## passos). Garante progresso mesmo com caminhos bloqueados por aliados.
+func _step_toward(u, goal: Vector2i, stop_at_range := 1) -> void:
+	if u.moves_left <= 0:
 		return
-	var path: Array = BoardGrid.find_path(u.grid_pos, goal)
-	if path.is_empty():
+	var cur_d: int = BoardGrid.chebyshev(u.grid_pos, goal)
+	if cur_d <= stop_at_range:
 		return
-	path = path.slice(0, mini(u.moves_left, path.size()))
-	BoardGrid.move_unit(u, path[path.size() - 1])
+	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
+	var best: Vector2i = u.grid_pos
+	var best_d := cur_d
+	var best_cost := 9999
+	for c in reach["dist"].keys():
+		var cd: int = BoardGrid.chebyshev(c, goal)
+		var cost: int = reach["dist"][c]
+		if cd < best_d or (cd == best_d and cost < best_cost):
+			best_d = cd
+			best_cost = cost
+			best = c
+	if best == u.grid_pos:
+		return
+	var path: Array = BoardGrid.path_from_reachable(reach, best)
+	BoardGrid.move_unit(u, best)
 	u.moves_left -= path.size()
-	EventBus.log_msg.emit("%s avança." % u.display_name, "#8a8f9c")
+	EventBus.log_msg.emit("%s avança %d casa(s)." % [u.display_name, path.size()], "#8a8f9c")
 	EventBus.unit_moved.emit(u)
 	await u.animate_move(path)
+
+## Melhor casa de tiro: dentro do alcance com linha de visão; senão,
+## aproxima-se o máximo possível.
+func _best_shooting_cell(u, goal: Vector2i) -> Vector2i:
+	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
+	var best_fire: Vector2i = u.grid_pos
+	var best_fire_d := 9999
+	var best_any: Vector2i = u.grid_pos
+	var best_any_d: int = BoardGrid.chebyshev(u.grid_pos, goal)
+	var best_any_cost := 9999
+	for c in reach["dist"].keys():
+		var cd: int = BoardGrid.chebyshev(c, goal)
+		var cost: int = reach["dist"][c]
+		if cd <= u.attack_range and cd < best_fire_d and BoardGrid.has_line_of_sight(c, goal):
+			best_fire_d = cd
+			best_fire = c
+		if cd < best_any_d or (cd == best_any_d and cost < best_any_cost):
+			best_any_d = cd
+			best_any_cost = cost
+			best_any = c
+	return best_fire if best_fire != u.grid_pos else best_any
 
 func _melee(u) -> void:
 	var h = _hero()
 	if h == null:
 		return
 	await get_tree().create_timer(0.35).timeout
-	await _approach(u, h.grid_pos)
+	await _step_toward(u, h.grid_pos, 1)
 	if h.alive and BoardGrid.chebyshev(u.grid_pos, h.grid_pos) <= u.attack_range:
 		await get_tree().create_timer(0.3).timeout
 		await CombatSystem.attack(u, h)
@@ -63,23 +102,17 @@ func _archer(u) -> void:
 		return
 	await get_tree().create_timer(0.35).timeout
 	var d: int = BoardGrid.chebyshev(u.grid_pos, h.grid_pos)
-	if d > u.attack_range:
-		var path: Array = BoardGrid.find_path(u.grid_pos, h.grid_pos)
-		if not path.is_empty():
-			# Avança só até entrar em alcance confortável.
-			var stop := path.size()
-			for i in path.size():
-				if BoardGrid.chebyshev(path[i], h.grid_pos) <= 4:
-					stop = i + 1
-					break
-			stop = mini(stop, u.moves_left)
-			if stop > 0:
-				var step: Array = path.slice(0, stop)
-				BoardGrid.move_unit(u, step[step.size() - 1])
-				u.moves_left -= stop
-				EventBus.log_msg.emit("%s reposiciona-se." % u.display_name, "#8a8f9c")
-				EventBus.unit_moved.emit(u)
-				await u.animate_move(step)
+	var has_shot: bool = d <= u.attack_range and BoardGrid.has_line_of_sight(u.grid_pos, h.grid_pos)
+	if not has_shot:
+		var target: Vector2i = _best_shooting_cell(u, h.grid_pos)
+		if target != u.grid_pos:
+			var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
+			var path: Array = BoardGrid.path_from_reachable(reach, target)
+			BoardGrid.move_unit(u, target)
+			u.moves_left -= path.size()
+			EventBus.log_msg.emit("%s reposiciona-se (%d casa(s))." % [u.display_name, path.size()], "#8a8f9c")
+			EventBus.unit_moved.emit(u)
+			await u.animate_move(path)
 	d = BoardGrid.chebyshev(u.grid_pos, h.grid_pos)
 	if h.alive and d <= u.attack_range and BoardGrid.has_line_of_sight(u.grid_pos, h.grid_pos):
 		await get_tree().create_timer(0.3).timeout
@@ -90,7 +123,7 @@ func _boss(u) -> void:
 	if h == null:
 		return
 	await get_tree().create_timer(0.45).timeout
-	await _approach(u, h.grid_pos)
+	await _step_toward(u, h.grid_pos, 1)
 	if not h.alive or BoardGrid.chebyshev(u.grid_pos, h.grid_pos) > u.attack_range:
 		return
 	await get_tree().create_timer(0.3).timeout

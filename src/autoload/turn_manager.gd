@@ -69,6 +69,7 @@ func _hero_turn(u) -> void:
 	_ctl.on_turn_start(u)
 
 func _enemy_turn(u) -> void:
+	u.moves_left = u.move_max
 	await get_tree().create_timer(0.55).timeout
 	if game_ended:
 		return
