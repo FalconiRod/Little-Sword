@@ -21,3 +21,7 @@ tudo procedural em GDScript; não "consertar" falta de assets, é intencional.
 
 ## Roadmap curto
 Balancear boss → áudio procedural → save → segundo herói (mago) → campanha.
+
+## Repositório
+https://github.com/FalconiRod/Little-Sword  (branch main, público)
+Backup local mais recente: D:\PROJETOS\BACKUPS\Little-Sword_v0.1.4_2026-08-21.zip

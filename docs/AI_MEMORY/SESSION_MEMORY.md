@@ -25,3 +25,7 @@ Demo v0.1.0 jogável e validada. Documentação completa. Pronto para iterar.
 - Bug morto: apply_to_unit órfão (anel de defesa inerte desde v0.1.0)
 - Demo bot validou: guarda -> avistou -> combate; derrota do bot no boss é
   esperada (bot não usa defender/poções/habilidade)
+
+## Sessão 3 — 2026-08-21 (câmera mouse + publicação)
+- Rotação primária por arrasto do botão direito; clique sem arrasto cancela mira
+- Backup v0.1.4 em D:\PROJETOS\BACKUPS (16 MB) e repo público no GitHub criado
