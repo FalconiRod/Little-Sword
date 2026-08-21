@@ -59,3 +59,9 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Suavização por interpolação de alvo (yaw/zoom) — movimento de câmera fluido.
 - Legenda de controles no canto inferior direito do HUD.
 - Modo --orbit para demonstração (câmera gira sozinha).
+
+## v0.1.4 — 2026-08-21 — Rotação primária pelo mouse
+### Mudado
+- Arrastar com o BOTÃO DIREITO agora gira a câmera (método principal).
+  Clique direito SEM arrasto (limiar de 6px) continua cancelando a mira.
+  Botão do meio e Q/E seguem como alternativas.

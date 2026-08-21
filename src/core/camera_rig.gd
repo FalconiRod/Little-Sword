@@ -12,6 +12,7 @@ var _yaw := 0.0
 var _yaw_target := 0.0
 var _shake := 0.0
 var _dragging := false
+var _rmb_down := false
 var _bounds := Rect2(0, 0, 26, 30)
 var _auto_orbit := false
 
@@ -78,9 +79,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				_zoom_target = clampf(_zoom_target + 0.08, 0.65, 1.7)
 			MOUSE_BUTTON_MIDDLE:
 				_dragging = true
-	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_MIDDLE:
-		_dragging = false
-	elif event is InputEventMouseMotion and _dragging:
+			MOUSE_BUTTON_RIGHT:
+				_rmb_down = true
+	elif event is InputEventMouseButton and not event.pressed:
+		match event.button_index:
+			MOUSE_BUTTON_MIDDLE:
+				_dragging = false
+			MOUSE_BUTTON_RIGHT:
+				_rmb_down = false
+	elif event is InputEventMouseMotion and event.button_mask & (MOUSE_BUTTON_MASK_MIDDLE | MOUSE_BUTTON_MASK_RIGHT):
 		_yaw_target += event.relative.x * 0.008
 
 func shake(strength: float) -> void:

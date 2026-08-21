@@ -309,7 +309,7 @@ func _build_hints() -> void:
 	p.offset_bottom = -14
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(p)
-	var l := _label("WASD: mover câmera    Q/E ou botão do meio: girar    Roda: zoom", 12, "8a8f9c", p)
+	var l := _label("Arraste o botão direito: girar    Roda: zoom    WASD: mover câmera", 12, "8a8f9c", p)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _build_inventory() -> void:
