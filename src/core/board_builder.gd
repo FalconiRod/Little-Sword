@@ -157,6 +157,19 @@ func _build_wall(c: Vector2i, wall_mat: StandardMaterial3D) -> void:
 		add_child(d)
 	add_child(mi)
 
+	# Corpo físico para a SpringArm3D da câmera (layer 2, ignorada pelo resto
+	# do jogo — o projeto não usa física de gameplay).
+	var body := StaticBody3D.new()
+	body.collision_layer = 2
+	body.collision_mask = 0
+	body.position = mi.position
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(2.0, hgt, 2.0)
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+
 func _build_torch(c: Vector2i) -> void:
 	var wp := BoardGrid.world_pos(c)
 	var g := Node3D.new()

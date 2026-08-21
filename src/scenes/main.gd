@@ -5,7 +5,7 @@ extends Node3D
 const KnightScene := preload("res://src/units/unit_base.gd")
 
 var board: BoardBuilder
-var camera_rig: CameraRig
+var camera_rig: TacticalCamera
 var hud: GameHUD
 var ctl: PlayerController
 var ai: EnemyAI
@@ -57,7 +57,7 @@ func _make_unit(id: String, cell: Vector2i) -> BoardUnit:
 	return u
 
 func _build_camera() -> void:
-	camera_rig = CameraRig.new()
+	camera_rig = TacticalCamera.new()
 	add_child(camera_rig)
 	camera_rig.position = BoardGrid.world_pos(Vector2i(BoardGrid.w / 2, BoardGrid.h / 2))
 	camera_rig.setup(Rect2(0, 0, BoardGrid.w * BoardGrid.TILE, BoardGrid.h * BoardGrid.TILE))

@@ -86,3 +86,13 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   pan k=8; posição final da câmera também interpolada (k=16), eliminando
   o pop ao colidir com paredes.
 - Passo da roda menor (0.92) e arrasto levemente mais sensível (0.007).
+
+## v0.2.2 — 2026-08-21 — TacticalCamera (arquitetura Pivot + SpringArm3D)
+### Mudado
+- Nova câmera 	actical_camera.gd (estilo BG3/Solasta): raiz = pan,
+  Pivot = yaw/pitch suavizados (exp), SpringArm3D = zoom com colisão REAL
+  (substitui amostragem manual de grid).
+- Pan do teclado com aceleração/desaceleração (move_toward) — inércia real.
+- Sensibilidade de rotação e limites de pitch (25°..75°) expostos como exports.
+### Adicionado
+- Colisores físicos nas paredes (StaticBody3D layer 2, exclusiva da mola).

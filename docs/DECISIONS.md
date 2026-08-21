@@ -30,3 +30,9 @@ BoardGrid (bloqueia se amostra cai em célula '#' abaixo de y=2,1).
 MOTIVO: projeto é physics-free; evita criar StaticBody para ~90 paredes.
 ALTERNATIVAS DESCARTADAS: StaticBody+intersect_ray (peso extra sem ganho).
 IMPACTO: colisão barata, determinística e já testada via LOS do grid.
+
+## D9 — SpringArm3D exige física nas paredes (2026-08-21)
+DECISÃO: gerar StaticBody3D+BoxShape por parede na layer 2; mola usa
+collision_mask=2. D8 (amostragem grid) fica SUPERADO.
+MOTIVO: arquitetura TacticalCamera adotada depende da mola para colisão.
+IMPACTO: ~90 corpos estáticos criados uma vez no build; gameplay segue sem física.
