@@ -53,8 +53,19 @@ var _pitch_target: float = deg_to_rad(45.0)
 var _zoom_current: float = 18.3
 var _zoom_target: float = 18.3
 
+# Padrão target-interpolado: NUNCA escrevemos position direto no pan;
+# tudo escreve em _pan_target e a posição real persegue com atraso
+# (camera lag estilo BG3). Quanto menor PAN_LAG, mais pesado o deslize.
+const PAN_LAG := 3.2
+
+var _pan_position: Vector3 = Vector3.ZERO
+var _pan_target: Vector3 = Vector3.ZERO
+
 var _pan_velocity: Vector2 = Vector2.ZERO
 var _pan_input_dir: Vector2 = Vector2.ZERO
+
+var _follow_target: Node3D = null
+var following := false
 
 var _is_orbiting: bool = false
 var _is_panning_mmb: bool = false
@@ -65,6 +76,8 @@ var _auto_orbit := false
 func setup(bounds: Rect2) -> void:
 	_pan_limits = bounds
 	_auto_orbit = OS.get_cmdline_user_args().has("--orbit")
+	_pan_position = position
+	_pan_target = position
 
 	_pivot = Node3D.new()
 	_pivot.name = "Pivot"
@@ -119,8 +132,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			var delta_pan: Vector3 = (
 				right * -event.relative.x + forward * event.relative.y
 			) * middle_mouse_pan_sensitivity * (_zoom_current / 12.0)
-			position += delta_pan
-			_clamp_pan_position()
+			_pan_target += delta_pan
+			stop_follow()
+			_clamp_pan_target()
 
 
 func _process(delta: float) -> void:
@@ -131,10 +145,15 @@ func _process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_E):
 		_yaw_target -= 1.8 * delta
 
+	_update_follow()
 	_process_keyboard_pan_input()
 	_apply_rotation_smoothing(delta)
 	_apply_zoom_smoothing(delta)
 	_apply_pan_smoothing(delta)
+
+	# Interpolação final da posição (o "deslizar" até o alvo).
+	_pan_position = _pan_position.lerp(_pan_target, 1.0 - exp(-PAN_LAG * delta))
+	position = _pan_position
 
 	if _shake > 0.005:
 		cam.h_offset = randf_range(-1, 1) * _shake * 0.25
@@ -143,6 +162,27 @@ func _process(delta: float) -> void:
 	else:
 		cam.h_offset = 0.0
 		cam.v_offset = 0.0
+
+
+## Follow com atraso natural: apenas atualiza o ALVO; o lag nasce do
+## PAN_LAG na interpolação de _pan_position.
+func _update_follow() -> void:
+	if following and _follow_target != null:
+		var p := _follow_target.global_position
+		_pan_target.x = p.x
+		_pan_target.z = p.z
+		_clamp_pan_target()
+
+
+func set_follow(target: Node3D, enabled: bool = true) -> void:
+	_follow_target = target
+	following = enabled and target != null
+	if following:
+		set_focus(_follow_target.global_position)
+
+
+func stop_follow() -> void:
+	following = false
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +244,9 @@ func _apply_pan_smoothing(delta: float) -> void:
 	)
 	_pan_velocity = _pan_velocity.move_toward(desired_velocity, accel * delta)
 
+	if _pan_input_dir != Vector2.ZERO:
+		stop_follow()
+
 	if _pan_velocity.length_squared() < 0.000001:
 		return
 
@@ -214,18 +257,18 @@ func _apply_pan_smoothing(delta: float) -> void:
 	forward = forward.normalized()
 	right = right.normalized()
 
-	position += (right * _pan_velocity.x + forward * -_pan_velocity.y) * delta
-	_clamp_pan_position()
+	_pan_target += (right * _pan_velocity.x + forward * -_pan_velocity.y) * delta
+	_clamp_pan_target()
 
 
-func _clamp_pan_position() -> void:
-	position.x = clamp(position.x, _pan_limits.position.x - 4.0, _pan_limits.end.x + 4.0)
-	position.z = clamp(position.z, _pan_limits.position.y - 4.0, _pan_limits.end.y + 6.0)
+func _clamp_pan_target() -> void:
+	_pan_target.x = clamp(_pan_target.x, _pan_limits.position.x - 4.0, _pan_limits.end.x + 4.0)
+	_pan_target.z = clamp(_pan_target.z, _pan_limits.position.y - 4.0, _pan_limits.end.y + 6.0)
 
 
 func set_focus(p: Vector3) -> void:
-	position = p
-	_clamp_pan_position()
+	_pan_target = p
+	_clamp_pan_target()
 
 
 func shake(strength: float) -> void:

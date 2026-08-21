@@ -96,3 +96,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Sensibilidade de rotação e limites de pitch (25°..75°) expostos como exports.
 ### Adicionado
 - Colisores físicos nas paredes (StaticBody3D layer 2, exclusiva da mola).
+
+## v0.2.3 — 2026-08-21 — Câmera AAA: target-interpolada + follow com lag
+### Mudado
+- Pan 100% por alvo interpolado (_pan_target -> lerp exp k=3.2 em
+  _pan_position): nunca se escreve position direto. Deslize pesado BG3.
+- Follow do herói com atraso natural (lag nasce da interpolação);
+  religa a cada turno dele; pan manual (meio/WASD) desliga.

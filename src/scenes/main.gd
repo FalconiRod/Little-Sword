@@ -62,6 +62,12 @@ func _build_camera() -> void:
 	camera_rig.position = BoardGrid.world_pos(Vector2i(BoardGrid.w / 2, BoardGrid.h / 2))
 	camera_rig.setup(Rect2(0, 0, BoardGrid.w * BoardGrid.TILE, BoardGrid.h * BoardGrid.TILE))
 	EventBus.shake_requested.connect(camera_rig.shake)
+	camera_rig.set_follow(knight, true)
+	EventBus.turn_started.connect(_on_turn_started)
+
+func _on_turn_started(unit, _round_num: int) -> void:
+	if unit == knight:
+		camera_rig.set_follow(knight, true)
 
 func _build_ui() -> void:
 	hud = GameHUD.new()
