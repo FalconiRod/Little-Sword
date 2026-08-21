@@ -51,3 +51,11 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   escolhe sempre a que aproxima mais do herói (empate: menos passos). Progresso
   garantido mesmo com aliados bloqueando portas; impossível sobrepor peças.
 - Arqueiro escolhe a melhor casa de tiro (dentro do alcance + linha de visão).
+
+## v0.1.3 — 2026-08-21 — Câmera orbital
+### Adicionado
+- Órbita ao redor da mesa: Q/E (giro contínuo) e arrastar com botão do meio
+  (ângulo livre). Pan agora é RELATIVO à direção da câmera (não inverte ao girar).
+- Suavização por interpolação de alvo (yaw/zoom) — movimento de câmera fluido.
+- Legenda de controles no canto inferior direito do HUD.
+- Modo --orbit para demonstração (câmera gira sozinha).

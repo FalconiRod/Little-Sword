@@ -20,3 +20,7 @@
 
 ## Fora do escopo desta demo
 Save/persistência, múltiplos heróis, XP/level up, áudio, arte final.
+
+## Câmera (v0.1.3)
+WASD/setas: pan relativo à visão · Q/E ou botão do meio: orbitar a mesa ·
+Roda: zoom · Shake em impactos/críticos · Modo --orbit para showcase.

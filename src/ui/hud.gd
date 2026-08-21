@@ -50,6 +50,7 @@ func _ready() -> void:
 	_build_boss_bar()
 	_build_inventory()
 	_build_game_over()
+	_build_hints()
 	EventBus.log_msg.connect(_on_log)
 	EventBus.dice_rolled.connect(_on_dice)
 	EventBus.turn_started.connect(_on_turn_started)
@@ -297,6 +298,19 @@ func _build_boss_bar() -> void:
 	boss_panel.add_child(v)
 	boss_lbl = _label("CAVALEIRO ANCESTRAL", 17, "d9a8ff", v)
 	boss_bar = _bar(v, "7a1699")
+
+func _build_hints() -> void:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", _sb(Color(0.05, 0.05, 0.08, 0.75), Color(0.25, 0.23, 0.18), 1))
+	p.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	p.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	p.offset_right = -14
+	p.offset_bottom = -14
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(p)
+	var l := _label("WASD: mover câmera    Q/E ou botão do meio: girar    Roda: zoom", 12, "8a8f9c", p)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _build_inventory() -> void:
 	inv_panel = PanelContainer.new()
