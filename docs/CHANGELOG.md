@@ -65,3 +65,17 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Arrastar com o BOTÃO DIREITO agora gira a câmera (método principal).
   Clique direito SEM arrasto (limiar de 6px) continua cancelando a mira.
   Botão do meio e Q/E seguem como alternativas.
+
+## v0.2.0 — 2026-08-21 — Câmera de mesa digital (órbita total)
+### Reescrito
+- camera_rig.gd: órbita esférica completa ao redor do pivô (yaw 360° +
+  pitch 12°..85°), distância 4,2..34 com interpolação exponencial suave
+  em todos os eixos.
+### Adicionado
+- Arrastar botão ESQUERDO gira a câmera; clique sem arrasto (limiar 6px)
+  seleciona casas/miniaturas como antes. Botão do meio: pan "pegar a mesa".
+- Colisão de câmera com paredes por amostragem no grid (sem física).
+- Zoom multiplicativo suave; pan e WASD escalados pela distância.
+### Mudado
+- Padrão continua isométrico tático (yaw 45°, pitch 47°); ângulos baixos
+  revelam vista cinematográfica rente à mesa.

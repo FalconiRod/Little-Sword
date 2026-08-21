@@ -23,3 +23,10 @@ Abre em qualquer máquina (OpenGL), suficiente para o visual dark fantasy
 ## D5 — Ordem de turno fixa (sem iniciativa rolada)
 DATA: 2026-08-21 | STATUS: ATIVA
 Especificação pede ordem fixa Cavaleiro→Goblins→Arqueiro→Boss. Simples e legível.
+
+## D8 — Colisão da câmera sem física (2026-08-21)
+DECISÃO: raycast substituído por amostragem do segmento pivô->câmera no
+BoardGrid (bloqueia se amostra cai em célula '#' abaixo de y=2,1).
+MOTIVO: projeto é physics-free; evita criar StaticBody para ~90 paredes.
+ALTERNATIVAS DESCARTADAS: StaticBody+intersect_ray (peso extra sem ganho).
+IMPACTO: colisão barata, determinística e já testada via LOS do grid.

@@ -23,6 +23,9 @@ var _demo := false
 var _rmb_down := false
 var _rmb_moved := false
 var _rmb_start := Vector2.ZERO
+var _lmb_down := false
+var _lmb_moved := false
+var _lmb_start := Vector2.ZERO
 
 func init(knight_unit: BoardUnit, board_ref: BoardBuilder, hud_ref) -> void:
 	knight = knight_unit
@@ -158,8 +161,8 @@ func _compute_reachable() -> void:
 # ------------------------------------------------------------------ input --
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Botão direito: arrastar gira a câmera (tratado pelo CameraRig);
-	# clicar sem arrastar cancela a mira. Limiar de 6 px separa os dois.
+	# Botões do mouse vs. câmera: arrastar gira/move (tratado pelo CameraRig);
+	# clicar sem arrastar age no jogo. Limiar de 6 px separa os dois gestos.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_rmb_down = event.pressed
 		if event.pressed:
@@ -168,9 +171,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif _rmb_down and not _rmb_moved:
 			_try_cancel()
 		return
-	if event is InputEventMouseMotion and _rmb_down:
-		if event.position.distance_to(_rmb_start) > 6.0:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_lmb_down = event.pressed
+		if event.pressed:
+			_lmb_moved = false
+			_lmb_start = event.position
+		elif _lmb_down and not _lmb_moved and _can_act():
+			_handle_click(event.position)
+		return
+	if event is InputEventMouseMotion and (_rmb_down or _lmb_down):
+		if _rmb_down and event.position.distance_to(_rmb_start) > 6.0:
 			_rmb_moved = true
+		if _lmb_down and event.position.distance_to(_lmb_start) > 6.0:
+			_lmb_moved = true
+		if _lmb_down and _lmb_moved:
+			return
 	if TurnManager.active != knight or TurnManager.game_ended:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -186,8 +201,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion:
 		_update_hover(event.position)
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_click(event.position)
+
+func _can_act() -> bool:
+	return TurnManager.active == knight and not TurnManager.game_ended \
+		and not busy and mode != Mode.NONE
 
 func _try_cancel() -> void:
 	if TurnManager.active == knight and not TurnManager.game_ended and not busy and mode != Mode.MOVE_READY:
