@@ -143,3 +143,11 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Mudado
 - rotation_sensitivity 0.12 -> 0.06 (metade). Regua do -/= recalibrada:
   100% = novo padrao; faixa continua 40%..250% via set_sensitivity.
+
+## v0.2.10 — 2026-08-21 — Correção crítica de cliques + teste automatizado
+### Corrigido
+- BUG-005: clique esquerdo (mover/atacar/lootar) e clique direito (cancelar
+  mira) mortos desde a v0.2.0 por flag sobrescrito antes do teste.
+### Adicionado
+- Harness --clicktest: injeta clique sintético numa casa alcançável e
+  valida o movimento fim-a-fim (input -> raio -> grid -> tween).

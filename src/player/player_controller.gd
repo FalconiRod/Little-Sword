@@ -164,19 +164,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Botões do mouse vs. câmera: arrastar gira/move (tratado pelo CameraRig);
 	# clicar sem arrastar age no jogo. Limiar de 6 px separa os dois gestos.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		var rmb_was := _rmb_down
 		_rmb_down = event.pressed
 		if event.pressed:
 			_rmb_moved = false
 			_rmb_start = event.position
-		elif _rmb_down and not _rmb_moved:
+		elif rmb_was and not _rmb_moved:
 			_try_cancel()
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var lmb_was := _lmb_down
 		_lmb_down = event.pressed
 		if event.pressed:
 			_lmb_moved = false
 			_lmb_start = event.position
-		elif _lmb_down and not _lmb_moved and _can_act():
+		elif lmb_was and not _lmb_moved and _can_act():
 			_handle_click(event.position)
 		return
 	if event is InputEventMouseMotion and (_rmb_down or _lmb_down):

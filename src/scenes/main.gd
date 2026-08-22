@@ -26,6 +26,40 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	TurnManager.start_game()
+	if OS.get_cmdline_user_args().has("--clicktest"):
+		_clicktest()
+
+## Teste automatizado: injeta um clique sintético numa casa alcançável
+## e verifica se o herói anda (valida cadeia input -> raycast -> movimento).
+func _clicktest() -> void:
+	await get_tree().create_timer(0.5).timeout
+	get_viewport().size = Vector2i(1280, 720)
+	await get_tree().process_frame
+	var target: Vector2i = knight.grid_pos + Vector2i(0, -1)
+	if not BoardGrid.is_free(target):
+		target = knight.grid_pos + Vector2i(-1, 0)
+	var cam := get_viewport().get_camera_3d()
+	var wp := BoardGrid.world_pos(target) + Vector3(0, 0.1, 0)
+	var sp := cam.unproject_position(wp)
+	# Com stretch canvas_items, push_input espera coordenadas de JANELA;
+	# o motor converte janela->viewport pelo inverso do final_transform.
+	var wpos: Vector2 = get_viewport().get_final_transform() * sp
+	if not cam.is_position_behind(wp):
+		print("CLICKTEST cell=", target, " screen=", wpos)
+		for pressed in [true, false]:
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = pressed
+			ev.position = wpos
+			ev.global_position = wpos
+			get_viewport().push_input(ev)
+			await get_tree().process_frame
+	else:
+		print("CLICKTEST FAIL celula atras da camera")
+	await get_tree().create_timer(4.0).timeout
+	print("CLICKTEST RESULT pos=", knight.grid_pos, " esperada=", target,
+		" moves_left=", knight.moves_left,
+		" => ", "OK" if knight.grid_pos == target else "FALHOU")
 
 func _build_board() -> void:
 	board = BoardBuilder.new()

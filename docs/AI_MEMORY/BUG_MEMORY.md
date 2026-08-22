@@ -18,3 +18,15 @@ DATA: 2026-08-21 | STATUS: RESOLVIDO (v0.1.1)
 PROBLEMA: Anel de Defesa/espada não alteravam atributos.
 CAUSA: InventorySystem.apply_to_unit existia mas ninguém chamava.
 SOLUÇÃO: chamada no spawn do herói + no sinal inventory_changed.
+
+## BUG-005 — Cliques não moviam o herói (v0.2.0..v0.2.9) — RESOLVIDO
+Problema: clique esquerdo nunca disparava _handle_click; direito nunca cancelava.
+Sintoma: clicar no chão não gera movimento; mira não cancela com botão direito.
+Causa: no handler de release, _lmb_down = event.pressed sobrescrevia o flag
+ANTES do elif testar — sempre falso. Mesmo padrão duplicado no RMB.
+Arquivos: src/player/player_controller.gd (_unhandled_input).
+Solução: capturar ar lmb_was := _lmb_down antes da atribuição e testar was.
+Validação: novo harness ++ --clicktest injeta clique sintético e confere
+movimento; atenção ao stretch canvas_items (push_input usa coords de JANELA:
+enviar pos × get_final_transform()).
+Status: RESOLVIDO em v0.2.10.
