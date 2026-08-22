@@ -106,10 +106,35 @@ func refresh_bar() -> void:
 			child.position.x = -(0.92 - 0.92 * ratio) / 2.0
 	_fg_mat.albedo_color = Color(0.85, 0.2, 0.2).lerp(Color(0.3, 0.85, 0.3), ratio)
 
+var _rot_tween: Tween
+
 func face_towards(wp: Vector3) -> void:
 	var dir := wp - position
-	if Vector2(dir.x, dir.z).length() > 0.01:
-		rotation.y = atan2(dir.x, dir.z)
+	if Vector2(dir.x, dir.z).length() <= 0.01:
+		return
+	var target := atan2(dir.x, dir.z)
+	if _rot_tween and _rot_tween.is_valid():
+		_rot_tween.kill()
+	# Menor caminho angular: evita a peca "dar a volta" ao cruzar +-180 graus.
+	var start := rotation.y
+	var delta := wrapf(target - start, -PI, PI)
+	_rot_tween = create_tween()
+	_rot_tween.tween_method(func(a: float) -> void: rotation.y = a,
+		start, start + delta, 0.12)
+
+## Investida curta na direcao do alvo e volta ao lugar (impacto fisico).
+func animate_lunge(target_wp: Vector3) -> void:
+	var dir := target_wp - global_position
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+	var base := global_position
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", base + dir * 0.55, 0.09) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "global_position", base, 0.16) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 ## Movimento de peça: saltos curtos célula a célula.
 func animate_move(path: Array) -> void:

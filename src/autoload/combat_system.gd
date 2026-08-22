@@ -13,6 +13,9 @@ func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 	await get_tree().create_timer(1.05).timeout
 	if TurnManager.game_ended:
 		return
+	# A investida acompanha a resolucao: avanca e retorna enquanto o resultado
+	# (dano/erro) e aplicado.
+	attacker.animate_lunge(target.global_position)
 	_alert_victims(target)
 	var tgt_ac: int = target.effective_ac()
 	if chk["hit"]:

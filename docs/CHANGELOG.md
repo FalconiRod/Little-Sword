@@ -166,3 +166,11 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Todo atacante (heroi, goblins, boss) gira a peca para o alvo antes do
   golpe, dentro de CombatSystem.attack (ponto unico, cobre habilidades).
 - Em modo de mira, o cavaleiro ja encara o inimigo sob o cursor.
+
+## v0.2.13 — 2026-08-21 — Polimento de combate: giro suave + investida
+### Mudado
+- face_towards agora interpola pelo menor caminho angular (tween 0.12s),
+  sem a peca 'dar a volta' ao cruzar +-180 graus.
+### Adicionado
+- animate_lunge: investida curta (avanca 0.55u e retorna) sincronizada com
+  a resolucao do golpe, para todos os atacantes via CombatSystem.
