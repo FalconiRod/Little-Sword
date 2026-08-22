@@ -42,3 +42,14 @@ LEGEND ou viram parede (BUG-008); Start-Process com ArgumentList precisa
 de aspas embutidas p/ caminhos com espaco.
 Validacao: demo 4 mapas OK, clicktest OK, skilltest OK, boot limpo.
 Pendente: camera p/ 3 andares; assets GLB; audio/save.
+
+## Sessao 3 - 2026-08-22 (luzes, camera por andar, escadas retas v0.5.0)
+- Feito: atmosfera luminosa (lua+tochas); camera presa ao andar ativo com
+  fade na troca; retratos clicaveis; ESCADAS RETAS reescritas: celulas 'S'
+  contiguas = degraus reais com altura incremental; neighbors cruza andar
+  por delta-y <= 2.5; stairs.gd/links eliminados; mapas reautorados
+- Descobertas: ver BUG-011..013 + DISCOVERY off-by-one ASCII
+- Validacao: demo sobe/desce em stone_keep/tower/crypt; clicktest OK;
+  skilltest OK; boot sem erros
+- Pendencia: combate em altura proxima (degrau vs landing) bloqueado por
+  regra mesmo-andar - decidir regra futura

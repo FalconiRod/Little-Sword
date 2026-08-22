@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.5.0 — 2026-08-22 — Escadas retas por células reais
+### Removido
+- `src/dungeon/stairs.gd` (DungeonStairs): modelo de "link/teleporte"
+  entre andares eliminado; mapas não têm mais a chave `links`
+### Adicionado
+- Escada reta = sequência de células 'S' contíguas na linha/coluna do
+  ASCII; cada degrau é célula REAL e pisável com altura incremental
+  `FLOOR_H*(i+1)/(N+1)` (para no meio da escada é permitido)
+- `TilePiece.step_piece(top_y, yaw)`: degrau com piso na altura exata
+  da célula + riser maciço até a base (nada flutuando), alinhado ao
+  centro da célula, rotação travada por eixo
+- `_build_stairs()`/`_orient_stair()` em EnvironmentManager: agrupa
+  'S', valida aproximação (mesmo andar) e destino (andar de cima),
+  escolhe automaticamente o sentido de subida
+### Alterado
+- `BoardGrid`: campo `y` opcional por célula (altura absoluta real);
+  `height_at()`/`world_pos()` usam o valor custom quando presente;
+  `neighbors()` agora cruza andar quando célula adjacente (no plano)
+  tem Δaltura ≤ STEP_MAX_DY (2.5) — é isso que conecta topo da escada
+  ao andar de cima, sem teleporte; `add_link()` removido
+- Mapas reautorados: stone_keep (escadas x=9 térreo→1º em 3 degraus e
+  x=5 1º→2º), tower (coluna x=4), crypt (x=9 subindo -y)
+- HUD/câmera/IA continuam funcionando sem mudança (change_floor só
+  dispara ao sair do último degrau para a primeira célula do destino)
+
+## v0.4.2 — 2026-08-22 — Câmera presa ao andar ativo + retratos clicáveis
+- EventBus: `active_floor_changed(floor)` / `unit_changed_floor(unit, novo)`
+- EnvironmentManager esconde andares não ativos (`set_active_floor`)
+- Câmera foca o andar ativo (`focus_on`/`snap_focus`); trocar de andar
+  usa fade preto (`HUD.fade_swap`): pan se mesmo andar, fade se outro
+- Retratos da ordem de turno clicáveis (BG3-style): clique = vai até
+  herói; badge ↑/↓ indica andar
+
+## v0.4.1 — 2026-08-22 — Iluminação do dungeon kit
+- `_setup_atmosphere()`: ambiente frio + lua direcional com sombra + névoa
+- `_scatter_torches()`: até 30 tochas de parede com luz tremulante
+
 ## v0.4.0 — 2026-08-22 — Dungeon Kit: masmorra modular multi-andar
 ### Adicionado
 - `src/dungeon/`: kit de peças 3D modular (estilo mesa D&D/FFT)

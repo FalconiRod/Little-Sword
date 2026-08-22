@@ -17,7 +17,7 @@ const PROPS := {
 	"chest_prop": {"w": false, "losb": false},
 	"runes": {"w": true, "losb": false, "special": "r"},
 	"lever_base": {"w": false, "losb": false},
-	# Portas e escadas são componentes próprios (Door.gd / Stairs.gd).
+	# Portas e degraus de escada são componentes próprios (Door.gd / step_piece).
 }
 
 static func build(id: String) -> Node3D:
@@ -51,6 +51,24 @@ static func build(id: String) -> Node3D:
 			_lever(root)
 		"torch":
 			_torch(root)
+	return root
+
+## Degrau de escada RETA: topo exatamente em `top_y` (altura absoluta da
+## celula), riser macico ate a base — alinhado ao centro da celula, sem
+## offset/rotacao aleatorios. `yaw` trava a orientacao (0 ou PI/2).
+static func step_piece(top_y: float, yaw: float) -> Node3D:
+	var root := Node3D.new()
+	root.name = "step"
+	var tread_h := 0.34
+	var tread := BoxMesh.new()
+	tread.size = Vector3(BoardGrid.TILE - 0.12, tread_h, BoardGrid.TILE - 0.12)
+	_add(root, tread, _mat(Color.html("4a4a56"), Color(), 0.0, 0.05, 0.9),
+			Vector3(0, top_y - tread_h * 0.5, 0))
+	if top_y > tread_h + 0.01:
+		var riser := BoxMesh.new()
+		riser.size = Vector3(BoardGrid.TILE - 0.2, top_y - tread_h, BoardGrid.TILE - 0.24)
+		_add(root, riser, _mat(Color.html("3c3c46")), Vector3(0, (top_y - tread_h) * 0.5, 0))
+	root.rotation.y = yaw
 	return root
 
 # ------------------------------------------------------------- materiais ----

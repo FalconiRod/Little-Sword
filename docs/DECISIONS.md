@@ -68,3 +68,14 @@ os outros andares se nada for atingido.
 MOTIVO: andares empilhados se sobrepoe na tela; intersecao mais proxima
 escolhia tile de cima e travava o jogo no chao.
 IMPACTO: clicar em outro andar exige apontar fora da sobreposicao.
+
+## D12 - Escada reta = celulas reais com altura incremental (fim do link)
+DATA: 2026-08-22 | STATUS: ATIVA
+DECISAO: 'S' contiguos no ASCII viram escada; cada degrau e celula pisavel
+com y absoluto FLOOR_H*(i+1)/(N+1); vizinho em andar adjacente vale quando
+delta-y real <= 2.5 (STEP_MAX_DY). Nada de teleporte.
+MOTIVO: escada vira terreno comum (parar no meio, custo normal, IA entende);
+visual alinhado ao grid; uma unica regra de movimento para tudo.
+ALTERNATIVAS: links/teleporte (v0.4.0, descartado: salto invisivel, bot
+nao parava em degrau, dois sistemas de pathing).
+IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.

@@ -74,3 +74,29 @@ Status: RESOLVIDO em v0.4.0.
 ## DISCOVERY - class_name novo exige import (2026-08-22)
 Novos scripts com class_name (EnvironmentManager etc.) dao 'Could not find
 type' ate rodar: godot --headless --path . --import uma vez.
+
+## BUG-011 - TILE nao declarado em tile_piece.gd (v0.5.0) - RESOLVIDO
+Problema: step_piece usava TILE sem qualificar; const vive em BoardGrid.
+Arquivos: src/dungeon/tile_piece.gd.
+Solucao: referenciar BoardGrid.TILE.
+Status: RESOLVIDO.
+
+## BUG-012 - Off-by-one nas colunas 'S' dos mapas (v0.5.0) - RESOLVIDO
+Problema: '#..P.S..#' poe S na coluna 5 (nao 4); escadas ficavam fora de
+linha, _build_stairs as marcava como isoladas e ninguem subia.
+Arquivos: environment_manager.gd (MAPS tower/stone_keep).
+Solucao: recontar colunas caractere a caractere; diagnosticar com print
+temporario de s_cells.
+Status: RESOLVIDO.
+
+## BUG-013 - neighbors() nunca cruzava andar (v0.5.0) - RESOLVIDO
+Problema: offsets ortogonais tinham dz=0 fixo; o hop final degrau->landing
+(andar de cima) nunca era candidato; rota=999 no bot.
+Arquivos: src/core/board_grid.gd neighbors().
+Solucao: testar dz in [0,1,-1] por offset; altura absoluta decide.
+Status: RESOLVIDO.
+
+## DISCOVERY - Autoria ASCII: contar colunas com indice (2026-08-22)
+EVIDENCIA: BUG-012. Ao editar linhas de mapa, posicionar chars por INDICE
+(0-based) e nao "quase visualmente"; largura da linha deve ficar constante.
+IMPACTO: revisar diffs de MAPS sempre com contagem explicita.
