@@ -109,3 +109,12 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Arrastar botão DIREITO gira a câmera pros lados (yaw). Esquerdo segue
   girando os dois eixos (padrão BG3). Clique direito sem arrasto
   continua cancelando a mira (limiar 6px).
+
+## v0.2.5 — 2026-08-21 — Visão geral do mapa (tecla M)
+### Adicionado
+- Tecla M: enquadra a mesa inteira (pitch 72 graus, distancia calculada pelo
+  tamanho do mapa, centrada) e M de novo volta ao enquadramento anterior.
+  Tudo via alvos suavizados — transicao desliza sem cortes.
+### Mudado
+- zoom_max 22 -> 46 (agora alcanca o mapa todo); passo da roda escala com a
+  distancia atual (1x..3x) para nao ficar lento no zoom-out.
