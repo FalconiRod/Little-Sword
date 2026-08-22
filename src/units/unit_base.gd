@@ -26,6 +26,8 @@ var grid_pos := Vector2i.ZERO
 var defending := false
 var alerted := false
 var alive := true
+var base_visual_id := ""
+var shifted := false
 
 var visual: Node3D
 var _bar_root: Node3D
@@ -54,11 +56,27 @@ func setup(uid: String, cell: Vector2i) -> void:
 	dexterity = d["dexterity"]
 	intelligence = d["intelligence"]
 	_bar_h = d["bar_h"]
+	base_visual_id = uid
 	position = BoardGrid.world_pos(cell)
 	if team == "hero":
 		rotation.y = PI
 	BoardGrid.place(self, cell)
 	_build()
+
+## Troca a miniatura por outra forma (ex.: druida vira urso).
+func set_visual_id(vname: String, mark_shifted := true) -> void:
+	if visual != null:
+		remove_child(visual)
+		visual.queue_free()
+	visual = UnitVisuals.build(vname)
+	add_child(visual)
+	shifted = mark_shifted
+
+## Volta a forma original.
+func revert_visual() -> void:
+	if not shifted:
+		return
+	set_visual_id(base_visual_id, false)
 
 func _build() -> void:
 	visual = UnitVisuals.build(id)

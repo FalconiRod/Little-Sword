@@ -51,7 +51,7 @@ func _build_overlays() -> void:
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_sel_ring.material_override = m
 	_sel_ring.visible = false
-	knight.add_child(_sel_ring)
+	add_child(_sel_ring)
 	_sel_ring.position.y = 0.14
 
 func _make_quad(hex: String, alpha: float) -> MeshInstance3D:
@@ -89,12 +89,19 @@ func _hide_all() -> void:
 	_hover_quad.visible = false
 
 func on_turn_start(u: BoardUnit) -> void:
+	knight = u
+	# Druida transformada retoma a forma humana no inicio do proprio turno.
+	if u.shifted:
+		u.revert_visual()
+		EventBus.log_msg.emit("%s retoma a forma humanoide." % u.display_name, "#9dff6b")
 	mode = Mode.MOVE_READY
 	acted = false
 	busy = false
 	_sel_ring.visible = true
+	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
 	_compute_reachable()
 	hud.update_vitals(knight)
+	hud.set_skill_label(knight.id)
 	hud.refresh_buttons(self)
 	if _demo:
 		_demo_play.call_deferred()
@@ -289,6 +296,7 @@ func _do_move(cell: Vector2i) -> void:
 	BoardGrid.move_unit(knight, cell)
 	await knight.animate_move(path)
 	knight.moves_left -= dist
+	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
 	_check_reveal(cell)
 	hud.update_vitals(knight)
 	busy = false
@@ -331,19 +339,22 @@ func try_attack() -> void:
 func try_skill() -> void:
 	if mode == Mode.NONE or busy or acted:
 		return
-	if knight.mana < UnitDefs.KNIGHT_SKILL_COST:
-		EventBus.log_msg.emit("Mana insuficiente para %s." % UnitDefs.KNIGHT_SKILL_LABEL, "#ffb84d")
+	var sk := UnitDefs.skill(knight.id)
+	if sk.is_empty():
+		return
+	if knight.mana < sk["cost"]:
+		EventBus.log_msg.emit("Mana insuficiente para %s." % sk["label"], "#ffb84d")
 		return
 	var targets := _enemies_in_range()
 	if targets.is_empty():
-		EventBus.log_msg.emit("Nenhum inimigo adjacente para a habilidade.", "#ffb84d")
+		EventBus.log_msg.emit("Nenhum inimigo ao alcance da habilidade.", "#ffb84d")
 		return
 	mode = Mode.TARGET_SKILL
 	var cells: Array = []
 	for t in targets:
 		cells.append(t.grid_pos)
 	_pool_show(_tg_pool, cells, "ff4d4d")
-	EventBus.log_msg.emit("%s preparado — escolha o alvo." % UnitDefs.KNIGHT_SKILL_LABEL, "#ffd166")
+	EventBus.log_msg.emit("%s preparado — escolha o alvo." % sk["label"], "#ffd166")
 
 func _enemies_in_range() -> Array:
 	var out: Array = []
@@ -369,10 +380,12 @@ func _execute_skill(target: BoardUnit) -> void:
 	busy = true
 	mode = Mode.NONE
 	_hide_all()
-	knight.mana -= UnitDefs.KNIGHT_SKILL_COST
+	var sk := UnitDefs.skill(knight.id)
+	knight.mana -= sk["cost"]
 	hud.update_vitals(knight)
 	hud.refresh_buttons(self)
-	await CombatSystem.attack(knight, target, UnitDefs.KNIGHT_SKILL_LABEL, UnitDefs.KNIGHT_SKILL_DMG)
+	await CombatSystem.attack(knight, target, sk["label"], sk["dmg"],
+		sk.get("fx", ""), sk.get("transform", ""))
 	busy = false
 	TurnManager.end_hero_turn()
 
@@ -401,7 +414,7 @@ func do_pass() -> void:
 	if mode == Mode.NONE or busy:
 		return
 	acted = true
-	EventBus.log_msg.emit("Cavaleiro passa a vez.", "#8a8f9c")
+	EventBus.log_msg.emit("%s passa a vez." % knight.display_name, "#8a8f9c")
 	TurnManager.end_hero_turn()
 
 func _loot_chest() -> void:

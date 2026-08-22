@@ -195,3 +195,20 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Mudado
 - Destaque de alcance de movimento mais sutil (alpha 0.34 -> 0.20); mira e
   interacao mantem o brilho original.
+
+## v0.3.0 — 2026-08-21 — O grupo cresce: Maga Elara e Druida Rowan
+### Adicionado
+- Party de 3 herois jogaveis: cavaleiro, maga (alcance 4) e druida.
+  O PlayerController comanda o heroi ativo do turno; camera segue qualquer
+  heroi; IA inimiga passa a cacar o heroi vivo mais proximo.
+- Habilidades por unidade (UnitDefs.SKILLS): Golpe Poderoso (3 mana),
+  Misil Ardente da maga — projétil vermelho voador com faiscas no impacto
+  (4 mana, 2d10+2), Fúria do Urso da druida — transforma a peca em urso
+  durante o golpe (1d12+3) e ela segue na forma ate seu proximo turno.
+- Miniaturas procedurais: maga (robe/chapeu/cajado com orbe vermelho),
+  druida (manto verde/orbe verde) e urso quadrupede com garras.
+- Teste --skilltest valida projétil + transformacao/reversao.
+### Corrigido
+- Harness --clicktest agora procura vizinho livre real (party ocupa as
+  casas adjacentes ao spawn).
+- Derrota so ocorre com TPK (todo o grupo abatido).

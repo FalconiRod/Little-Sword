@@ -1,20 +1,20 @@
-class_name EnemyAI
+﻿class_name EnemyAI
 extends Node
 ## IA dos inimigos. Regra de movimento: valor fixo por turno (goblin 4,
-## arqueiro 3, boss 3) — nunca rola dados nem recebe modificadores.
-## Comportamento: manter a guarda até detectar o herói (visão + linha de
-## visão); após o alerta, avançar todo turno e atacar ao alcançá-lo.
+## arqueiro 3, boss 3) â€” nunca rola dados nem recebe modificadores.
+## Comportamento: manter a guarda atÃ© detectar o herÃ³i (visÃ£o + linha de
+## visÃ£o); apÃ³s o alerta, avanÃ§ar todo turno e atacar ao alcanÃ§Ã¡-lo.
 
 func run_turn(u) -> void:
 	if not u.alerted:
-		var h0 = _hero()
+		var h0 = _hero(u.grid_pos)
 		if h0 != null and _can_see(u, h0):
 			u.alerted = true
 			u.spawn_float_text("!", "#ffd166")
-			EventBus.log_msg.emit("%s te avistou!" % u.display_name, "#ffb84d")
+			EventBus.log_msg.emit("%s avistou %s!" % [u.display_name, h0.display_name], "#ffb84d")
 			await get_tree().create_timer(0.35).timeout
 		else:
-			EventBus.log_msg.emit("%s mantém a guarda." % u.display_name, "#5f6472")
+			EventBus.log_msg.emit("%s mantÃ©m a guarda." % u.display_name, "#5f6472")
 			return
 	match u.id:
 		"goblin_warrior":
@@ -24,11 +24,22 @@ func run_turn(u) -> void:
 		"boss_knight":
 			await _boss(u)
 
-func _hero():
+## HerÃ³i vivo mais proximo de `from` (o grupo pode ter varios membros).
+func _hero(from: Vector2i = Vector2i(-999, -999)):
+	var best = null
+	var best_d := 9999
 	for x in TurnManager.order:
 		if is_instance_valid(x) and x.alive and x.team == "hero":
-			return x
-	return null
+			if best == null:
+				best = x
+				best_d = 9999 if from == Vector2i(-999, -999) \
+					else BoardGrid.chebyshev(from, x.grid_pos)
+			else:
+				var d := BoardGrid.chebyshev(from, x.grid_pos)
+				if d < best_d:
+					best = x
+					best_d = d
+	return best
 
 func _can_see(u, target) -> bool:
 	var d: int = BoardGrid.chebyshev(u.grid_pos, target.grid_pos)
@@ -36,8 +47,8 @@ func _can_see(u, target) -> bool:
 		return false
 	return BoardGrid.has_line_of_sight(u.grid_pos, target.grid_pos)
 
-## Movimento fixo em direção ao alvo: dentro das células alcançáveis neste
-## turno, escolhe a que deixa o inimigo mais perto do herói (empate: menos
+## Movimento fixo em direÃ§Ã£o ao alvo: dentro das cÃ©lulas alcanÃ§Ã¡veis neste
+## turno, escolhe a que deixa o inimigo mais perto do herÃ³i (empate: menos
 ## passos). Garante progresso mesmo com caminhos bloqueados por aliados.
 func _step_toward(u, goal: Vector2i, stop_at_range := 1) -> void:
 	if u.moves_left <= 0:
@@ -61,12 +72,12 @@ func _step_toward(u, goal: Vector2i, stop_at_range := 1) -> void:
 	var path: Array = BoardGrid.path_from_reachable(reach, best)
 	BoardGrid.move_unit(u, best)
 	u.moves_left -= path.size()
-	EventBus.log_msg.emit("%s avança %d casa(s)." % [u.display_name, path.size()], "#8a8f9c")
+	EventBus.log_msg.emit("%s avanÃ§a %d casa(s)." % [u.display_name, path.size()], "#8a8f9c")
 	EventBus.unit_moved.emit(u)
 	await u.animate_move(path)
 
-## Melhor casa de tiro: dentro do alcance com linha de visão; senão,
-## aproxima-se o máximo possível.
+## Melhor casa de tiro: dentro do alcance com linha de visÃ£o; senÃ£o,
+## aproxima-se o mÃ¡ximo possÃ­vel.
 func _best_shooting_cell(u, goal: Vector2i) -> Vector2i:
 	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
 	var best_fire: Vector2i = u.grid_pos
@@ -87,7 +98,7 @@ func _best_shooting_cell(u, goal: Vector2i) -> Vector2i:
 	return best_fire if best_fire != u.grid_pos else best_any
 
 func _melee(u) -> void:
-	var h = _hero()
+	var h = _hero(u.grid_pos)
 	if h == null:
 		return
 	await get_tree().create_timer(0.35).timeout
@@ -97,7 +108,7 @@ func _melee(u) -> void:
 		await CombatSystem.attack(u, h)
 
 func _archer(u) -> void:
-	var h = _hero()
+	var h = _hero(u.grid_pos)
 	if h == null:
 		return
 	await get_tree().create_timer(0.35).timeout
@@ -119,7 +130,7 @@ func _archer(u) -> void:
 		await CombatSystem.attack(u, h)
 
 func _boss(u) -> void:
-	var h = _hero()
+	var h = _hero(u.grid_pos)
 	if h == null:
 		return
 	await get_tree().create_timer(0.45).timeout
@@ -134,6 +145,6 @@ func _boss(u) -> void:
 	elif r < 0.3:
 		await CombatSystem.attack(u, h, "Golpe Pesado", "1d12+6")
 	elif r < 0.45:
-		await CombatSystem.attack(u, h, "Lâmina Sombria", "2d8+4")
+		await CombatSystem.attack(u, h, "LÃ¢mina Sombria", "2d8+4")
 	else:
 		await CombatSystem.attack(u, h)

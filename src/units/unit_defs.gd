@@ -18,6 +18,38 @@ const DEFS := {
 		"intelligence": 10,
 		"bar_h": 2.35,
 	},
+	"mage": {
+		"display_name": "Maga Elara",
+		"team": "hero",
+		"max_hp": 22,
+		"max_mana": 14,
+		"ac": 12,
+		"atk_bonus": 4,
+		"dmg": "1d6+2",
+		"move_max": 5,
+		"attack_range": 4,
+		"vision_range": 0,
+		"strength": 8,
+		"dexterity": 12,
+		"intelligence": 16,
+		"bar_h": 2.3,
+	},
+	"druid": {
+		"display_name": "Druida Rowan",
+		"team": "hero",
+		"max_hp": 30,
+		"max_mana": 12,
+		"ac": 13,
+		"atk_bonus": 3,
+		"dmg": "1d6+1",
+		"move_max": 5,
+		"attack_range": 1,
+		"vision_range": 0,
+		"strength": 12,
+		"dexterity": 12,
+		"intelligence": 14,
+		"bar_h": 2.25,
+	},
 	"goblin_warrior": {
 		"display_name": "Goblin Guerreiro",
 		"team": "enemy",
@@ -71,7 +103,12 @@ const DEFS := {
 static func def(id: String) -> Dictionary:
 	return DEFS[id]
 
-## Habilidade do cavaleiro (usa o sistema de dados normal).
-const KNIGHT_SKILL_COST := 3
-const KNIGHT_SKILL_DMG := "2d8+3"
-const KNIGHT_SKILL_LABEL := "Golpe Poderoso"
+## Habilidades especiais por unidade (custo de mana, dano, fx/transformacao).
+const SKILLS := {
+	"knight": {"cost": 3, "dmg": "2d8+3", "label": "Golpe Poderoso"},
+	"mage": {"cost": 4, "dmg": "2d10+2", "label": "Míssil Ardente", "fx": "projectile_red"},
+	"druid": {"cost": 4, "dmg": "1d12+3", "label": "Fúria do Urso", "transform": "druid_bear"},
+}
+
+static func skill(id: String) -> Dictionary:
+	return SKILLS.get(id, {})

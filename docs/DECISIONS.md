@@ -43,3 +43,11 @@ MOTIVO: colisao com paredes teleportava/travava a camera (relato do usuario);
 estabilidade > oclusao realista num jogo top-down tatico.
 IMPACTO: camera pode sobrepor paredes visualmente em angulos baixos raros;
 corpos layer 2 permanecem no mapa para uso futuro.
+
+## D11 — Multi-heroi no mesmo controlador (2026-08-21)
+DECISAO: PlayerController generalizado ('knight' = heroi ativo do turno);
+TurnManager roteia todo team hero para o controle humano; IA escolhe alvo
+pela menor distancia Chebyshev.
+MOTIVO: party cresce sem duplicar controladores; HUD/retrato mostram o heroi
+da vez; habilidades viram dados declarativos em UnitDefs.SKILLS.
+IMPACTO: novos herois = entrada em DEFS + SKILLS + builder visual + spawn.

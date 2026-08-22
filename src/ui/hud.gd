@@ -36,6 +36,8 @@ var popup_sub: Label
 var banner_lbl: Label
 var inv_panel: PanelContainer
 var inv_list: VBoxContainer
+var _name_lbl: Label
+var fl_lbl: Label
 var over_layer: Control
 var _popup_tween: Tween
 
@@ -147,12 +149,13 @@ func _build_portrait() -> void:
 	var fc := CenterContainer.new()
 	face.add_child(fc)
 	var fl := _label("CAV", 30, "37e0ff", fc)
+	fl_lbl = fl
 	fl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var nv := VBoxContainer.new()
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nv.alignment = BoxContainer.ALIGNMENT_CENTER
 	top.add_child(nv)
-	_label("Cavaleiro — Nível 1", 18, "e8e2d0", nv)
+	_name_lbl = _label("Cavaleiro — Nível 1", 18, "e8e2d0", nv)
 	hp_lbl = _label("PV 40/40", 14, "ff8a8a", nv)
 	mp_lbl = _label("Mana 10/10", 14, "7fb8ff", nv)
 	hp_bar = _bar(v, "b32020")
@@ -390,6 +393,8 @@ func _build_game_over() -> void:
 func update_vitals(u: BoardUnit) -> void:
 	if u == null:
 		return
+	_name_lbl.text = "%s — Nível 1" % u.display_name
+	fl_lbl.text = u.display_name.substr(0, 3).to_upper()
 	hp_bar.value = 100.0 * float(u.hp) / float(maxi(1, u.max_hp))
 	mp_bar.value = 100.0 * float(u.mana) / float(maxi(1, u.max_mana))
 	hp_lbl.text = "PV %d/%d" % [u.hp, u.max_hp]
@@ -406,11 +411,20 @@ func refresh_buttons(c) -> void:
 	ctl = c
 	var active_ok: bool = TurnManager.active == knight and not TurnManager.game_ended and ctl != null and not ctl.busy
 	var can_act: bool = active_ok and not ctl.acted and ctl.mode != 0
+	var sk: Dictionary = {}
+	if knight != null:
+		sk = UnitDefs.skill(knight.id)
 	btn_attack.disabled = not can_act
-	btn_skill.disabled = not can_act or knight.mana < UnitDefs.KNIGHT_SKILL_COST
+	btn_skill.disabled = not can_act or sk.is_empty() or knight.mana < sk.get("cost", 99)
 	btn_defend.disabled = not can_act
 	btn_item.disabled = not can_act
 	btn_pass.disabled = not active_ok
+
+## Atualiza o rotulo do botao [2] conforme o heroi ativo.
+func set_skill_label(unit_id: String) -> void:
+	var sk := UnitDefs.skill(unit_id)
+	if not sk.is_empty():
+		btn_skill.text = "[2] %s" % str(sk["label"]).to_upper()
 
 func show_boss_bar(boss) -> void:
 	boss_ref = boss

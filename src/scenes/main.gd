@@ -28,6 +28,34 @@ func _ready() -> void:
 	TurnManager.start_game()
 	if OS.get_cmdline_user_args().has("--clicktest"):
 		_clicktest()
+	if OS.get_cmdline_user_args().has("--skilltest"):
+		_skilltest()
+
+## Teste das habilidades novas: projétil da maga e forma de urso da druida.
+func _skilltest() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var mage: BoardUnit = null
+	var druid: BoardUnit = null
+	var foe: BoardUnit = null
+	for u in units:
+		if u.id == "mage":
+			mage = u
+		elif u.id == "druid":
+			druid = u
+		elif u.team == "enemy" and foe == null:
+			foe = u
+	if mage == null or druid == null or foe == null:
+		print("SKILLTEST FAIL unidades ausentes")
+		return
+	var hp0: int = foe.hp
+	await CombatSystem.attack(mage, foe, "Míssil Ardente", "2d10+2", "projectile_red")
+	print("SKILLTEST projectile dano=", hp0 - foe.hp)
+	await CombatSystem.attack(druid, foe, "Fúria do Urso", "1d12+3", "", "druid_bear")
+	print("SKILLTEST transform shifted=", druid.shifted)
+	await get_tree().create_timer(1.2).timeout
+	druid.revert_visual()
+	print("SKILLTEST revert shifted=", druid.shifted)
+	print("SKILLTEST RESULT OK")
 
 ## Teste automatizado: injeta um clique sintético numa casa alcançável
 ## e verifica se o herói anda (valida cadeia input -> raycast -> movimento).
@@ -35,9 +63,11 @@ func _clicktest() -> void:
 	await get_tree().create_timer(0.5).timeout
 	get_viewport().size = Vector2i(1280, 720)
 	await get_tree().process_frame
-	var target: Vector2i = knight.grid_pos + Vector2i(0, -1)
-	if not BoardGrid.is_free(target):
-		target = knight.grid_pos + Vector2i(-1, 0)
+	var target: Vector2i = knight.grid_pos
+	for off in [Vector2i(0, -1), Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, 1)]:
+		if BoardGrid.is_free(knight.grid_pos + off):
+			target = knight.grid_pos + off
+			break
 	var cam := get_viewport().get_camera_3d()
 	var wp := BoardGrid.world_pos(target) + Vector3(0, 0.1, 0)
 	var sp := cam.unproject_position(wp)
@@ -70,6 +100,21 @@ func _build_board() -> void:
 func _spawn_units() -> void:
 	knight = _make_unit("knight", BoardGrid.spawns["K"][0])
 	units.append(knight)
+	# O grupo nasce ao lado do cavaleiro (casas livres adjacentes).
+	var party := {"mage": "Maga Elara entra na masmorra!", "druid": "Druida Rowan entra na masmorra!"}
+	var kcell: Vector2i = knight.grid_pos
+	var spots: Array = [kcell + Vector2i(-1, 0), kcell + Vector2i(0, -1),
+			kcell + Vector2i(1, 0), kcell + Vector2i(0, 1)]
+	var si := 0
+	for id in party.keys():
+		while si < spots.size() and not BoardGrid.is_free(spots[si]):
+			si += 1
+		if si >= spots.size():
+			break
+		var ally := _make_unit(id, spots[si])
+		units.append(ally)
+		EventBus.log_msg.emit(party[id], "#9dff6b")
+		si += 1
 	for c in BoardGrid.spawns.get("g", []):
 		var g := _make_unit("goblin_warrior", c)
 		units.append(g)
@@ -100,8 +145,8 @@ func _build_camera() -> void:
 	EventBus.turn_started.connect(_on_turn_started)
 
 func _on_turn_started(unit, _round_num: int) -> void:
-	if unit == knight:
-		camera_rig.set_follow(knight, true)
+	if unit.team == "hero":
+		camera_rig.set_follow(unit, true)
 
 func _build_ui() -> void:
 	hud = GameHUD.new()

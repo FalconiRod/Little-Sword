@@ -2,20 +2,31 @@ extends Node
 ## Sistema de combate: D20 + modificador vs Classe de Armadura,
 ## críticos naturais, dano por notação de dados e ação Defender.
 
-func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
+func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", transform_to := "") -> void:
 	var is_skill := skill_dmg != ""
 	# O atacante vira a peça para o alvo antes do golpe.
 	attacker.face_towards(target.global_position)
+	if transform_to != "":
+		attacker.set_visual_id(transform_to)
+		EventBus.log_msg.emit("%s invoca a forma selvagem!" % attacker.display_name, "#9dff6b")
+		attacker.spawn_float_text("FORMA SELVAGEM!", "#9dff6b")
+		EventBus.shake_requested.emit(0.2)
+		await get_tree().create_timer(0.4).timeout
 	EventBus.combat_message.emit("%s → %s" % [attacker.display_name, target.display_name])
 	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus, target.effective_ac())
 	var label := skill_label if is_skill else "Ataque"
 	EventBus.dice_rolled.emit(20, chk["roll"], chk["total"], "%s — %s" % [label, attacker.display_name])
-	await get_tree().create_timer(1.05).timeout
+	if fx == "projectile_red":
+		EventBus.log_msg.emit("Um projétil flamejante cruza o ar!", "#ff6b6b")
+		await get_tree().create_timer(0.55).timeout
+		await _fire_projectile(attacker, target)
+	else:
+		await get_tree().create_timer(1.05).timeout
 	if TurnManager.game_ended:
 		return
-	# A investida acompanha a resolucao: avanca e retorna enquanto o resultado
-	# (dano/erro) e aplicado.
-	attacker.animate_lunge(target.global_position)
+	# A investida acompanha a resolucao (ataques corpo a corpo apenas).
+	if fx != "projectile_red":
+		attacker.animate_lunge(target.global_position)
 	_alert_victims(target)
 	var tgt_ac: int = target.effective_ac()
 	if chk["hit"]:
@@ -63,6 +74,30 @@ func _alert_victims(target) -> void:
 			if BoardGrid.chebyshev(c, target.grid_pos) <= 2:
 				ally.alerted = true
 	EventBus.log_msg.emit("%s entra em combate!" % target.display_name, "#ffb84d")
+
+## Projétil mágico: esfera vermelha brilhante voa do conjurador ao alvo.
+func _fire_projectile(from_unit, target) -> void:
+	var p := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.16
+	s.height = 0.32
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color.html("ff3b30")
+	m.emission_enabled = true
+	m.emission = Color.html("ff5544")
+	m.emission_energy_multiplier = 3.5
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.mesh = s
+	p.material_override = m
+	add_child(p)
+	p.position = from_unit.global_position + Vector3(0, 1.3, 0)
+	var b: Vector3 = target.global_position + Vector3(0, 0.85, 0)
+	var tw := create_tween()
+	tw.tween_property(p, "position", b, 0.34) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tw.finished
+	_sparks(b, "ff5544", 18)
+	p.queue_free()
 
 ## Explosao curta de faiscas procedurais no ponto do impacto.
 func _sparks(wp: Vector3, col_hex: String, amount: int) -> void:

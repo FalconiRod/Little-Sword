@@ -61,7 +61,7 @@ func _hero_turn(u) -> void:
 	# Regra da casa: D6 — 1-2 movimento baixo (metade), 3-6 movimento cheio.
 	u.moves_left = 3 if r <= 2 else u.move_max
 	u.mana = mini(u.max_mana, u.mana + 2)
-	EventBus.dice_rolled.emit(6, r, u.moves_left, "Movimento do Cavaleiro")
+	EventBus.dice_rolled.emit(6, r, u.moves_left, "Movimento — %s" % u.display_name)
 	if r <= 2:
 		EventBus.log_msg.emit("Movimento reduzido! (%d casas)" % u.moves_left, "#ffb84d")
 	else:
@@ -92,6 +92,10 @@ func _on_unit_died(u) -> void:
 	if game_ended or not started_game():
 		return
 	if u.team == "hero":
+		# Derrota apenas com o grupo inteiro abatido (TPK).
+		for x in order:
+			if is_instance_valid(x) and x.alive and x.team == "hero":
+				return
 		_finish(false)
 		return
 	for x in order:
