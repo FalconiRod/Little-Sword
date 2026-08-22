@@ -257,23 +257,25 @@ func _handle_click(screen_pos: Vector2) -> void:
 	var unit_here = BoardGrid.unit_at(c)
 	if mode == Mode.TARGET_ATTACK or mode == Mode.TARGET_SKILL:
 		if unit_here != null and unit_here.team == "enemy":
-			var in_range: bool = BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range
+			var in_range: bool = BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range \
+					and BoardGrid.has_line_of_sight(knight.grid_pos, c)
 			if in_range:
 				if mode == Mode.TARGET_ATTACK:
 					_execute_attack(unit_here)
 				else:
 					_execute_skill(unit_here)
 			else:
-				EventBus.log_msg.emit("Alvo fora de alcance.", "#ffb84d")
+				EventBus.log_msg.emit("Sem linha de visão ou fora do alcance.", "#ffb84d")
 		else:
 			EventBus.log_msg.emit("Selecione um inimigo (casa vermelha).", "#8a8f9c")
 		return
 	# Modo MOVE_READY
 	if unit_here != null and unit_here.team == "enemy":
-		if BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range:
+		if BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range \
+				and BoardGrid.has_line_of_sight(knight.grid_pos, c):
 			_execute_attack(unit_here)
 		else:
-			EventBus.log_msg.emit("Inimigo longe demais. Use ATACAR após se aproximar.", "#ffb84d")
+			EventBus.log_msg.emit("Inimigo sem linha de visão ou longe demais.", "#ffb84d")
 		return
 	if c == board.chest_cell and not board.chest_looted:
 		if BoardGrid.chebyshev(knight.grid_pos, c) <= 1:
@@ -323,7 +325,7 @@ func try_attack() -> void:
 		return
 	var targets := _enemies_in_range()
 	if targets.is_empty():
-		EventBus.log_msg.emit("Nenhum inimigo ao alcance da espada.", "#ffb84d")
+		EventBus.log_msg.emit("Nenhum inimigo visível ao alcance.", "#ffb84d")
 		return
 	mode = Mode.TARGET_ATTACK
 	var cells: Array = []
@@ -347,7 +349,7 @@ func try_skill() -> void:
 		return
 	var targets := _enemies_in_range()
 	if targets.is_empty():
-		EventBus.log_msg.emit("Nenhum inimigo ao alcance da habilidade.", "#ffb84d")
+		EventBus.log_msg.emit("Nenhum inimigo visível para a habilidade.", "#ffb84d")
 		return
 	mode = Mode.TARGET_SKILL
 	var cells: Array = []
@@ -361,7 +363,8 @@ func _enemies_in_range() -> Array:
 	for c in BoardGrid.occupied.keys():
 		var u = BoardGrid.occupied[c]
 		if is_instance_valid(u) and u.alive and u.team == "enemy":
-			if BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range:
+			if BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range \
+					and BoardGrid.has_line_of_sight(knight.grid_pos, c):
 				out.append(u)
 	return out
 

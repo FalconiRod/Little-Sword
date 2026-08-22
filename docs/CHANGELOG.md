@@ -212,3 +212,11 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Harness --clicktest agora procura vizinho livre real (party ocupa as
   casas adjacentes ao spawn).
 - Derrota so ocorre com TPK (todo o grupo abatido).
+
+## v0.3.1 — 2026-08-21 — Linha de visao nos golpes
+### Adicionado
+- Todos os ataques (basico e habilidade) exigem linha de visao: paredes
+  bloqueiam golpes, inclusive o Misil Ardente da maga.
+- Mensagens de feedback quando o alvo esta sem visao/fora de alcance.
+### Nota
+- IA ja respeitava LOS (arqueiro reposiciona para conseguir angulo).
