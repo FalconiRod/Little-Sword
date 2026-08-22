@@ -40,6 +40,7 @@ var over_layer: Control
 var _popup_tween: Tween
 
 func _ready() -> void:
+	_build_vignette()
 	_build_top_left()
 	_build_portrait()
 	_build_bottom_bar()
@@ -58,6 +59,31 @@ func _ready() -> void:
 	EventBus.banner.connect(_show_banner)
 	EventBus.game_over.connect(_on_game_over)
 	EventBus.inventory_changed.connect(_refresh_inventory_if_open)
+
+## Vinheta procedural: escurece bordas/cantos para clima de masmorra.
+## Ignora mouse para nunca bloquear cliques no tabuleiro.
+func _build_vignette() -> void:
+	var t := TextureRect.new()
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	grad.colors = PackedColorArray([
+		Color(0.01, 0.005, 0.02, 0.0),
+		Color(0.01, 0.005, 0.02, 0.10),
+		Color(0.008, 0.004, 0.016, 0.62),
+	])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, -0.28)
+	tex.width = 512
+	tex.height = 512
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	add_child(t)
 
 func bind_units(knight_unit: BoardUnit, units_roster: Array) -> void:
 	knight = knight_unit

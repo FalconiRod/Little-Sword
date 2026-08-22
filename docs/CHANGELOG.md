@@ -188,3 +188,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   mesmo com o bobbing, ancorando a peca na mesa.
 - Anel dourado pulsante sob a unidade ativa no turno dela (EventBus
   turn_started), some ao morrer.
+
+## v0.2.16 — 2026-08-21 — Clima de masmorra
+### Adicionado
+- Vinheta radial procedural nas bordas da tela (ignora mouse).
+### Mudado
+- Destaque de alcance de movimento mais sutil (alpha 0.34 -> 0.20); mira e
+  interacao mantem o brilho original.

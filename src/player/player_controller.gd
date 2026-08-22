@@ -70,9 +70,9 @@ func _make_quad(hex: String, alpha: float) -> MeshInstance3D:
 	mi.material_override = m
 	return mi
 
-func _pool_show(pool: Array[MeshInstance3D], cells: Array, hex: String) -> void:
+func _pool_show(pool: Array[MeshInstance3D], cells: Array, hex: String, alpha := 0.34) -> void:
 	while pool.size() < cells.size():
-		var q := _make_quad(hex, 0.34)
+		var q := _make_quad(hex, alpha)
 		pool.append(q)
 		add_child(q)
 	for i in pool.size():
@@ -152,7 +152,7 @@ func _compute_reachable() -> void:
 	reach = BoardGrid.compute_reachable(knight.grid_pos, knight.moves_left)
 	var cells: Array = reach["dist"].keys()
 	cells.erase(knight.grid_pos)
-	_pool_show(_hl_pool, cells, "37e0ff")
+	_pool_show(_hl_pool, cells, "37e0ff", 0.20)
 	var it_cells: Array = []
 	if not board.chest_looted and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
 		it_cells.append(board.chest_cell)
