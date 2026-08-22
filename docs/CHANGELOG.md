@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.6.1 — 2026-08-22 — Travessia ao terminar o movimento (spec StairsLink)
+### Alterado
+- `animate_move`: além do salto pareado executado no caminho, terminar o
+  movimento SOBRE uma célula de escada agora também cruza (`_cross_stairs_now`),
+  custando 1 de movimento; sem movimento sobrando, a unidade fica parada e
+  cruza no turno seguinte andando até a célula pareada (vizinha no BFS)
+- Guarda anti-duplo-disparo: quem chegou pelo salto pareado não re-cruza
+  (comparação com o PENÚLTIMO passo do caminho, não com `prev` final)
+- `player_controller._do_move`: custo do caminho é descontado ANTES do
+  `await animate_move` (antes o auto-cross validava orçamento inflado e
+  `moves_left` podia ficar negativo)
+- Removido auto-cross de início de turno (continua — era o BUG-015)
+### Adicionado
+- Teste `--stairtest --map=tower` (4 cenários): cruza ao terminar com
+  movimento; não cruza sem movimento; cruza no turno seguinte ao andar
+  até o par; caminho terminando no par não dupla-cruza
+- Validação: STAIRTEST 4/4 OK; demos stone_keep/tower/crypt/house sem
+  erro, sem ML negativo, sem quique no mesmo tick; CLICKTEST/SKILLTEST OK
+
 ## v0.6.0 — 2026-08-22 — Escada como célula única de transição (StairsLink)
 ### Removido
 - Modelo v0.5.0 de "degraus caminháveis" (alturas incrementais por célula,

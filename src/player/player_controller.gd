@@ -408,8 +408,8 @@ func _do_move(cell: Vector3i) -> void:
 	var path: Array = BoardGrid.path_from_reachable(reach, cell)
 	var dist: int = path.size()
 	BoardGrid.move_unit(knight, cell)
-	await knight.animate_move(path, from_cell)
 	knight.moves_left -= dist
+	await knight.animate_move(path, from_cell)
 	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
 	hud.update_vitals(knight)
 	busy = false

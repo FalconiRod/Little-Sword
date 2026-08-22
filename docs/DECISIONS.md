@@ -81,15 +81,21 @@ nao parava em degrau, dois sistemas de pathing).
 IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.
 
 ## D13 - Escada = par de celulas ligadas com transicao unica (StairsLink)
-DATA: 2026-08-22 | STATUS: ATIVA
+DATA: 2026-08-22 | STATUS: ATIVA (ampliada em v0.6.1)
 DECISAO: escada e UM par base<->topo (stair_links bidirecional); ambas as
 celulas sao normais; o par entra no BFS como vizinho de custo 1; a
-transicao dispara quando o caminho EXECUTA o salto (animate_move), nunca
-automaticamente ao terminar turno/andar sobre a celula. Visual = prop unico.
-MOTIVO: modelo mais simples e tabuleiro-like; sem alturas intermediarias,
-sem alinhamento de multiplas pecas, pronto para prop do Meshy; auto-cross
-foi testado e descartado (unidade quicava entre andares a cada turno).
-ALTERNATIVAS: degraus caminhaveis (v0.5.0, superada); auto-cross ao terminar
-movimento + inicio de turno (causava vai-e-vem, removido).
+transicao dispara (a) quando o caminho EXECUTA o salto pareado e (b)
+quando o movimento TERMINA sobre uma celula ligada sem ter chegado pelo
+salto (v0.6.1, spec do usuario: "ao terminar o movimento sobre essa casa").
+Cruzar custa 1 de movimento; sem movimento sobrando, a unidade para na
+escada e cruza no turno seguinte andando ate a celula pareada. Nao existe
+cross de inicio de turno (BUG-015). Visual = prop unico.
+MOTIVO: modelo simples e tabuleiro-like, pronto para prop do Meshy; o
+auto-cross de inicio de turno quicava entre andares e segue descartado,
+mas o cross ao terminar movimento e seguro (guarda anti-duplo via
+penultimo passo) e atende a intencao natural do jogador.
+ALTERNATIVAS: degraus caminhaveis (v0.5.0, superada); auto-cross ao
+terminar + inicio de turno (causava vai-e-vem, inicio removido).
 IMPACTO: dist_to_goal() para IA cross-floor; mapas usam "stairs": [[base],
-[topo]]; prop espiral + marcador ambar.
+[topo]]; prop espiral + marcador ambar; _do_move desconta custo antes do
+await (BUG-016).

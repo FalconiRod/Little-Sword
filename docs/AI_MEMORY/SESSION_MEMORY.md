@@ -61,5 +61,20 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   "stairs": [[base],[topo]]; BUG-014 (freed target) corrigido; backup e
   commits antes/depois conforme pedido do usuario
 - Descobertas: auto-cross gera vai-e-vem (BUG-015) - transicao so no passo
-  do caminho; dado alto no skilltest expôs freed-target latente
+  do caminho; dado alto no skilltest expï¿½s freed-target latente
 - Validacao: 4 mapas demo OK (7 travessias), clicktest OK, skilltest 6/6
+
+## Sessao 3c - 2026-08-22 (v0.6.1 cross ao terminar movimento + stairtest)
+- Feito: spec do usuario aplicada â€” terminar o movimento SOBRE celula
+  ligada cruza (_cross_stairs_now, custa 1 MP; sem MP, para e cruza no
+  turno seguinte andando ate o par); guarda anti-duplo via penultimo
+  passo; _do_move desconta custo ANTES do await (BUG-016); teste
+  --stairtest --map=tower com 4 cenarios incluindo "parar sem movimento"
+  (pedido explicito do usuario)
+- Descobertas: contrato animate_move = move_unit(path[-1]) antes (teste
+  violou e mascarou bug); TurnManager corre por cima de testes;
+  "pedra na porta do 2 andar" era geometria v0.5.0, inexistente hoje
+- Validacao: STAIRTEST 4/4 OK; demos stone_keep/tower/crypt/house sem
+  erro/ML negativo/quique; CLICKTEST OK; SKILLTEST OK (mapa padrao)
+- Pendente: combate base<->topo bloqueado por regra mesmo-andar (decisao
+  futura); prop Meshy no lugar da espiral procedural

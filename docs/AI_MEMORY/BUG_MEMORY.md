@@ -101,8 +101,8 @@ EVIDENCIA: BUG-012. Ao editar linhas de mapa, posicionar chars por INDICE
 (0-based) e nao "quase visualmente"; largura da linha deve ficar constante.
 IMPACTO: revisar diffs de MAPS sempre com contagem explicita.
 
-## BUG-014 - Alvo morto no voo do projétil acessado após free - RESOLVIDO
-Problema: projétil mata o alvo durante a animação; código seguia chamando
+## BUG-014 - Alvo morto no voo do projï¿½til acessado apï¿½s free - RESOLVIDO
+Problema: projï¿½til mata o alvo durante a animaï¿½ï¿½o; cï¿½digo seguia chamando
 animate_recoil/global_position em objeto liberado ('previously freed').
 Arquivos: src/autoload/combat_system.gd.
 Solucao: guardas is_instance_valid(target) apos os await points.
@@ -112,12 +112,45 @@ Status: RESOLVIDO (6/6 runs limpos).
 Problema: cruzar ao TERMINAR movimento + cruzar no INICIO do turno fazia
 a IA subir e descer em loop na mesma escada.
 Arquivos: unit_base.gd, player_controller.gd, enemy_ai.gd.
-Solucao: transicao acontece SOMENTE quando o caminho escolhido executa o
-salto pareado (dentro de animate_move); nenhum auto-cross automatico.
+Solucao (ampliada em v0.6.1): o cross de INICIO de turno continua removido
+(era a causa do quique). O cross AO TERMINAR movimento voltou, seguro:
+dispara so se a unidade NAO chegou pelo salto pareado (compara o penultimo
+passo do caminho com grid_pos) e custa 1 de movimento; sem movimento,
+fica parada e cruza no turno seguinte andando ate a celula pareada.
 Status: RESOLVIDO.
+
+## BUG-016 - moves_left negativo quando auto-cross + custo do caminho - RESOLVIDO
+Problema: player descontava o custo do caminho DEPOIS do await animate_move;
+o auto-cross validava moves_left com orcamento ainda nao gasto e podia
+deixar moves_left = -1 (ex.: 3 MP, caminho de 3 + cross).
+Arquivos: player_controller.gd (_do_move).
+Solucao: descontar dist ANTES do await (inimigos ja faziam nessa ordem).
+Status: RESOLVIDO (STAIRTEST cenario 1 valida ML exato).
+
+## DISCOVERY - Contrato de animate_move (2026-08-22)
+EVIDENCIA: stairtest cenario 2 falhava porque o teste deixava grid_pos na
+celula de ORIGEM; chamadores reais fazem BoardGrid.move_unit(dest=path[-1])
+ANTES de animate_move(path, origem). O gatilho de fim de movimento le
+grid_pos/ocupacao reais â€” estado inconsistente do teste produzia cross
+aparentemente errado que era correto para o estado dado.
+IMPACTO: qualquer teste/harness de movimento deve seguir o contrato:
+move_unit primeiro, animate_move depois. Registrado tambem em RULES.
+
+## DISCOVERY - TurnManager corre por cima de testes (2026-08-22)
+EVIDENCIA: durante stairtest, _hero_turn/_enemy_turn seguiam rodando
+(timers) e sobrescreviam moves_left manipulado pelo teste.
+IMPACTO: testes que mexem em unidades devem ser curtos ou congelar o
+TurnManager (game_ended=true temporario) para serem deterministicos.
+
+## DISCOVERY - "Pedra na porta do 2 andar" era geometria v0.5.0 (2026-08-22)
+EVIDENCIA: nos mapas v0.6.x nenhuma porta de andar superior esta
+bloqueada: stone_keep portas (4,3,1) e (6,5,1) tem vizinhos livres e
+nenhuma coluna P adjacente; tower/crypt nao tem portas no andar de cima.
+IMPACTO: reclamacao do usuario referia-se aos degraus em sequencia da
+v0.5.0 que ocupavam o corredor da porta â€” eliminada pelo S unico.
 
 ## DISCOVERY - StairsLink: par entra no BFS como vizinho (2026-08-22)
 EVIDENCIA: reach inclui celulas do outro andar (mage reach=38 na torre);
 custo da travessia = 1 passo, consistente com dist_to_goal (+1).
 IMPACTO: clicar direto na celula do topo funciona; parar NA escada nao
-cruza - intenção explicita do jogador.
+cruza - intenï¿½ï¿½o explicita do jogador.
