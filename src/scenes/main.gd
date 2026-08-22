@@ -42,6 +42,8 @@ func _ready() -> void:
 		_skilltest()
 	if args.has("--stairtest"):
 		_stairtest()
+	if args.has("--combattest"):
+		_combattest()
 
 # ------------------------------------------------------------------ testes --
 
@@ -232,6 +234,89 @@ func _stairtest() -> void:
 	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 \
 			and ok6a and ok6b and ok7 and ok8
 	print("STAIRTEST RESULT ", "OK" if all_ok else "FALHOU")
+
+# ------------------------------------------------------------------ build --
+
+## Teste das regras táticas de combate (v0.8.0): flanqueio, cobertura,
+## ataque de oportunidade e Dispersar. Rodar com:
+##   --combattest --map=tower
+func _combattest() -> void:
+	await get_tree().create_timer(0.5).timeout
+	var goblin = null
+	var ally = null
+	for u in units:
+		if not is_instance_valid(u) or not u.alive:
+			continue
+		if u.team == "enemy" and goblin == null and u.id == "goblin_warrior":
+			goblin = u
+		elif u.team == "hero" and u != knight and ally == null:
+			ally = u
+	if goblin == null or ally == null:
+		print("COMBATTEST FAIL unidades ausentes")
+		return
+	goblin.alerted = true
+	goblin.disengaging = false
+	knight.disengaging = false
+	var T := Vector3i(4, 2, 0)
+	# (1) FLANQUEIO: sem aliado oposto = 0; com aliado no lado oposto = +2.
+	_ct_pose(goblin, T)
+	_ct_pose(knight, T + Vector3i(0, -1, 0))
+	_ct_pose(ally, Vector3i(1, 5, 0))
+	var f0: int = CombatSystem.flank_bonus(knight, goblin)
+	_ct_pose(ally, T + Vector3i(0, 1, 0))
+	var f2: int = CombatSystem.flank_bonus(knight, goblin)
+	print("COMBATTEST 1 flanqueio sem=", f0, " com=", f2, " => ",
+			"OK" if f0 == 0 and f2 == 2 else "FALHOU")
+	# (2) COBERTURA: diagonal com parede no canto do alvo = +2;
+	#     adjacente lateral sem obstáculo = 0.
+	_ct_pose(goblin, T)
+	_ct_pose(knight, Vector3i(3, 1, 0))   # diagonal NW; canto N do alvo é '#'
+	var c_diag: int = CombatSystem.cover_ac(knight, goblin)
+	_ct_pose(knight, T + Vector3i(1, 1, 0))  # diagonal SE; cantos livres
+	var c_diag_free: int = CombatSystem.cover_ac(knight, goblin)
+	print("COMBATTEST 2 cobertura canto=", c_diag, " livre=", c_diag_free,
+			" => ", "OK" if c_diag == 2 and c_diag_free == 0 else "FALHOU")
+	# (3) OPORTUNIDADE: sair da adjacência do goblin alertado provoca 1 golpe.
+	_ct_begin_aoo()
+	_ct_pose(goblin, Vector3i(5, 1, 0))
+	_ct_pose(knight, Vector3i(5, 2, 0))
+	await knight.animate_move([Vector3i(5, 3, 0), Vector3i(5, 4, 0)],
+			Vector3i(5, 2, 0))
+	var n_ao := _ct_end_aoo()
+	# (4) DISPERSAR: mesmo movimento com disengaging ativo não provoca nada.
+	_ct_begin_aoo()
+	_ct_pose(goblin, Vector3i(5, 1, 0))
+	_ct_pose(knight, Vector3i(5, 2, 0))
+	knight.disengaging = true
+	await knight.animate_move([Vector3i(5, 3, 0), Vector3i(5, 4, 0)],
+			Vector3i(5, 2, 0))
+	knight.disengaging = false
+	var n_dis := _ct_end_aoo()
+	print("COMBATTEST 3 oportunidade=", n_ao, " dispersar=", n_dis,
+			" => ", "OK" if n_ao >= 1 and n_dis == 0 else "FALHOU")
+	print("COMBATTEST RESULT ",
+			"OK" if f0 == 0 and f2 == 2 and c_diag == 2 and c_diag_free == 0 \
+					and n_ao >= 1 and n_dis == 0 else "FALHOU")
+
+func _ct_pose(u, c: Vector3i) -> void:
+	BoardGrid.move_unit(u, c)
+	u.grid_pos = c
+	u.position = BoardGrid.world_pos(c)
+
+var _ct_aoo_n := 0
+
+func _ct_begin_aoo() -> void:
+	_ct_aoo_n = 0
+	EventBus.dice_rolled.connect(_ct_on_dice)
+
+func _ct_on_dice(sides: int, roll: int, total: int, label: String) -> void:
+	if label.begins_with("Oportunidade"):
+		_ct_aoo_n += 1
+
+func _ct_end_aoo() -> int:
+	if EventBus.dice_rolled.is_connected(_ct_on_dice):
+		EventBus.dice_rolled.disconnect(_ct_on_dice)
+	return _ct_aoo_n
 
 # ------------------------------------------------------------------ build --
 

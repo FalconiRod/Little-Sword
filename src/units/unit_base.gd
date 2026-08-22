@@ -25,6 +25,7 @@ var intelligence := 10
 var grid_pos := Vector3i.ZERO
 var floor_index := 0
 var defending := false
+var disengaging := false
 var alerted := false
 var alive := true
 var base_visual_id := ""
@@ -253,7 +254,9 @@ func animate_recoil(from_wp: Vector3) -> void:
 ## andar naquele ponto. `from_cell` = célula de origem do movimento.
 func animate_move(path: Array, from_cell = null) -> void:
 	var prev: Vector3i = from_cell if from_cell != null else grid_pos
+	var reacted: Array = []
 	for c in path:
+		await _provoke_leaving(prev, c, reacted)
 		if BoardGrid.stair_pair(prev) == c and prev != c:
 			floor_index = c.z
 			EventBus.unit_changed_floor.emit(self, floor_index)
@@ -288,6 +291,32 @@ func animate_move(path: Array, from_cell = null) -> void:
 	# qualquer célula. A travessia é sempre explícita: ou o caminho executa
 	# o salto pareado (destino em outro andar), ou quem está EM PÉ na
 	# célula clica nela de novo (try_cross_stairs).
+
+## ATAQUE DE OPORTUNIDADE: SAIR de uma célula adjacente a um inimigo
+## alertado (mesmo andar) provoca um golpe grátis dele — uma vez por
+## inimigo a cada movimento. Dispersar cancela; trocar de andar pela
+## escada não provoca; continuar ao alcance do mesmo inimigo também não.
+func _provoke_leaving(from_cell: Vector3i, to_cell: Vector3i,
+		reacted: Array) -> void:
+	if disengaging or from_cell == to_cell or from_cell.z != to_cell.z:
+		return
+	for c in BoardGrid.occupied.keys():
+		var e = BoardGrid.occupied[c]
+		if e == null or e == self or not is_instance_valid(e) or e in reacted:
+			continue
+		if not e.alive or e.team == team:
+			continue
+		if e.team != "hero" and not e.alerted:
+			continue
+		if c.z != from_cell.z or BoardGrid.chebyshev(c, from_cell) != 1:
+			continue
+		if BoardGrid.chebyshev(c, to_cell) <= 1:
+			continue
+		reacted.append(e)
+		EventBus.log_msg.emit("%s aproveita a abertura! (ataque de oportunidade)" % e.display_name, "#ffb84d")
+		await CombatSystem.attack(e, self, "Oportunidade", "", "", "")
+		if not alive:
+			return
 
 ## Atravessa a escada em que a unidade está EM PÉ.
 ## Custa 1 de movimento e desembarca no primeiro grid LIVRE à frente da

@@ -277,6 +277,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_3: do_defend()
 			KEY_4: hud.toggle_inventory(self)
 			KEY_5: do_pass()
+			KEY_6: do_disengage()
 			KEY_ESCAPE: _try_cancel()
 		return
 	if mode == Mode.NONE or busy:
@@ -524,6 +525,17 @@ func do_defend() -> void:
 		return
 	acted = true
 	CombatSystem.defend(knight)
+	hud.update_vitals(knight)
+	TurnManager.end_hero_turn()
+
+## Dispersar: consome a ação; até o início do próximo turno o herói não
+## provoca ataques de oportunidade ao se afastar de inimigos.
+func do_disengage() -> void:
+	if mode == Mode.NONE or busy or acted:
+		return
+	acted = true
+	knight.disengaging = true
+	EventBus.log_msg.emit("%s se dispersa com cautela (sem ataques de oportunidade)." % knight.display_name, "#9dff6b")
 	hud.update_vitals(knight)
 	TurnManager.end_hero_turn()
 

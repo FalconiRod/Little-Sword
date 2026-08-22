@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.8.0 - 2026-08-22 - Regras taticas de combate (D15)
+### Adicionado
+- FLANQUEAR: +2 no ataque quando um aliado ocupa o lado oposto do alvo
+  (corpo a corpo, mesmo andar; diagonais opostas contam)
+- ATAQUE DE OPORTUNIDADE: sair da adjacencia de inimigo alertado provoca
+  golpe gratis (1x por inimigo por movimento); Dispersar, escada e
+  permanecer ao alcance nao provocam; dormindo nunca reage
+- COBERTURA: +2 CA quando obstaculo (parede/pilar/entulho/porta fechada)
+  fica entre atacante e alvo na direcao do golpe (cantos em diagonal)
+- DISPERSAR: nova acao [6]/tecla 6 - consome a acao, imune a
+  oportunidade ate o inicio do proximo turno
+### Alterado
+- animate_move executa ataques de oportunidade para herois E inimigos
+- attack(): rotulo fornecido pelo chamador sempre aparece no dado
+  ("Oportunidade" antes era trocado por "Ataque")
+### Testes / Validacao
+- NOVO --combattest: flanqueio, cobertura, oportunidade e dispersar 4/4 OK
+- stairtest 8/8; clicktest OK; skilltest OK; demos x4 sem warnings/erros
 ## v0.7.1 - 2026-08-22 - Tween orfao do arco (pecas afundavam ao cruzar)
 ### Corrigido (BUG-021 - causa raiz achada por instrumentacao de frames)
 - Sintoma: "clico na escada e as pecas vao para BAIXO do tabuleiro" -

@@ -113,3 +113,28 @@ NA escada" (cruza) de "passou por ela" (nao cruza).
 IMPACTO: dist_to_goal() intacta; mapas com "stairs": [[base],[topo]];
 prop espiral fino (62% altura); _do_move desconta custo antes do await;
 _do_move decide re-cruzamento comparando o penultimo passo do caminho.
+
+## D15 - Regras taticas de combate: flanqueio, oportunidade, cobertura, Dispersar
+DATA: 2026-08-22 | STATUS: ATIVA (v0.8.0)
+DECISAO: pacote aprovado pelo usuario SEM combate base<->topo entre escadas.
+(1) FLANQUEAR +2 ataque: corpo a corpo (chebyshev=1, mesmo andar) com
+aliado do atacante na celula de lado OPOSTO do alvo (deslocamentos em
+relacao ao alvo se anulam; diagonais opostas contam).
+(2) ATAQUE DE OPORTUNIDADE: SAIR de celula adjacente a inimigo alertado
+(mesmo andar) provoca 1 golpe gratis dele, uma vez por inimigo por
+movimento. NAO provoca: quem usou Dispersar, troca de andar pela escada,
+e passo que continua ao alcance do mesmo inimigo. Inimigos dormindo
+(nao alertados) nunca reagem - preserva a aproximacao furtiva.
+(3) COBERTURA +2 CA: do atacante para o alvo, se vizinho ORTOGONAL a
+frente do alvo (na direcao do golpe; em diagonal avaliam-se os dois
+cantos) for bloqueado (parede/pilar/entulho/porta fechada). Adjacencia
+lateral direta nunca cobre.
+(4) DISPERSAR: nova acao (botao [6] / tecla 6), consome a acao do turno;
+sem provocar ataques ate o inicio do proximo turno (reset em _advance).
+MOTIVO: dar profundidade tatica de posicionamento ao tabuleiro, estilo
+D&D de mesa, sem mudar a economia existente (d20/CA/dano intactos).
+HISTORICO: attack() so usava rotulo fornecido quando havia notacao de
+dano; corrigido para rotulo do chamador sempre vencer ("Oportunidade").
+IMPACTO: animate_move ganhou hook _provoke_leaving (roda para herois E
+IA); IA ainda nao usa Dispersar (melhoria futura); combates ficaram mais
+mortais ao recuar sem dispersar; COMBATTEST valida as 4 regras (4/4).

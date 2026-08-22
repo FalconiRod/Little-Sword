@@ -138,3 +138,12 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 - Licoes: (1) tween paralelo nao aguardado = escrita fantasma posterior;
   (2) recalcular landing DEPOIS do cross e inconsistente (heroi ocupa o
   proprio desembarque) - capturar antes
+## Sessao 3i - 2026-08-22 (v0.8.0 regras taticas de combate - D15)
+- Usuario escolheu pacote completo MENOS combate base<->topo de escada
+- Implementado: flank_bonus/cover_ac em combat_system.attack();
+  _provoke_leaving dentro de animate_move (hook unico p/ heroi e IA);
+  do_disengage + botao [6]/tecla 6; reset disengaging em _advance
+- Pegadinha corrigida: attack() ignorava skill_label sem notacao de dano -
+  rotulo "Oportunidade" virava "Ataque" e o teste nao contava
+- COMBATTEST novo (4 cenarios); bateria completa verde
+- Pendente: IA ainda nao dispersa/flanqueia por conta propria

@@ -1,6 +1,8 @@
 extends Node
 ## Sistema de combate: D20 + modificador vs Classe de Armadura,
 ## críticos naturais, dano por notação de dados e ação Defender.
+## Regras táticas (v0.8.0): flanquear (+2 ataque), cobertura (+2 CA)
+## e ataque de oportunidade (sair da adjacência de inimigo alertado).
 
 func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", transform_to := "") -> void:
 	var is_skill := skill_dmg != ""
@@ -18,8 +20,20 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 	if attacker.grid_pos.z == target.grid_pos.z \
 			and BoardGrid.elev_at(attacker.grid_pos) > BoardGrid.elev_at(target.grid_pos):
 		hi = 1
-	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus + hi, target.effective_ac())
-	var label := skill_label if is_skill else "Ataque"
+	# Flanqueio (+2 ataque) e cobertura (+2 CA) — regras táticas de posição.
+	var flank := flank_bonus(attacker, target)
+	if flank > 0:
+		EventBus.log_msg.emit("%s está flanqueado! (+2 no ataque)" %
+				target.display_name, "#ffb84d")
+	var cov := cover_ac(attacker, target)
+	var tgt_ac: int = target.effective_ac() + cov
+	if cov > 0:
+		EventBus.log_msg.emit("%s luta protegido pela cobertura (+%d CA)." %
+				[target.display_name, cov], "#7fd1ff")
+	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus + hi + flank,
+			tgt_ac)
+	# Rótulo do chamador vence mesmo sem notação de dano (ex.: Oportunidade).
+	var label := skill_label if skill_label != "" else "Ataque"
 	EventBus.dice_rolled.emit(20, chk["roll"], chk["total"], "%s — %s" % [label, attacker.display_name])
 	if fx == "projectile_red":
 		EventBus.log_msg.emit("Um projétil flamejante cruza o ar!", "#ff6b6b")
@@ -36,7 +50,6 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 	if fx != "projectile_red":
 		attacker.animate_lunge(target.global_position)
 	_alert_victims(target)
-	var tgt_ac: int = target.effective_ac()
 	if chk["hit"]:
 		var nota: String = skill_dmg if is_skill else attacker.dmg
 		if chk["crit"]:
@@ -71,6 +84,56 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 func defend(u) -> void:
 	u.defending = true
 	EventBus.log_msg.emit("%s ergue a guarda (+4 CA até seu próximo turno)." % u.display_name, "#7fd1ff")
+
+## FLANQUEAR (+2 no ataque, corpo a corpo, mesmo andar): um aliado do
+## atacante ocupa a célula de lado OPOSTO do alvo — os deslocamentos em
+## relação ao alvo se anulam (inclui diagonais opostas).
+func flank_bonus(attacker, target) -> int:
+	if attacker.team == target.team:
+		return 0
+	if attacker.grid_pos.z != target.grid_pos.z:
+		return 0
+	if BoardGrid.chebyshev(attacker.grid_pos, target.grid_pos) != 1:
+		return 0
+	var off_a := Vector2i(attacker.grid_pos.x - target.grid_pos.x,
+			attacker.grid_pos.y - target.grid_pos.y)
+	for c in BoardGrid.occupied.keys():
+		var ally = BoardGrid.occupied[c]
+		if ally == null or ally == attacker or not is_instance_valid(ally):
+			continue
+		if not ally.alive or ally.team != attacker.team:
+			continue
+		if c.z != target.grid_pos.z:
+			continue
+		if BoardGrid.chebyshev(c, target.grid_pos) != 1:
+			continue
+		if off_a + Vector2i(c.x - target.grid_pos.x, c.y - target.grid_pos.y) \
+				== Vector2i.ZERO:
+			return 2
+	return 0
+
+## COBERTURA (+2 CA, mesmo andar): olhando do atacante para o alvo, se um
+## dos vizinhos ORTOGONAIS à frente do alvo (na direção do golpe) for
+## bloqueado (parede, pilar, entulho, porta fechada), ele luta protegido.
+## Em diagonal avaliam-se os dois cantos; adjacência direta nunca cobre.
+func cover_ac(attacker, target) -> int:
+	if attacker.grid_pos.z != target.grid_pos.z:
+		return 0
+	var d: Vector3i = target.grid_pos - attacker.grid_pos
+	if d == Vector3i.ZERO:
+		return 0
+	if BoardGrid.chebyshev(attacker.grid_pos, target.grid_pos) == 1 \
+			and (d.x == 0 or d.y == 0):
+		return 0  # lado a lado não há como se esconder
+	var cands: Array[Vector3i] = []
+	if d.x != 0:
+		cands.append(target.grid_pos + Vector3i(-signi(d.x), 0, 0))
+	if d.y != 0:
+		cands.append(target.grid_pos + Vector3i(0, -signi(d.y), 0))
+	for c in cands:
+		if not BoardGrid.is_walkable(c):
+			return 2
+	return 0
 
 ## Atacar ou ser atacado desperta: o alvo e aliados próximos entram em combate.
 func _alert_victims(target) -> void:

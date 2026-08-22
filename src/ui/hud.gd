@@ -29,6 +29,7 @@ var btn_skill: Button
 var btn_defend: Button
 var btn_item: Button
 var btn_pass: Button
+var btn_disperse: Button
 var order_rows: Array = []
 var log_rtl: RichTextLabel
 var boss_panel: PanelContainer
@@ -222,7 +223,8 @@ func _build_bottom_bar() -> void:
 	btn_defend = _mk_button("[3] DEFENDER", func(): ctl.do_defend())
 	btn_item = _mk_button("[4] INVENTARIO", func(): toggle_inventory(ctl))
 	btn_pass = _mk_button("[5] PASSAR VEZ", func(): ctl.do_pass())
-	for b in [btn_attack, btn_skill, btn_defend, btn_item, btn_pass]:
+	btn_disperse = _mk_button("[6] DISPERSAR", func(): ctl.do_disengage())
+	for b in [btn_attack, btn_skill, btn_defend, btn_item, btn_pass, btn_disperse]:
 		h.add_child(b)
 
 func _build_order_panel() -> void:
@@ -463,7 +465,7 @@ func update_vitals(u: BoardUnit) -> void:
 func refresh_buttons(c) -> void:
 	ctl = c
 	if knight == null or not is_instance_valid(knight):
-		for b in [btn_attack, btn_skill, btn_defend, btn_item, btn_pass]:
+		for b in [btn_attack, btn_skill, btn_defend, btn_item, btn_pass, btn_disperse]:
 			b.disabled = true
 		return
 	var active_ok: bool = TurnManager.active == knight and not TurnManager.game_ended and ctl != null and not ctl.busy
@@ -476,6 +478,7 @@ func refresh_buttons(c) -> void:
 	btn_defend.disabled = not can_act
 	btn_item.disabled = not can_act
 	btn_pass.disabled = not active_ok
+	btn_disperse.disabled = not can_act
 
 ## Atualiza o rotulo do botao [2] conforme o heroi ativo.
 func set_skill_label(unit_id: String) -> void:

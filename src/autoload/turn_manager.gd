@@ -49,6 +49,7 @@ func _advance(first := false) -> void:
 			break
 	active = order[idx]
 	active.defending = false
+	active.disengaging = false
 	EventBus.turn_started.emit(active, round_num)
 	if active.team == "hero":
 		_hero_turn(active)
