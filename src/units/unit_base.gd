@@ -295,6 +295,8 @@ func try_cross_stairs() -> int:
 	if moves_left < 1:
 		return 1
 	var landing = BoardGrid.stair_landing(pair)
+	if landing == null and BoardGrid.is_free(pair):
+		landing = pair  # 8 saídas ocupadas: chega em pé na escada de chegada
 	if landing == null:
 		return 2
 	moves_left -= 1

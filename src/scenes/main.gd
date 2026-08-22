@@ -157,7 +157,7 @@ func _stairtest() -> void:
 			and knight.floor_index == 1 and knight.moves_left == 0
 	print("STAIRTEST 5 negado pos=", knight.grid_pos,
 			" => ", "OK" if ok5 else "FALHOU")
-	# (6) todas as saídas do desembarque ocupadas => código 2, fica na escada.
+	# (6) 8 saídas ocupadas => desembarca EM PÉ na célula pareada (fallback).
 	knight.moves_left = 3
 	var fakes: Array[Vector3i] = []
 	for off in [Vector3i(0, -1, 0), Vector3i(0, 1, 0), Vector3i(-1, 0, 0),
@@ -167,17 +167,36 @@ func _stairtest() -> void:
 		if BoardGrid.is_free(c):
 			BoardGrid.occupied[c] = knight
 			fakes.append(c)
-	var blocked: int = knight.try_cross_stairs()
+	var res6: int = knight.try_cross_stairs()
 	for c3 in fakes:
 		BoardGrid.clear_cell(c3)
-	var ok6a: bool = blocked == 2 and knight.grid_pos == top \
-			and knight.floor_index == 1 and knight.moves_left == 3
-	var ok6b: bool = knight.try_cross_stairs() == 0 \
-			and knight.floor_index == 0
-	print("STAIRTEST 6 bloqueada blocked=", blocked,
-			" depois-liberado pos=", knight.grid_pos,
-			" => ", "OK" if (ok6a and ok6b) else "FALHOU")
-	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 and ok6a and ok6b
+	var ok6: bool = res6 == 0 and knight.grid_pos == base \
+			and knight.floor_index == 0 and knight.moves_left == 2
+	print("STAIRTEST 6 fallback-par res=", res6, " pos=", knight.grid_pos,
+			" => ", "OK" if ok6 else "FALHOU")
+	# (7) par TAMBÉM ocupado => código 2, unidade espera na escada.
+	BoardGrid.move_unit(knight, top)
+	knight.grid_pos = top
+	knight.floor_index = 1
+	knight.moves_left = 2
+	var fakes2: Array[Vector3i] = []
+	for off in [Vector3i(0, -1, 0), Vector3i(0, 1, 0), Vector3i(-1, 0, 0),
+			Vector3i(1, 0, 0), Vector3i(-1, -1, 0), Vector3i(1, -1, 0),
+			Vector3i(-1, 1, 0), Vector3i(1, 1, 0)]:
+		var c4: Vector3i = base + off
+		if BoardGrid.is_free(c4):
+			BoardGrid.occupied[c4] = knight
+			fakes2.append(c4)
+	BoardGrid.occupied[base] = knight
+	var res7: int = knight.try_cross_stairs()
+	BoardGrid.clear_cell(base)
+	for c5 in fakes2:
+		BoardGrid.clear_cell(c5)
+	var ok7: bool = res7 == 2 and knight.grid_pos == top \
+			and knight.floor_index == 1 and knight.moves_left == 2
+	print("STAIRTEST 7 total-bloqueada res=", res7,
+			" => ", "OK" if ok7 else "FALHOU")
+	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 and ok6 and ok7
 	print("STAIRTEST RESULT ", "OK" if all_ok else "FALHOU")
 
 # ------------------------------------------------------------------ build --
@@ -255,8 +274,24 @@ func _build_ui() -> void:
 	hud.env_ref = env
 	hud.bind_units(knight, roster)
 	hud.portrait_clicked.connect(_go_to_unit)
-	EventBus.unit_changed_floor.connect(func(u, _f): _apply_floor_visibility())
+	EventBus.unit_changed_floor.connect(_on_unit_changed_floor)
 	EventBus.active_floor_changed.connect(func(_f): _apply_floor_visibility())
+
+## Travessia de escada: sincroniza andar ativo + câmera NA HORA (v0.7.0).
+## Sem isso o herói ficava invisível (z != active_floor) e o andar antigo
+## permanecia visível até o próximo clique/turno — causa raiz do
+## "piso flutuando" e do clique extra para "completar" a ida.
+func _on_unit_changed_floor(u, _f: int) -> void:
+	_apply_floor_visibility()
+	if u != knight:
+		return
+	var f: int = knight.grid_pos.z
+	if f == env.active_floor_index:
+		return
+	await hud.fade_swap(func():
+		env.set_active_floor(f)
+		_apply_floor_visibility()
+		camera_rig.snap_focus(knight.global_position))
 
 func _wire_systems() -> void:
 	ai = EnemyAI.new()

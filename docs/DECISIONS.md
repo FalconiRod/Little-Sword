@@ -80,6 +80,20 @@ ALTERNATIVAS: links/teleporte (v0.4.0, descartado: salto invisivel, bot
 nao parava em degrau, dois sistemas de pathing).
 IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.
 
+## D14 - Porta sempre com passagem livre nos dois lados do eixo de abertura
+DATA: 2026-08-22 | STATUS: ATIVA
+DECISAO: ao carregar qualquer mapa, _validate_doors() exige que cada porta
+tenha UM eixo (horizontal ou vertical) com as DUAS células adjacentes
+caminháveis — o eixo por onde ela "abre". Eixo fechado dos dois lados
+(porta em linha de parede) é ignorado; porta sem NENHUM eixo livre, ou
+encostada em outra porta, gera push_warning na carga (erro de config do
+mapa, nunca silencioso). Portas disfarçadas ('X') ficam fora da regra.
+MOTIVO: porta que abre e não leva a lugar algum vira bug de gameplay
+(jogador abre e não passa) — caso real do entulho atrás da porta (6,5,1)
+do stone_keep, corrigido no mapa.
+IMPACTO: mapas manuais novos e procedurais futuros são validados cedo;
+warnings aparecem no console em dev.
+
 ## D13 - Escada = par de celulas ligadas; clicar nela cruza e desembarca a frente
 DATA: 2026-08-22 | STATUS: ATIVA (v0.6.3; v0.6.1 e v0.6.2 SUPERADAS)
 DECISAO: escada e UM par base<->topo (stair_links bidirecional); ambas as

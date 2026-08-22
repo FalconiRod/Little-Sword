@@ -72,6 +72,13 @@ func load_map(id: String) -> bool:
 		var b := Vector3i(st[1][0], st[1][1], st[1][2])
 		BoardGrid.add_stair_link(a, b)
 		_spawn_stairs_visual(a, b)
+		for cel in [a, b]:
+			if not BoardGrid.is_walkable(cel):
+				push_warning("[MAPA %s] Escada: célula do par inválida ou bloqueada: %s"
+						% [map_id, cel])
+
+	# PARTE 2: porta precisa de eixo de passagem livre dos DOIS lados.
+	_validate_doors()
 
 	_setup_atmosphere()
 	_scatter_torches()
@@ -98,6 +105,38 @@ func set_active_floor(f: int) -> void:
 	for i in _floor_nodes.size():
 		_floor_nodes[i].visible = i == f
 	EventBus.active_floor_changed.emit(f)
+
+## Regra de mapa: a porta precisa de UM eixo (H ou V) com as duas células
+## adjacentes caminháveis — é por ali que ela "abre". Eixo fechado pelos
+## dois lados (porta em linha de parede) é ignorado. Violações viram
+## push_warning para pegar erro de configuração cedo, nunca silêncio.
+## Portas disfarçadas ('X', passagem secreta) ficam fora da regra.
+func _validate_doors() -> void:
+	var door_cells := {}
+	for d in doors:
+		door_cells[d.cell] = true
+	for d in doors:
+		if d.disguised:
+			continue
+		var c: Vector3i = d.cell
+		var axes := [
+			[Vector3i(1, 0, 0), Vector3i(-1, 0, 0)],
+			[Vector3i(0, 1, 0), Vector3i(0, -1, 0)],
+		]
+		var has_opening := false
+		for axis in axes:
+			var n1: Vector3i = c + axis[0]
+			var n2: Vector3i = c + axis[1]
+			if not (BoardGrid.is_walkable(n1) and BoardGrid.is_walkable(n2)):
+				continue  # eixo não é o de passagem (parede dos dois lados)
+			has_opening = true
+			for n in [n1, n2]:
+				if door_cells.has(n):
+					push_warning("[MAPA %s] Porta em %s encostada em outra porta (%s)"
+							% [map_id, c, n])
+		if not has_opening:
+			push_warning("[MAPA %s] Porta em %s sem passagem livre nos dois lados"
+					% [map_id, c])
 
 ## Iluminação de mesa: ambiente frio fraco + "lua" direcional com sombra.
 func _setup_atmosphere() -> void:
@@ -274,7 +313,7 @@ const MAPS := {
 					"#a......P..#",
 					"#..,....o..#",
 					"#P.SD......#",
-					"#.....o....#",
+					"#.....,....#",  # entulho removido: ficava atrás da porta (6,5)
 					"######D#####",
 					"#g.......P.#",
 					"#........S.#",

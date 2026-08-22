@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.7.0 — 2026-08-22 — Causa raiz da transição + regra de porta desobstruída
+### Corrigido (BUG-019 — causa raiz, não sintoma)
+- `unit_changed_floor` nunca sincronizava `active_floor_index` nem a
+  câmera: após cruzar, o herói ficava INVISÍVEL (`_apply_floor_visibility`
+  comparava com o andar antigo), o andar anterior permanecia visível e o
+  novo escondido — só se corrigia no clique de retrato/início de turno,
+  o que parecia "precisar de um clique extra para completar a ida" e
+  produzia o visual de "piso flutuando abaixo do mapa"
+- Agora `_on_unit_changed_floor` (main.gd) aplica visibilidade na hora e,
+  se for o herói, faz fade + troca de andar + snap da câmera no destino
+### Alterado
+- Travessia em UM clique garantida: esgotadas as 8 saídas do desembarque,
+  a unidade chega EM PÉ na própria célula pareada; só falha (código 2)
+  se até o par estiver ocupado (extremo raro). STAIRTEST agora 7/7
+### Adicionado (PARTE 2 — regra de mapa)
+- `_validate_doors()`: porta exige UM eixo (H ou V) com as duas células
+  adjacentes caminháveis (o eixo de abertura); porta encostada em outra
+  porta ou sem passagem dos dois lados → push_warning na carga do mapa;
+  disfarçadas ('X') ficam fora da regra
+- Validação do pareamento de escada (células existem e são caminháveis)
+### Mapas
+- stone_keep f1: entulho (6,4,1) removido — ficava ATRÁS da porta (6,5,1)
+  e bloqueava a passagem (a "pedra na porta do segundo andar" relatada);
+  os 4 mapas carregam sem nenhum warning
+
 ## v0.6.4 — 2026-08-22 — Desembarque mais tolerante + mensagens claras
 ### Corrigido
 - "Cliquei na escada e disse que estava ocupado acima": o desembarque só

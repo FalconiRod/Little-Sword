@@ -151,6 +151,27 @@ codigo (0/1/2) e o controller mostra motivo exato ("Sem movimento para
 usar a escada" x "Saida da escada bloqueada acima/abaixo").
 Status: RESOLVIDO (STAIRTEST 6/6, cenario 6 cobre bloqueio total).
 
+## BUG-019 - Transicao de escada quebrada: andar ativo nunca sincronizado - RESOLVIDO
+Problema: change_floor emitia unit_changed_floor, mas NINGUEM chamava
+env.set_active_floor nem reposicionava a camera nesse evento. Apos cruzar:
+heroi INVISIVEL (_apply_floor_visibility comparava z com o andar antigo),
+andar antigo visivel/novo escondido ("piso flutuando abaixo do mapa"),
+e a correcao so acontecia no clique de retrato/inicio de turno — o
+"clique extra para completar a ida" relatado pelo usuario.
+Arquivos: main.gd (novo _on_unit_changed_floor), unit_base.gd (fallback
+para o par), environment_manager.gd.
+Solucao: handler dedicado sincroniza visibilidade + fade + snap na hora;
+travessia em UM clique garantida (8 saidas -> fallback em pe no par ->
+so falha se par ocupado). Validacao de pareamento de escada na carga.
+Status: RESOLVIDO (STAIRTEST 7/7; demos limpos).
+
+## BUG-020 - Entulho atras da porta do 1 andar (stone_keep) - RESOLVIDO
+Problema: 'o' em (6,4,1) ficava imediatamente atras da porta (6,5,1):
+abrir a porta nao levava a lugar algum (a "pedra na porta do segundo
+andar" relatada desde a v0.5.x).
+Solucao: regra nova D14 (_validate_doors) detectou o caso na carga;
+mapa corrigido ('o' -> ','). 4 mapas carregam sem warnings.
+
 ## DISCOVERY - Contrato de animate_move (2026-08-22)
 EVIDENCIA: stairtest cenario 2 falhava porque o teste deixava grid_pos na
 celula de ORIGEM; chamadores reais fazem BoardGrid.move_unit(dest=path[-1])

@@ -109,3 +109,14 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   stairtest cenario 6 cobre bloqueio total + liberacao
 - Validacao: STAIRTEST 6/6; demo stone_keep sobe/desce OK; CLICKTEST/
   SKILLTEST OK
+
+## Sessao 3g - 2026-08-22 (v0.7.0 causa raiz da transicao + regra de porta)
+- Feito: CAUSA RAIZ do bug da escada achada — unit_changed_floor nunca
+  sincronizava active_floor_index/camera (heroi invisivel, andar antigo
+  visivel, clique extra "completando" a ida). Handler _on_unit_changed_
+  floor faz visibilidade+fade+snap na hora. Travessia em 1 clique
+  garantida (fallback em pe no par). Regra D14 _validate_doors pegou o
+  entulho atras da porta (6,5,1) do stone_keep — mapa corrigido; 4 mapas
+  sem warnings. STAIRTEST 7/7
+- Descoberta: set_active_floor so era chamado em retrato/turno — eventos
+  de movimento precisam sincronizar estado visual eles mesmos
