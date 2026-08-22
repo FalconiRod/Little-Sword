@@ -103,3 +103,9 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   _pan_position): nunca se escreve position direto. Deslize pesado BG3.
 - Follow do herói com atraso natural (lag nasce da interpolação);
   religa a cada turno dele; pan manual (meio/WASD) desliga.
+
+## v0.2.4 — 2026-08-21 — Esquema híbrido de rotação
+### Adicionado
+- Arrastar botão DIREITO gira a câmera pros lados (yaw). Esquerdo segue
+  girando os dois eixos (padrão BG3). Clique direito sem arrasto
+  continua cancelando a mira (limiar 6px).

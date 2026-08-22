@@ -68,6 +68,7 @@ var _follow_target: Node3D = null
 var following := false
 
 var _is_orbiting: bool = false
+var _is_orbiting_yaw: bool = false
 var _is_panning_mmb: bool = false
 var _shake := 0.0
 var _auto_orbit := false
@@ -107,6 +108,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_is_orbiting = event.pressed
 			if event.pressed:
 				return
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			# Direito arrastando gira pros lados (yaw); clique sem arrasto
+			# é tratado pelo PlayerController como cancelar mira.
+			_is_orbiting_yaw = event.pressed
+			if event.pressed:
+				return
 		elif event.button_index == MOUSE_BUTTON_MIDDLE:
 			_is_panning_mmb = event.pressed
 			if event.pressed:
@@ -122,6 +129,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_pitch_target = clamp(
 				_pitch_target, deg_to_rad(pitch_min_deg), deg_to_rad(pitch_max_deg)
 			)
+		elif _is_orbiting_yaw:
+			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
 		elif _is_panning_mmb:
 			var right: Vector3 = global_transform.basis.x
 			var forward: Vector3 = -global_transform.basis.z
