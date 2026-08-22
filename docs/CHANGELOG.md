@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.6.4 — 2026-08-22 — Desembarque mais tolerante + mensagens claras
+### Corrigido
+- "Cliquei na escada e disse que estava ocupado acima": o desembarque só
+  aceitava os 4 vizinhos ortogonais — coluna `P` atrás da escada de cima
+  (stone_keep) + qualquer unidade nas laterais derrubava a travessia
+### Alterado
+- `stair_landing` agora aceita DIAGONAIS como reserva (ordem fixa: 4
+  ortogonais, depois 4 diagonais); só falha se TODAS as 8 saídas
+  estiverem bloqueadas
+- `try_cross_stairs` retorna código: 0 cruzou / 1 sem movimento /
+  2 bloqueado; mensagens distintas ("Sem movimento para usar a escada" ×
+  "Saída da escada bloqueada acima/abaixo")
+### Testes
+- STAIRTEST 6/6: novo cenário 6 (8 saídas ocupadas → código 2, unidade
+  espera na escada; liberadas → cruza no re-click); demos/CLICKTEST/
+  SKILLTEST OK
+
 ## v0.6.3 — 2026-08-22 — Clicar na escada cruza e desembarca à frente
 ### Alterado
 - Clicar na casa da escada como destino: a unidade anda até ela e cruza

@@ -139,6 +139,18 @@ pareado nao re-cruza; passar pelo corredor sem clicar nela nao cruza;
 saida bloqueada avisa e a unidade espera na escada.
 Status: RESOLVIDO (STAIRTEST 5/5; demos com sobe/desce nos dois modos).
 
+## BUG-018 - Desembarque da escada falhava com saidas bloqueadas - RESOLVIDO
+Problema: stair_landing so aceitava vizinhos ORTOGONAIS do par; no
+stone_keep a coluna P (9,6,1) fica atras da escada de cima e qualquer
+unidade nas laterais esgotava as saidas — "clicou na escada e disse que
+estava ocupado acima", sem subir.
+Arquivos: board_grid.gd (stair_landing), unit_base.gd (try_cross_stairs),
+player_controller.gd.
+Solucao: diagonais como reserva nas 8 direcoes; try_cross_stairs retorna
+codigo (0/1/2) e o controller mostra motivo exato ("Sem movimento para
+usar a escada" x "Saida da escada bloqueada acima/abaixo").
+Status: RESOLVIDO (STAIRTEST 6/6, cenario 6 cobre bloqueio total).
+
 ## DISCOVERY - Contrato de animate_move (2026-08-22)
 EVIDENCIA: stairtest cenario 2 falhava porque o teste deixava grid_pos na
 celula de ORIGEM; chamadores reais fazem BoardGrid.move_unit(dest=path[-1])

@@ -141,8 +141,8 @@ func _stairtest() -> void:
 	# (4) EM PÉ na célula com movimento: travessia desembarca À FRENTE.
 	knight.moves_left = 2
 	var landing = BoardGrid.stair_landing(base)
-	var crossed: bool = knight.try_cross_stairs()
-	var ok4: bool = crossed and knight.grid_pos == landing \
+	var crossed: int = knight.try_cross_stairs()
+	var ok4: bool = crossed == 0 and knight.grid_pos == landing \
 			and knight.floor_index == 0 and knight.moves_left == 1
 	print("STAIRTEST 4 cross-explicito pos=", knight.grid_pos,
 			" esperado=", landing, " ml=", knight.moves_left,
@@ -152,12 +152,32 @@ func _stairtest() -> void:
 	knight.grid_pos = top
 	knight.floor_index = 1
 	knight.moves_left = 0
-	var denied: bool = not knight.try_cross_stairs()
-	var ok5: bool = denied and knight.grid_pos == top \
+	var denied: int = knight.try_cross_stairs()
+	var ok5: bool = denied == 1 and knight.grid_pos == top \
 			and knight.floor_index == 1 and knight.moves_left == 0
 	print("STAIRTEST 5 negado pos=", knight.grid_pos,
 			" => ", "OK" if ok5 else "FALHOU")
-	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5
+	# (6) todas as saídas do desembarque ocupadas => código 2, fica na escada.
+	knight.moves_left = 3
+	var fakes: Array[Vector3i] = []
+	for off in [Vector3i(0, -1, 0), Vector3i(0, 1, 0), Vector3i(-1, 0, 0),
+			Vector3i(1, 0, 0), Vector3i(-1, -1, 0), Vector3i(1, -1, 0),
+			Vector3i(-1, 1, 0), Vector3i(1, 1, 0)]:
+		var c: Vector3i = base + off
+		if BoardGrid.is_free(c):
+			BoardGrid.occupied[c] = knight
+			fakes.append(c)
+	var blocked: int = knight.try_cross_stairs()
+	for c3 in fakes:
+		BoardGrid.clear_cell(c3)
+	var ok6a: bool = blocked == 2 and knight.grid_pos == top \
+			and knight.floor_index == 1 and knight.moves_left == 3
+	var ok6b: bool = knight.try_cross_stairs() == 0 \
+			and knight.floor_index == 0
+	print("STAIRTEST 6 bloqueada blocked=", blocked,
+			" depois-liberado pos=", knight.grid_pos,
+			" => ", "OK" if (ok6a and ok6b) else "FALHOU")
+	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 and ok6a and ok6b
 	print("STAIRTEST RESULT ", "OK" if all_ok else "FALHOU")
 
 # ------------------------------------------------------------------ build --

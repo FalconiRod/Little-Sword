@@ -395,13 +395,15 @@ func _handle_click(screen_pos: Vector2) -> void:
 			EventBus.log_msg.emit("O baú está longe. Aproxime-se dele.", "#ffb84d")
 		return
 	# Escada: clicar de novo na célula ONDE ESTÁ = atravessar (custa 1 MP).
-	# Pisar na escada nunca cruza sozinho (v0.6.2).
 	if c == knight.grid_pos and BoardGrid.stair_links.has(c):
-		if not knight.try_cross_stairs():
-			EventBus.log_msg.emit("Sem movimento ou escada ocupada.", "#ffb84d")
-		else:
+		var res2 := knight.try_cross_stairs()
+		if res2 == 0:
 			hud.update_vitals(knight)
 			_compute_reachable()
+		elif res2 == 1:
+			EventBus.log_msg.emit("Sem movimento para usar a escada.", "#ffb84d")
+		else:
+			EventBus.log_msg.emit(_stair_block_msg(c), "#ffb84d")
 		return
 	if reach["dist"].has(c):
 		_do_move(c)
@@ -426,8 +428,11 @@ func _do_move(cell: Vector3i) -> void:
 			else path[path.size() - 2]
 	var by_hop := BoardGrid.stair_pair(prev_step) == cell
 	if not by_hop and BoardGrid.stair_links.has(cell):
-		if not knight.try_cross_stairs():
-			EventBus.log_msg.emit("Saída da escada bloqueada no outro andar.", "#ffb84d")
+		var res := knight.try_cross_stairs()
+		if res == 1:
+			EventBus.log_msg.emit("Sem movimento para usar a escada.", "#ffb84d")
+		elif res == 2:
+			EventBus.log_msg.emit(_stair_block_msg(cell), "#ffb84d")
 	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
 	hud.update_vitals(knight)
 	busy = false
@@ -435,6 +440,12 @@ func _do_move(cell: Vector3i) -> void:
 		_compute_reachable()
 	else:
 		_hide_all()
+
+## Mensagem de escada bloqueada, indicando o andar de destino.
+func _stair_block_msg(cell: Vector3i) -> String:
+	var pair: Vector3i = BoardGrid.stair_pair(cell)
+	var onde := "acima" if pair.z > cell.z else "abaixo"
+	return "Saída da escada bloqueada %s." % onde
 
 func try_attack() -> void:
 	if mode == Mode.NONE or busy or acted:

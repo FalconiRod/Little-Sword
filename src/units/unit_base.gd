@@ -284,18 +284,19 @@ func animate_move(path: Array, from_cell = null) -> void:
 	# o salto pareado (destino em outro andar), ou quem está EM PÉ na
 	# célula clica nela de novo (try_cross_stairs).
 
-## Atravessa a escada em que a unidade está EM PÉ (ação explícita).
+## Atravessa a escada em que a unidade está EM PÉ.
 ## Custa 1 de movimento e desembarca no primeiro grid LIVRE à frente da
-## escada no andar de destino. Retorna true se a travessia aconteceu.
-func try_cross_stairs() -> bool:
+## escada no andar de destino. Retorna: 0 = cruzou, 1 = sem movimento,
+## 2 = saída bloqueada no destino (ou célula não é escada).
+func try_cross_stairs() -> int:
 	if not BoardGrid.stair_links.has(grid_pos):
-		return false
+		return 2
 	var pair: Vector3i = BoardGrid.stair_pair(grid_pos)
 	if moves_left < 1:
-		return false
+		return 1
 	var landing = BoardGrid.stair_landing(pair)
 	if landing == null:
-		return false
+		return 2
 	moves_left -= 1
 	var from_z := grid_pos.z
 	change_floor(landing)
@@ -304,7 +305,7 @@ func try_cross_stairs() -> bool:
 				["desce" if pair.z < from_z else "sobe"], "#c9a227")
 	else:
 		EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
-	return true
+	return 0
 
 ## Ponto ÚNICO de mudança de andar (escadas). Reposiciona no grid e no
 ## mundo e dispara unit_changed_floor.

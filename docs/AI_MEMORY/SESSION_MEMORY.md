@@ -100,3 +100,12 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   testes (depois, a propria unidade ocupa a celula N e muda o resultado)
 - Validacao: STAIRTEST 5/5; demos com sobe/desce nos dois modos; msg
   "Saida da escada bloqueada" exercitada no demo tower; CLICKTEST/SKILLTEST OK
+
+## Sessao 3f - 2026-08-22 (v0.6.4 desembarque tolerante, BUG-018)
+- Feito: usuario clicou na escada e levou "ocupado acima" sem subir —
+  causa: stair_landing so olhava 4 ortogonais (coluna P atras da escada
+  de cima + unidades nas laterais). Diagonais como reserva (8 saidas);
+  try_cross_stairs retorna codigo 0/1/2 com mensagens exatas por motivo;
+  stairtest cenario 6 cobre bloqueio total + liberacao
+- Validacao: STAIRTEST 6/6; demo stone_keep sobe/desce OK; CLICKTEST/
+  SKILLTEST OK
