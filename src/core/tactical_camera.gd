@@ -74,14 +74,6 @@ var _is_panning_mmb: bool = false
 var _shake := 0.0
 var _auto_orbit := false
 
-# Modo "mapa todo" (tecla M): guarda o enquadramento anterior para voltar.
-var _overview := false
-var _saved_view := {
-	"pivot": Vector3.ZERO,
-	"pitch": 0.0,
-	"zoom": 0.0,
-}
-
 
 func setup(bounds: Rect2) -> void:
 	_pan_limits = bounds
@@ -133,9 +125,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			var step := zoom_step * clampf(_zoom_current / 12.0, 1.0, 3.0)
 			_zoom_target = clamp(_zoom_target + step, zoom_min, zoom_max)
-	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_M:
-			_toggle_overview()
 	elif event is InputEventMouseMotion:
 		if _is_orbiting:
 			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
@@ -202,30 +191,6 @@ func set_follow(target: Node3D, enabled: bool = true) -> void:
 	following = enabled and target != null
 	if following:
 		set_focus(_follow_target.global_position)
-
-
-## Tecla M: enquadra a mesa inteira (topo, centrada) e volta ao modo anterior.
-## Tudo via ALVOS — a suavização existente faz a transição deslizar.
-func _toggle_overview() -> void:
-	if _overview:
-		_overview = false
-		_pan_target = _saved_view["pivot"]
-		_pitch_target = _saved_view["pitch"]
-		_zoom_target = clampf(_saved_view["zoom"], zoom_min, zoom_max)
-	else:
-		_overview = true
-		stop_follow()
-		_saved_view["pivot"] = _pan_target
-		_saved_view["pitch"] = _pitch_target
-		_saved_view["zoom"] = _zoom_target
-		var c := _pan_limits.get_center()
-		_pan_target = Vector3(c.x * BoardGrid.TILE, 0.0, c.y * BoardGrid.TILE)
-		var fit: float = maxf(
-			_pan_limits.size.x / 1.294,
-			_pan_limits.size.y / 0.731
-		) + 6.0
-		_pitch_target = deg_to_rad(72.0)
-		_zoom_target = clampf(fit, zoom_min, zoom_max)
 
 
 func stop_follow() -> void:

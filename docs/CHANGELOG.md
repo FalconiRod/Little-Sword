@@ -118,3 +118,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Mudado
 - zoom_max 22 -> 46 (agora alcanca o mapa todo); passo da roda escala com a
   distancia atual (1x..3x) para nao ficar lento no zoom-out.
+
+## v0.2.6 — 2026-08-21 — Controles simplificados
+### Removido
+- Tecla M (visao geral). Ver o mapa todo agora e so rolar o zoom para fora
+  (ate 46) e arrastar com as setas/WASD.
+### Filosofia de controle
+- Setas/WASD: mover a camera pelo mapa · Mouse: ajustar o angulo da visao.
