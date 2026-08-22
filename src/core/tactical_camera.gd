@@ -38,7 +38,6 @@ const SENS_MAX := 0.30
 @export var pan_speed: float = 10.0
 @export var pan_acceleration: float = 6.0
 @export var pan_deceleration: float = 10.0
-@export var middle_mouse_pan_sensitivity: float = 0.02
 var _pan_limits := Rect2(0, 0, 26, 30)
 
 # ---------------------------------------------------------------------------
@@ -73,7 +72,6 @@ var following := false
 
 var _is_orbiting: bool = false
 var _is_orbiting_yaw: bool = false
-var _is_panning_mmb: bool = false
 var _shake := 0.0
 var _auto_orbit := false
 
@@ -108,7 +106,8 @@ func setup(bounds: Rect2) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		if event.button_index == orbit_mouse_button:
+		if event.button_index == orbit_mouse_button or event.button_index == MOUSE_BUTTON_MIDDLE:
+			# Esquerdo OU meio arrastando: girar livremente (estilo BG3/vídeo).
 			_is_orbiting = event.pressed
 			if event.pressed:
 				return
@@ -118,10 +117,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			_is_orbiting_yaw = event.pressed
 			if event.pressed:
 				return
-		elif event.button_index == MOUSE_BUTTON_MIDDLE:
-			_is_panning_mmb = event.pressed
-			if event.pressed:
-				return
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			var step := zoom_step * clampf(_zoom_current / 12.0, 1.0, 3.0)
 			_zoom_target = clamp(_zoom_target - step, zoom_min, zoom_max)
@@ -129,10 +124,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			var step := zoom_step * clampf(_zoom_current / 12.0, 1.0, 3.0)
 			_zoom_target = clamp(_zoom_target + step, zoom_min, zoom_max)
 	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_MINUS:
-			set_sensitivity(rotation_sensitivity - 0.02)
-		elif event.keycode == KEY_EQUAL:
-			set_sensitivity(rotation_sensitivity + 0.02)
+		match event.keycode:
+			KEY_MINUS:
+				set_sensitivity(rotation_sensitivity - 0.02)
+			KEY_EQUAL:
+				set_sensitivity(rotation_sensitivity + 0.02)
+			KEY_HOME:
+				if _follow_target != null:
+					set_follow(_follow_target, true)
+					EventBus.log_msg.emit("Câmera recentrada no herói.", "8fd3ff")
 	elif event is InputEventMouseMotion:
 		if _is_orbiting:
 			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
@@ -142,19 +142,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			)
 		elif _is_orbiting_yaw:
 			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
-		elif _is_panning_mmb:
-			var right: Vector3 = global_transform.basis.x
-			var forward: Vector3 = -global_transform.basis.z
-			right.y = 0.0
-			forward.y = 0.0
-			right = right.normalized()
-			forward = forward.normalized()
-			var delta_pan: Vector3 = (
-				right * -event.relative.x + forward * event.relative.y
-			) * middle_mouse_pan_sensitivity * (_zoom_current / 12.0)
-			_pan_target += delta_pan
-			stop_follow()
-			_clamp_pan_target()
 
 
 func _process(delta: float) -> void:
@@ -209,7 +196,6 @@ func stop_follow() -> void:
 ## acompanha proporcionalmente para os dois gestos "sentirem" igual.
 func set_sensitivity(v: float) -> void:
 	rotation_sensitivity = clampf(v, SENS_MIN, SENS_MAX)
-	middle_mouse_pan_sensitivity = 0.02 * (rotation_sensitivity / 0.12)
 	var pct := int(round(rotation_sensitivity / 0.12 * 100.0))
 	EventBus.log_msg.emit("Sensibilidade do mouse: %d%%" % pct, "8fd3ff")
 

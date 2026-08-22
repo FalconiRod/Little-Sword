@@ -130,3 +130,11 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Adicionado
 - Teclas - e = : diminuem/aumentam a sensibilidade do mouse (40%..250%),
   com confirmacao no log. O arrasto de pan acompanha proporcionalmente.
+
+## v0.2.8 — 2026-08-21 — Esquema de câmera igual ao tutorial BG3
+### Mudado
+- Botão do MEIO arrastando agora GIRA a câmera livremente (yaw+pitch),
+  como no vídeo; pan pelo mouse removido (fica nas setas/WASD).
+### Adicionado
+- Tecla HOME recentra e trava o follow no herói com lerp (equivalente do
+  attached_to_player + recenter_speed=10 do vídeo), com aviso no log.

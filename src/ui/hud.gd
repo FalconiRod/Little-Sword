@@ -309,7 +309,7 @@ func _build_hints() -> void:
 	p.offset_bottom = -14
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(p)
-	var l := _label("Setas/WASD: mover    Mouse: angulo    Roda: zoom    -/= : sensibilidade", 12, "8a8f9c", p)
+	var l := _label("Setas/WASD: mover    Esq./Meio/Dir.: girar    Roda: zoom    Home: recentrar    -/=: sensib.", 12, "8a8f9c", p)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _build_inventory() -> void:
