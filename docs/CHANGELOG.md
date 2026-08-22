@@ -174,3 +174,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Adicionado
 - animate_lunge: investida curta (avanca 0.55u e retorna) sincronizada com
   a resolucao do golpe, para todos os atacantes via CombatSystem.
+
+## v0.2.14 — 2026-08-21 — Feedback de impacto no combate
+### Adicionado
+- animate_recoil: alvo atingido recua na direcao oposta ao atacante.
+- Faiscas procedurais (CPUParticles3D) no ponto do impacto; criticas soltam
+  explosao maior em tom alaranjado.
+- Texto flutuante MISS sobre o alvo quando o golpe nao conecta.

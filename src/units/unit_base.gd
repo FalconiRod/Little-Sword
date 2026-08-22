@@ -136,6 +136,20 @@ func animate_lunge(target_wp: Vector3) -> void:
 	tw.tween_property(self, "global_position", base, 0.16) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
+## Recuo curto na direcao oposta ao atacante (vende o impacto).
+func animate_recoil(from_wp: Vector3) -> void:
+	var dir := global_position - from_wp
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+	var base := global_position
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", base + dir * 0.28, 0.07) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "global_position", base, 0.14) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
 ## Movimento de peça: saltos curtos célula a célula.
 func animate_move(path: Array) -> void:
 	for c in path:

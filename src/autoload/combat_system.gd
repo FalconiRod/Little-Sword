@@ -28,6 +28,11 @@ func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 			dmg += 2
 			EventBus.log_msg.emit("As runas amplificam o golpe! (+2)", "#37e0ff")
 		target.take_damage(dmg)
+		# Impacto fisico: alvo recua e solta faiscas (mais fortes em critico).
+		target.animate_recoil(attacker.global_position)
+		_sparks(target.global_position + Vector3(0, 0.8, 0),
+				"#ff9f43" if chk["crit"] else "#ffd166",
+				26 if chk["crit"] else 14)
 		if chk["crit"]:
 			EventBus.log_msg.emit("ACERTO CRÍTICO! %s causa %d de dano (%d vs CA %d)." % [attacker.display_name, dmg, chk["total"], tgt_ac], "#ffd166")
 			EventBus.shake_requested.emit(0.5)
@@ -35,6 +40,7 @@ func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 			EventBus.log_msg.emit("%s acerta %d de dano (%d vs CA %d)." % [attacker.display_name, dmg, chk["total"], tgt_ac], "#e8e2d0")
 			EventBus.shake_requested.emit(0.22)
 	else:
+		target.spawn_float_text("MISS", "#b8c0cc")
 		if chk["fumble"]:
 			EventBus.log_msg.emit("FALHA CRÍTICA! %s erra o golpe." % attacker.display_name, "#ff6b6b")
 		else:
@@ -57,3 +63,32 @@ func _alert_victims(target) -> void:
 			if BoardGrid.chebyshev(c, target.grid_pos) <= 2:
 				ally.alerted = true
 	EventBus.log_msg.emit("%s entra em combate!" % target.display_name, "#ffb84d")
+
+## Explosao curta de faiscas procedurais no ponto do impacto.
+func _sparks(wp: Vector3, col_hex: String, amount: int) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = amount
+	p.lifetime = 0.5
+	p.explosiveness = 1.0
+	p.direction = Vector3.UP
+	p.spread = 75.0
+	p.initial_velocity_min = 2.2
+	p.initial_velocity_max = 4.6
+	p.gravity = Vector3(0, -10, 0)
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.0
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.055
+	mesh.height = 0.11
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color.html(col_hex)
+	m.emission_enabled = true
+	m.emission = Color.html(col_hex)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.material = m
+	p.mesh = mesh
+	add_child(p)
+	p.position = wp
+	p.emitting = true
+	p.finished.connect(p.queue_free)
