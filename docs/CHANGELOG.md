@@ -125,3 +125,8 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   (ate 46) e arrastar com as setas/WASD.
 ### Filosofia de controle
 - Setas/WASD: mover a camera pelo mapa · Mouse: ajustar o angulo da visao.
+
+## v0.2.7 — 2026-08-21 — Sensibilidade do mouse ajustavel em jogo
+### Adicionado
+- Teclas - e = : diminuem/aumentam a sensibilidade do mouse (40%..250%),
+  com confirmacao no log. O arrasto de pan acompanha proporcionalmente.

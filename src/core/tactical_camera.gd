@@ -14,7 +14,10 @@ extends Node3D
 
 @export_group("Rotação (orbit)")
 ## Graus de rotação por pixel de movimento do mouse. Baixo = pesado/lento.
+## Ajustável em jogo com as teclas - e = (set_sensitivity).
 @export var rotation_sensitivity: float = 0.12
+const SENS_MIN := 0.04
+const SENS_MAX := 0.30
 ## Taxa de suavização exponencial: quanto maior, mais responsivo.
 @export var rotation_smoothing: float = 8.0
 ## Limites de pitch (vertical), em graus.
@@ -125,6 +128,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			var step := zoom_step * clampf(_zoom_current / 12.0, 1.0, 3.0)
 			_zoom_target = clamp(_zoom_target + step, zoom_min, zoom_max)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_MINUS:
+			set_sensitivity(rotation_sensitivity - 0.02)
+		elif event.keycode == KEY_EQUAL:
+			set_sensitivity(rotation_sensitivity + 0.02)
 	elif event is InputEventMouseMotion:
 		if _is_orbiting:
 			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
@@ -195,6 +203,15 @@ func set_follow(target: Node3D, enabled: bool = true) -> void:
 
 func stop_follow() -> void:
 	following = false
+
+
+## Ajusta a sensibilidade do mouse em jogo (- / =). O arrasto de pan
+## acompanha proporcionalmente para os dois gestos "sentirem" igual.
+func set_sensitivity(v: float) -> void:
+	rotation_sensitivity = clampf(v, SENS_MIN, SENS_MAX)
+	middle_mouse_pan_sensitivity = 0.02 * (rotation_sensitivity / 0.12)
+	var pct := int(round(rotation_sensitivity / 0.12 * 100.0))
+	EventBus.log_msg.emit("Sensibilidade do mouse: %d%%" % pct, "8fd3ff")
 
 
 # ---------------------------------------------------------------------------
