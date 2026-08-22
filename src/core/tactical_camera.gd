@@ -15,7 +15,7 @@ extends Node3D
 @export_group("Rotação (orbit)")
 ## Graus de rotação por pixel de movimento do mouse. Baixo = pesado/lento.
 ## Ajustável em jogo com as teclas - e = (set_sensitivity).
-@export var rotation_sensitivity: float = 0.12
+@export var rotation_sensitivity: float = 0.06
 const SENS_MIN := 0.04
 const SENS_MAX := 0.30
 ## Taxa de suavização exponencial: quanto maior, mais responsivo.
@@ -196,7 +196,7 @@ func stop_follow() -> void:
 ## acompanha proporcionalmente para os dois gestos "sentirem" igual.
 func set_sensitivity(v: float) -> void:
 	rotation_sensitivity = clampf(v, SENS_MIN, SENS_MAX)
-	var pct := int(round(rotation_sensitivity / 0.12 * 100.0))
+	var pct := int(round(rotation_sensitivity / 0.06 * 100.0))
 	EventBus.log_msg.emit("Sensibilidade do mouse: %d%%" % pct, "8fd3ff")
 
 

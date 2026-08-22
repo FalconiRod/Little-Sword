@@ -138,3 +138,8 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Adicionado
 - Tecla HOME recentra e trava o follow no herói com lerp (equivalente do
   attached_to_player + recenter_speed=10 do vídeo), com aviso no log.
+
+## v0.2.9 — 2026-08-21 — Sensibilidade padrao reduzida
+### Mudado
+- rotation_sensitivity 0.12 -> 0.06 (metade). Regua do -/= recalibrada:
+  100% = novo padrao; faixa continua 40%..250% via set_sensitivity.
