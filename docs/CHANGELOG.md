@@ -151,3 +151,12 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Adicionado
 - Harness --clicktest: injeta clique sintético numa casa alcançável e
   valida o movimento fim-a-fim (input -> raio -> grid -> tween).
+
+## v0.2.11 — 2026-08-21 — Camera estavel: fim do travamento/teleporte
+### Corrigido
+- SpringArm sem colisao (mask 0): paredes nao teleportam nem travam mais a
+  camera ao orbitar de perto.
+### Adicionado
+- Teto dinamico MAX_HORIZON (30u): em pitch baixo a distancia efetiva
+  encolhe; camera nunca se estende para fora do tabuleiro.
+- Piso rigido LEN_FLOOR (2.5) e guarda contra seguir unidade liberada.

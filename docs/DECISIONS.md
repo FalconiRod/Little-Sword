@@ -36,3 +36,10 @@ DECISÃO: gerar StaticBody3D+BoxShape por parede na layer 2; mola usa
 collision_mask=2. D8 (amostragem grid) fica SUPERADO.
 MOTIVO: arquitetura TacticalCamera adotada depende da mola para colisão.
 IMPACTO: ~90 corpos estáticos criados uma vez no build; gameplay segue sem física.
+
+## D10 — Colisao da mola desligada (2026-08-21) — SUPERADORES D9/D8
+DECISAO: SpringArm3D.collision_mask=0 + teto dinamico MAX_HORIZON.
+MOTIVO: colisao com paredes teleportava/travava a camera (relato do usuario);
+estabilidade > oclusao realista num jogo top-down tatico.
+IMPACTO: camera pode sobrepor paredes visualmente em angulos baixos raros;
+corpos layer 2 permanecem no mapa para uso futuro.

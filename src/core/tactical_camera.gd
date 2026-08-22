@@ -60,6 +60,10 @@ var _zoom_target: float = 18.3
 # tudo escreve em _pan_target e a posição real persegue com atraso
 # (camera lag estilo BG3). Quanto menor PAN_LAG, mais pesado o deslize.
 const PAN_LAG := 3.2
+## Alcance horizontal máximo da câmera a partir do pivô: em ângulos baixos
+## a distância efetiva encolhe para a câmera nunca sair de cima da mesa.
+const MAX_HORIZON := 30.0
+const LEN_FLOOR := 2.5
 
 var _pan_position: Vector3 = Vector3.ZERO
 var _pan_target: Vector3 = Vector3.ZERO
@@ -88,11 +92,9 @@ func setup(bounds: Rect2) -> void:
 
 	_spring_arm = SpringArm3D.new()
 	_spring_arm.spring_length = _zoom_current
-	_spring_arm.margin = 0.5
-	_spring_arm.collision_mask = 2
-	var sphere := SphereShape3D.new()
-	sphere.radius = 0.6
-	_spring_arm.shape = sphere
+	# Sem colisão: paredes teleportavam/travavam a câmera. O alcance passa a
+	# ser controlado pelo teto dinâmico MAX_HORIZON em _apply_zoom().
+	_spring_arm.collision_mask = 0
 	_pivot.add_child(_spring_arm)
 
 	cam = Camera3D.new()
@@ -175,6 +177,9 @@ func _process(delta: float) -> void:
 ## PAN_LAG na interpolação de _pan_position.
 func _update_follow() -> void:
 	if following and _follow_target != null:
+		if not is_instance_valid(_follow_target):
+			stop_follow()
+			return
 		var p := _follow_target.global_position
 		_pan_target.x = p.x
 		_pan_target.z = p.z
@@ -231,8 +236,13 @@ func _apply_zoom_smoothing(delta: float) -> void:
 
 
 func _apply_zoom() -> void:
-	if _spring_arm != null:
-		_spring_arm.spring_length = _zoom_current
+	if _spring_arm == null:
+		return
+	# Teto dinâmico: em pitch baixo, cos(pitch) cresce e a distância efetiva
+	# é limitada para o braço não estender a câmera para fora do tabuleiro.
+	var c := maxf(cos(_pitch_current), 0.25)
+	var maxlen := minf(_zoom_current, MAX_HORIZON / c)
+	_spring_arm.spring_length = maxf(maxlen, LEN_FLOOR)
 
 
 # ---------------------------------------------------------------------------
