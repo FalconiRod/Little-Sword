@@ -1,0 +1,287 @@
+class_name EnvironmentManager
+extends Node3D
+## Dungeon Kit: carrega mapas modulares. Cada mapa é uma lista de andares
+## em ASCII; cada char vira peça do catálogo TilePiece ou componente
+## (Door/Stairs). Novos mapas = novas entradas em MAPS. Zero código extra.
+##
+## Legenda:
+##  # parede   . pedra   , tapete   m musgo   P coluna   o entulho
+##  ~ buraco   = ponte   T baú     R runas    L alavanca
+##  D porta    H porta trancada (abre por alavanca/evento)
+##  X passagem secreta (parede disfarçada)
+##  S escada (ligada por "links": [[x,y,andar],[x,y,andar]])
+##  K cavaleiro  M maga  W druida  g goblin  a arqueiro  B boss
+
+var map_id := ""
+var map_name := ""
+var floors_n := 1
+var spawns := {}          ## char -> Array[Vector3i]
+var chest_cell := Vector3i.ZERO
+var chest_looted := false
+var doors: Array[DungeonDoor] = []
+var levers := {}          ## Vector3i -> true
+
+const LEGEND := {
+	"#": ["wall_stone", false, true],
+	".": ["floor_stone", true, false],
+	",": ["floor_carpet", true, false],
+	"m": ["floor_moss", true, false],
+	"P": ["pillar", false, true],
+	"o": ["rubble", false, false],
+	"~": ["pit", false, false],
+	"=": ["bridge_plank", true, false],
+	"T": ["chest_prop", false, false],
+	"R": ["runes", true, false],
+	"L": ["lever_base", false, false],
+}
+
+func load_map(id: String) -> bool:
+	if not MAPS.has(id):
+		return false
+	var def: Dictionary = MAPS[id]
+	map_id = id
+	map_name = def["name"]
+	floors_n = def["floors"].size()
+	spawns.clear()
+	doors.clear()
+	levers.clear()
+	chest_looted = false
+	chest_cell = Vector3i.ZERO
+	BoardGrid.reset()
+
+	for f in def["floors"].size():
+		var fl: Dictionary = def["floors"][f]
+		var rows: Array = fl["rows"]
+		for y in rows.size():
+			var row: String = rows[y]
+			for x in row.length():
+				_place_char(row[x], Vector3i(x, y, f))
+
+	for lk in def.get("links", []):
+		var a := Vector3i(lk[0][0], lk[0][1], lk[0][2])
+		var b := Vector3i(lk[1][0], lk[1][1], lk[1][2])
+		var st := DungeonStairs.new()
+		add_child(st)
+		st.setup(a, b)
+
+	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
+	return true
+
+# ----------------------------------------------------------------- interno --
+
+func _place_char(ch: String, c: Vector3i) -> void:
+	if "KMgWaB".contains(ch):
+		if not spawns.has(ch):
+			spawns[ch] = []
+		spawns[ch].append(c)
+		_tile("floor_stone", c)
+		return
+	match ch:
+		"D":
+			_tile("floor_stone", c)
+			_door(c, false, "", false, "")
+		"H":
+			_tile("floor_stone", c)
+			_door(c, true, "lever", false, "")
+		"X":
+			_tile("wall_stone", c)
+			_door(c, true, "", true, "")
+		"L":
+			_tile("floor_stone", c)
+			_piece("lever_base", c)
+			levers[c] = true
+		"T":
+			_tile("floor_stone", c)
+			_piece("chest_prop", c)
+			chest_cell = c
+		"S":
+			# Escada: só o piso (o degrau 3D é montado pelo link).
+			_tile("floor_stone", c)
+		_:
+			if LEGEND.has(ch):
+				var p: Array = LEGEND[ch]
+				BoardGrid.set_tile(c, p[1], p[2])
+				_piece(p[0], c)
+				if p[0] == "runes":
+					BoardGrid.special[c] = "r"
+			else:
+				BoardGrid.set_tile(c, false, true)
+				_piece("wall_stone", c)
+
+func _tile(pid: String, c: Vector3i) -> void:
+	var p: Dictionary = TilePiece.PROPS[pid]
+	BoardGrid.set_tile(c, p["w"], p["losb"])
+
+func _piece(pid: String, c: Vector3i) -> void:
+	var n := TilePiece.build(pid)
+	add_child(n)
+	n.position = BoardGrid.world_pos(c)
+	n.name = "%s_%d_%d_%d" % [pid, c.x, c.y, c.z]
+
+func _door(c: Vector3i, locked: bool, key: String, disguised: bool,
+		id := "") -> void:
+	var d := DungeonDoor.new()
+	add_child(d)
+	d.position = BoardGrid.world_pos(c)
+	d.setup(c, locked, key, disguised, id)
+	doors.append(d)
+
+# --------------------------------------------------------------- consulta --
+
+## Porta ou alavanca interativa numa casa? (para clique adjacente)
+func interactive_at(c: Vector3i):
+	for d in doors:
+		if d.cell == c:
+			return d
+	if levers.has(c):
+		return {"lever": true}
+	return null
+
+func pull_lever(_lever_cell: Vector3i) -> void:
+	var opened_any := false
+	for d in doors:
+		if d.state == DungeonDoor.State.LOCKED and not d.disguised \
+				and d.key_id == "lever":
+			d.unlock_by_event()
+			opened_any = true
+		elif d.state == DungeonDoor.State.LOCKED and d.disguised:
+			d.unlock_by_event()
+			opened_any = true
+	if not opened_any:
+		EventBus.log_msg.emit("A alavanda range, mas nada acontece.", "#8a8f9c")
+	EventBus.shake_requested.emit(0.18)
+
+func loot_chest() -> void:
+	chest_looted = true
+
+# ================================================================== MAPAS ===
+
+const MAPS := {
+	# -------------------------------------------------- Fortaleza de Pedra --
+	"stone_keep": {
+		"name": "Fortaleza de Pedra — 3 Andares",
+		"floors": [
+			{ # Térreo: salão de entrada + cripta com runas e baú
+				"rows": [
+					"############",
+					"#K.M.,..#g.#",
+					"#..P...D.o.#",
+					"#W....,#.#.#",
+					"####D###.g.#",
+					"#..m.,.#...#",
+					"#T.R.m.D..##",
+					"#..m...#.S##",
+					"############",
+				],
+			},
+			{ # Segundo andar: corredor dos arqueiros
+				"rows": [
+					"############",
+					"#a......P..#",
+					"#..,....o..#",
+					"#P.SD......#",
+					"#.....o....#",
+					"######D#####",
+					"#g.......P.#",
+					"#........S.#",
+					"############",
+				],
+			},
+			{ # Câmara do boss: ponte sobre o abismo
+				"rows": [
+					"##########",
+					"#B.P....R#",
+					"#~=~=..,.#",
+					"#=~~=.P..#",
+					"#..S=D...#",
+					"##########",
+				],
+			},
+		],
+		"links": [
+			[[9, 7, 0], [9, 7, 1]],
+			[[3, 3, 1], [3, 4, 2]],
+		],
+	},
+
+	# ----------------------------------------------------- Torre Abandonada --
+	"tower": {
+		"name": "Torre Abandonada",
+		"floors": [
+			{
+				"rows": [
+					"#########",
+					"#K..M..a#",
+					"#..P.,..#",
+					"#..,S,..#",
+					"#..P.,..#",
+					"#g.....g#",
+					"#########",
+				],
+			},
+			{
+				"rows": [
+					"#########",
+					"#B..P...#",
+					"#......,#",
+					"#..,S,..#",
+					"#....o..#",
+					"#T......#",
+					"#########",
+				],
+			},
+		],
+		"links": [
+			[[4, 3, 0], [4, 3, 1]],
+		],
+	},
+
+	# --------------------------------------------------------- Casa Forta ---
+	"house": {
+		"name": "Casa Fortificada",
+		"floors": [
+			{
+				"rows": [
+					"###########",
+					"#K.M.,.D.g#",
+					"#.P...,.o.#",
+					"#..L.H...T#",
+					"#W.D.,..g.#",
+					"###########",
+				],
+			},
+		],
+		"links": [],
+	},
+
+	# ------------------------------------------------------------ Cripta ----
+	"crypt": {
+		"name": "Cripta dos Segredos",
+		"floors": [
+			{
+				"rows": [
+					"###########",
+					"#K.M.,..#T#",
+					"#.P..,.#X.#",
+					"#..,..,#..#",
+					"#L.D..,.S.#",
+					"#.m..g.,..#",
+					"###########",
+				],
+			},
+			{
+				"rows": [
+					"###########",
+					"#R.m...m.R#",
+					"#..P.o.P..#",
+					"#g..,.,..g#",
+					"#..,.,..S.#",
+					"###########",
+				],
+			},
+		],
+		"links": [
+			[[8, 4, 0], [8, 3, 1]],
+		],
+	},
+}

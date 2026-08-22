@@ -24,21 +24,18 @@ func run_turn(u) -> void:
 		"boss_knight":
 			await _boss(u)
 
-## HerÃ³i vivo mais proximo de `from` (o grupo pode ter varios membros).
-func _hero(from: Vector2i = Vector2i(-999, -999)):
+## Herói vivo mais proximo de `from` (o grupo pode ter varios membros).
+## Penalidade por andar diferente: evita perseguir quem está acima/abaixo.
+func _hero(from: Vector3i = Vector3i(-999, -999, -999)):
 	var best = null
 	var best_d := 9999
 	for x in TurnManager.order:
 		if is_instance_valid(x) and x.alive and x.team == "hero":
-			if best == null:
+			var d: int = BoardGrid.chebyshev(from, x.grid_pos) \
+				+ abs(from.z - x.grid_pos.z) * 4
+			if best == null or d < best_d:
 				best = x
-				best_d = 9999 if from == Vector2i(-999, -999) \
-					else BoardGrid.chebyshev(from, x.grid_pos)
-			else:
-				var d := BoardGrid.chebyshev(from, x.grid_pos)
-				if d < best_d:
-					best = x
-					best_d = d
+				best_d = d
 	return best
 
 func _can_see(u, target) -> bool:
@@ -50,18 +47,21 @@ func _can_see(u, target) -> bool:
 ## Movimento fixo em direÃ§Ã£o ao alvo: dentro das cÃ©lulas alcanÃ§Ã¡veis neste
 ## turno, escolhe a que deixa o inimigo mais perto do herÃ³i (empate: menos
 ## passos). Garante progresso mesmo com caminhos bloqueados por aliados.
-func _step_toward(u, goal: Vector2i, stop_at_range := 1) -> void:
+func _step_toward(u, goal: Vector3i, stop_at_range := 1) -> void:
 	if u.moves_left <= 0:
 		return
-	var cur_d: int = BoardGrid.chebyshev(u.grid_pos, goal)
+	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	var cur_d: int = gdist.get(u.grid_pos, 999)
+	if u.grid_pos.z == goal.z:
+		cur_d = mini(cur_d, BoardGrid.chebyshev(u.grid_pos, goal))
 	if cur_d <= stop_at_range:
 		return
 	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
-	var best: Vector2i = u.grid_pos
+	var best: Vector3i = u.grid_pos
 	var best_d := cur_d
 	var best_cost := 9999
 	for c in reach["dist"].keys():
-		var cd: int = BoardGrid.chebyshev(c, goal)
+		var cd: int = gdist.get(c, 999)
 		var cost: int = reach["dist"][c]
 		if cd < best_d or (cd == best_d and cost < best_cost):
 			best_d = cd
@@ -78,17 +78,20 @@ func _step_toward(u, goal: Vector2i, stop_at_range := 1) -> void:
 
 ## Melhor casa de tiro: dentro do alcance com linha de visÃ£o; senÃ£o,
 ## aproxima-se o mÃ¡ximo possÃ­vel.
-func _best_shooting_cell(u, goal: Vector2i) -> Vector2i:
+func _best_shooting_cell(u, goal: Vector3i) -> Vector3i:
+	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
 	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
-	var best_fire: Vector2i = u.grid_pos
+	var best_fire: Vector3i = u.grid_pos
 	var best_fire_d := 9999
-	var best_any: Vector2i = u.grid_pos
-	var best_any_d: int = BoardGrid.chebyshev(u.grid_pos, goal)
+	var cur_d: int = gdist.get(u.grid_pos, 999)
+	var best_any: Vector3i = u.grid_pos
+	var best_any_d: int = cur_d
 	var best_any_cost := 9999
 	for c in reach["dist"].keys():
-		var cd: int = BoardGrid.chebyshev(c, goal)
+		var cd: int = gdist.get(c, 999)
 		var cost: int = reach["dist"][c]
-		if cd <= u.attack_range and cd < best_fire_d and BoardGrid.has_line_of_sight(c, goal):
+		if c.z == goal.z and cd <= u.attack_range and cd < best_fire_d \
+				and BoardGrid.has_line_of_sight(c, goal):
 			best_fire_d = cd
 			best_fire = c
 		if cd < best_any_d or (cd == best_any_d and cost < best_any_cost):
@@ -103,7 +106,8 @@ func _melee(u) -> void:
 		return
 	await get_tree().create_timer(0.35).timeout
 	await _step_toward(u, h.grid_pos, 1)
-	if h.alive and BoardGrid.chebyshev(u.grid_pos, h.grid_pos) <= u.attack_range:
+	if h.alive and u.grid_pos.z == h.grid_pos.z \
+			and BoardGrid.chebyshev(u.grid_pos, h.grid_pos) <= u.attack_range:
 		await get_tree().create_timer(0.3).timeout
 		await CombatSystem.attack(u, h)
 
@@ -115,7 +119,7 @@ func _archer(u) -> void:
 	var d: int = BoardGrid.chebyshev(u.grid_pos, h.grid_pos)
 	var has_shot: bool = d <= u.attack_range and BoardGrid.has_line_of_sight(u.grid_pos, h.grid_pos)
 	if not has_shot:
-		var target: Vector2i = _best_shooting_cell(u, h.grid_pos)
+		var target: Vector3i = _best_shooting_cell(u, h.grid_pos)
 		if target != u.grid_pos:
 			var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
 			var path: Array = BoardGrid.path_from_reachable(reach, target)
@@ -135,7 +139,8 @@ func _boss(u) -> void:
 		return
 	await get_tree().create_timer(0.45).timeout
 	await _step_toward(u, h.grid_pos, 1)
-	if not h.alive or BoardGrid.chebyshev(u.grid_pos, h.grid_pos) > u.attack_range:
+	if not h.alive or u.grid_pos.z != h.grid_pos.z \
+			or BoardGrid.chebyshev(u.grid_pos, h.grid_pos) > u.attack_range:
 		return
 	await get_tree().create_timer(0.3).timeout
 	var r := randf()

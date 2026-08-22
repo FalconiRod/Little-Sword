@@ -30,3 +30,47 @@ Validação: novo harness ++ --clicktest injeta clique sintético e confere
 movimento; atenção ao stretch canvas_items (push_input usa coords de JANELA:
 enviar pos × get_final_transform()).
 Status: RESOLVIDO em v0.2.10.
+
+## BUG-006 - grid_pos nao era gravado no grid novo (v0.4.0) - RESOLVIDO
+Problema: reescrevi BoardGrid e place()/move_unit() perderam 'u.grid_pos = c'.
+Sintoma: clicktest reportava posicao (0,0,0); unidades 'fantasmas'.
+Arquivos: src/core/board_grid.gd.
+Solucao: place/move_unit gravam grid_pos; validado demo/clicktest.
+Status: RESOLVIDO em v0.4.0.
+
+## BUG-007 - Chebyshev ignora o eixo Z (multi-andar) - RESOLVIDO
+Problema: bot de demo e IA escolhiam alvo por chebyshev(x,y); inimigo no
+andar de cima ficava 'a distancia zero' e o grupo nunca subia.
+Sintoma: herois circulavam embaixo do arqueiro; rota=999 nos logs [BOT].
+Arquivos: player_controller (_demo_play), enemy_ai (_hero/_step_toward/
+_best_shooting_cell).
+Solucao: distancias de rota via compute_reachable(goal, 99, ignore_units);
+penalidade +4 por andar na escolha de alvo; melee exige mesmo andar.
+Licao: em grid multi-andar, NUNCA usar chebyshev puro como proximidade.
+Status: RESOLVIDO em v0.4.0.
+
+## BUG-008 - Char 'S' virava parede e escadas inuteis (v0.4.0) - RESOLVIDO
+Problema: LEGEND sem entrada para 'S'; _place_char caia no default
+(set_tile(false,true)+parede). Links apontavam para celulas intransponiveis.
+Sintoma: 'rota=999' mesmo com escada visivel; ninguem sobe de andar.
+Arquivos: src/dungeon/environment_manager.gd.
+Solucao: caso 'S' explicito colocando piso; 'L' e 'T' tambem ganharam piso.
+Status: RESOLVIDO em v0.4.0.
+
+## BUG-009 - Bot travava o turno apos abrir porta (v0.4.0) - RESOLVIDO
+Problema: _demo_interact retornava sem encerrar a vez; jogo congelava.
+Arquivos: src/player/player_controller.gd.
+Solucao: do_pass() ao final da interacao.
+Status: RESOLVIDO em v0.4.0.
+
+## BUG-010 - HUD quebrava com heroi morto (v0.3.x, multi-heroi) - RESOLVIDO
+Problema: _on_turn_started chamava update_vitals(knight) com referencia
+liberada apos a morte ('previously freed').
+Arquivos: src/ui/hud.gd.
+Solucao: guards is_instance_valid; HUD adota o heroi ativo do turno;
+refresh_buttons desabilita tudo se nao ha heroi vivo.
+Status: RESOLVIDO em v0.4.0.
+
+## DISCOVERY - class_name novo exige import (2026-08-22)
+Novos scripts com class_name (EnvironmentManager etc.) dao 'Could not find
+type' ate rodar: godot --headless --path . --import uma vez.

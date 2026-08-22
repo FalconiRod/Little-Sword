@@ -22,7 +22,7 @@ var vision_range := 0
 var strength := 10
 var dexterity := 10
 var intelligence := 10
-var grid_pos := Vector2i.ZERO
+var grid_pos := Vector3i.ZERO
 var defending := false
 var alerted := false
 var alive := true
@@ -39,7 +39,7 @@ var _fg_mesh: QuadMesh
 var _fg_mat: StandardMaterial3D
 var _bar_h := 2.0
 
-func setup(uid: String, cell: Vector2i) -> void:
+func setup(uid: String, cell: Vector3i) -> void:
 	id = uid
 	var d := UnitDefs.def(uid)
 	display_name = d["display_name"]

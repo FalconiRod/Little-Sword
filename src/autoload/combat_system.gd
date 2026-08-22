@@ -13,7 +13,12 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 		EventBus.shake_requested.emit(0.2)
 		await get_tree().create_timer(0.4).timeout
 	EventBus.combat_message.emit("%s → %s" % [attacker.display_name, target.display_name])
-	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus, target.effective_ac())
+	# Terreno alto (+1 no ataque, mesma regra de mesa do D&D).
+	var hi := 0
+	if attacker.grid_pos.z == target.grid_pos.z \
+			and BoardGrid.elev_at(attacker.grid_pos) > BoardGrid.elev_at(target.grid_pos):
+		hi = 1
+	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus + hi, target.effective_ac())
 	var label := skill_label if is_skill else "Ataque"
 	EventBus.dice_rolled.emit(20, chk["roll"], chk["total"], "%s — %s" % [label, attacker.display_name])
 	if fx == "projectile_red":

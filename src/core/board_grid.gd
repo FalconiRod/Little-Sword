@@ -1,151 +1,126 @@
 extends Node
-## Modelo do tabuleiro: grid lógico, ocupação por peças e pathfinding BFS.
-## Coordenada de célula = Vector2i(x, z). Mundo = célula * TILE.
+## Grid tático 3D do tabuleiro: células Vector3i(x, y, andar).
+## Cada casa guarda walkable/bloqueio-de-visão/elevação; escadas ligam
+## andares diferentes. Peças ocupam exatamente uma casa (regra de mesa).
 
 const TILE := 2.0
+const FLOOR_H := 7.0   ## separação vertical entre andares (visual de mesa)
+const ELEV_H := 0.55   ## altura por nível de elevação (plataformas)
 
-var w: int = 0
-var h: int = 0
-var walkable: Dictionary = {}   # Vector2i -> true
-var special: Dictionary = {}    # Vector2i -> "T"|"C"|"r"
-var occupied: Dictionary = {}   # Vector2i -> BoardUnit
-var spawns: Dictionary = {}     # char -> Array[Vector2i]
+var tiles := {}      ## Vector3i -> {w: bool, losb: bool, elev: int}
+var links := {}      ## Vector3i -> Array[Vector3i] (escadas entre andares)
+var occupied := {}   ## Vector3i -> BoardUnit
+var special := {}    ## Vector3i -> String ("r" = runas)
 
-func setup(lines: Array) -> void:
-	walkable.clear()
-	special.clear()
+func reset() -> void:
+	tiles.clear()
+	links.clear()
 	occupied.clear()
-	spawns.clear()
-	h = lines.size()
-	w = 0
-	for z in h:
-		var row: String = lines[z]
-		w = max(w, row.length())
-		for x in row.length():
-			var ch := row[x]
-			var c := Vector2i(x, z)
-			if ch == "#":
-				continue
-			walkable[c] = true
-			if ch != ".":
-				special[c] = ch
-				if "KgaB".contains(ch):
-					if not spawns.has(ch):
-						spawns[ch] = []
-					spawns[ch].append(c)
+	special.clear()
 
-func in_bounds(c: Vector2i) -> bool:
-	return c.x >= 0 and c.y >= 0 and c.x < w and c.y < h
+func set_tile(c: Vector3i, walkable: bool, blocks_los := false, elev := 0) -> void:
+	tiles[c] = {"w": walkable, "losb": blocks_los, "elev": elev}
 
-func is_walkable(c: Vector2i) -> bool:
-	return walkable.has(c)
+func add_link(a: Vector3i, b: Vector3i) -> void:
+	if not links.has(a):
+		links[a] = []
+	if not links.has(b):
+		links[b] = []
+	if b not in links[a]:
+		links[a].append(b)
+	if a not in links[b]:
+		links[b].append(a)
 
-func is_free(c: Vector2i) -> bool:
+# ---------------------------------------------------------------- consulta --
+
+func is_walkable(c: Vector3i) -> bool:
+	return tiles.has(c) and tiles[c]["w"]
+
+func is_free(c: Vector3i) -> bool:
 	return is_walkable(c) and not occupied.has(c)
 
-func unit_at(c: Vector2i):
-	return occupied.get(c, null)
+func unit_at(c: Vector3i):
+	return occupied.get(c)
 
-func place(u, c: Vector2i) -> void:
-	u.grid_pos = c
+func place(u, c: Vector3i) -> void:
 	occupied[c] = u
+	u.grid_pos = c
 
-func clear_cell(c: Vector2i) -> void:
+func clear_cell(c: Vector3i) -> void:
 	occupied.erase(c)
 
-func move_unit(u, dest: Vector2i) -> void:
+func move_unit(u, c: Vector3i) -> void:
 	clear_cell(u.grid_pos)
-	place(u, dest)
+	occupied[c] = u
+	u.grid_pos = c
 
-func world_pos(c: Vector2i) -> Vector3:
-	return Vector3(c.x * TILE, 0.0, c.y * TILE)
+func elev_at(c: Vector3i) -> int:
+	return int(tiles[c]["elev"]) if tiles.has(c) else 0
 
-func cell_of(world: Vector3) -> Vector2i:
-	return Vector2i(int(round(world.x / TILE)), int(round(world.z / TILE)))
+func world_pos(c: Vector3i) -> Vector3:
+	var e: int = elev_at(c)
+	return Vector3(c.x * TILE, c.z * FLOOR_H + e * ELEV_H, c.y * TILE)
 
-func neighbors4(c: Vector2i) -> Array:
-	var out: Array = []
-	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		out.append(c + d)
-	return out
-
-func chebyshev(a: Vector2i, b: Vector2i) -> int:
+static func chebyshev(a: Vector3i, b: Vector3i) -> int:
 	return max(abs(a.x - b.x), abs(a.y - b.y))
 
-## Linha de visão: amostra o segmento entre os centros das células;
-## qualquer parede no caminho bloqueia.
-func has_line_of_sight(a: Vector2i, b: Vector2i) -> bool:
-	var wa := world_pos(a) + Vector3(0, 0.5, 0)
-	var wb := world_pos(b) + Vector3(0, 0.5, 0)
+## Vizinhos ortogonais no mesmo andar respeitando degrau máximo de 1
+## nível de elevação + ligações de escada (qualquer andar).
+func neighbors(c: Vector3i) -> Array:
+	var out: Array = []
+	for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+		var n: Vector3i = c + off
+		if is_walkable(n) and abs(elev_at(n) - elev_at(c)) <= 1:
+			out.append(n)
+	for n in links.get(c, []):
+		out.append(n)
+	return out
+
+## Linha de visão: apenas dentro do mesmo andar; amostra o segmento entre os
+## centros das casas (na altura da elevação) e qualquer parede bloqueia.
+func has_line_of_sight(a: Vector3i, b: Vector3i) -> bool:
+	if a.z != b.z:
+		return false
+	var wa := world_pos(a) + Vector3(0, 0.6, 0)
+	var wb := world_pos(b) + Vector3(0, 0.6, 0)
 	var dist := wa.distance_to(wb)
 	if dist < 0.01:
 		return true
 	var steps := int(ceil(dist / (TILE * 0.25)))
 	for i in range(1, steps):
 		var p := wa.lerp(wb, float(i) / float(steps))
-		if not is_walkable(cell_of(p)):
+		var cc := Vector3i(roundi(p.x / TILE), roundi(p.z / TILE), a.z)
+		if tiles.has(cc) and tiles[cc]["losb"]:
 			return false
 	return true
 
-## Células alcançáveis com `max_steps` passos ortogonais,
-## desviando de peças. Retorna {dist, came} para reconstruir caminho.
-func compute_reachable(start: Vector2i, max_steps: int) -> Dictionary:
+## BFS multinível: anda no mesmo andar (degrau <= 1) e usa escadas.
+## ignore_units=true ignora ocupantes (roteamento global, p.ex. IA/bot).
+func compute_reachable(start: Vector3i, max_steps: int, ignore_units := false) -> Dictionary:
 	var dist := {start: 0}
 	var came := {start: start}
 	var frontier: Array = [start]
 	while not frontier.is_empty():
-		var cur: Vector2i = frontier.pop_front()
+		var cur: Vector3i = frontier.pop_front()
 		var d: int = dist[cur]
 		if d >= max_steps:
 			continue
-		for n in neighbors4(cur):
+		for n in neighbors(cur):
 			if dist.has(n):
 				continue
-			if not is_free(n):
+			if not (is_free(n) if not ignore_units else is_walkable(n)):
 				continue
 			dist[n] = d + 1
 			came[n] = cur
 			frontier.append(n)
 	return {"dist": dist, "came": came}
 
-## Caminho completo até o objetivo ignorando limite de movimento
-## (usado pela IA para perseguir). Não atravessa peças.
-func find_path(start: Vector2i, goal: Vector2i) -> Array:
-	var out: Array = []
-	if not is_walkable(goal) or start == goal:
-		return out
-	var came := {start: start}
-	var q: Array = [start]
-	while not q.is_empty():
-		var cur: Vector2i = q.pop_front()
-		if cur == goal:
-			break
-		for n in neighbors4(cur):
-			if came.has(n):
-				continue
-			if not is_walkable(n):
-				continue
-			if occupied.has(n) and n != goal:
-				continue
-			came[n] = cur
-			q.append(n)
-	if not came.has(goal):
-		return out
-	var cur := goal
-	while cur != start:
-		out.push_front(cur)
-		cur = came[cur]
-	return out
-
-## Reconstrói caminho a partir do resultado de compute_reachable.
-func path_from_reachable(reach: Dictionary, goal: Vector2i) -> Array:
-	var out: Array = []
-	if not reach["dist"].has(goal):
-		return out
-	var came: Dictionary = reach["came"]
-	var start: Vector2i = reach["dist"].keys()[0]
-	var cur := goal
-	while cur != start:
-		out.push_front(cur)
-		cur = came[cur]
-	return out
+func path_from_reachable(reach: Dictionary, dest: Vector3i) -> Array:
+	if not reach["dist"].has(dest):
+		return []
+	var path: Array = []
+	var cur: Vector3i = dest
+	while cur != reach["came"][cur]:
+		path.push_front(cur)
+		cur = reach["came"][cur]
+	return path

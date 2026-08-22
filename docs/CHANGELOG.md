@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.4.0 — 2026-08-22 — Dungeon Kit: masmorra modular multi-andar
+### Adicionado
+- `src/dungeon/`: kit de peças 3D modular (estilo mesa D&D/FFT)
+  - `tile_piece.gd` — catálogo PROPS (pisos, parede, pilar, entulho,
+    ponte, baú, runas) com builders procedurais; ponto único de troca
+    por assets GLB (Meshy) no futuro
+  - `door.gd` — DungeonDoor (aberta/fechada/trancada/disfarçada),
+    painel girando, trava/revela passagem secreta
+  - `stairs.gd` — rampa de degraus ou espiral vertical, registra link
+  - `environment_manager.gd` — mapas ASCII por andar (LEGEND de chars),
+    4 mapas: stone_keep (3 andares), tower, house (porta trancada +
+    alavanca), crypt (passagem secreta X + cofre)
+- Grid multinível em BoardGrid: células Vector3i(x,y,andar), elevação
+  por tile (plataformas), links de escada, LOS só no mesmo andar,
+  BFS multinível (`compute_reachable(start, steps, ignore_units)`)
+- Bônus de terreno alto (+1 ataque, mesma regra de mesa do D&D)
+- Seleção de mapa por argumento: `++ --map=tower|house|crypt`
+- Interação com portas/alavancas adjacente (clique) + bot de demo abre
+  portas quando não há rota até o inimigo
+
+### Alterado
+- `main.gd` reescrito: EnvironmentManager substitui BoardBuilder;
+  spawns vindos do mapa; boss bar revelado ao primeiro dano
+- IA: alvo mais próximo com penalidade de andar (+4 por dz); perseguição
+  e tiro usam distância de rota real (BFS); corpo-a-corpo exige mesmo andar
+- Click/hover priorizam o andar do herói ativo (andares empilhados)
+- HUD tolera herói morto (referências liberadas)
+
+### Corrigido
+- place/move_unit voltaram a gravar grid_pos na unidade (regressão)
+- Tiles de escada 'S', alavanca 'L' e baú 'T' agora geram piso
+- Linhas de mapa com largura irregular normalizadas; link da cripta
+
 ## v0.1.0 — 2026-08-21 — Vertical Slice inicial
 ### Adicionado
 - Projeto Godot 4.7 (gl_compatibility), cena única main.tscn + orquestrador

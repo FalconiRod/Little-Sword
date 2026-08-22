@@ -409,6 +409,10 @@ func update_vitals(u: BoardUnit) -> void:
 
 func refresh_buttons(c) -> void:
 	ctl = c
+	if knight == null or not is_instance_valid(knight):
+		for b in [btn_attack, btn_skill, btn_defend, btn_item, btn_pass]:
+			b.disabled = true
+		return
 	var active_ok: bool = TurnManager.active == knight and not TurnManager.game_ended and ctl != null and not ctl.busy
 	var can_act: bool = active_ok and not ctl.acted and ctl.mode != 0
 	var sk: Dictionary = {}
@@ -541,7 +545,16 @@ func _on_turn_started(unit, round_num: int) -> void:
 		Color.html("37e0ff") if unit.team == "hero" else Color.html("ff6b6b"))
 	_show_banner("VEZ DE %s" % unit.display_name.to_upper())
 	_refresh_order_highlight()
-	update_vitals(knight)
+	if unit.team == "hero" and is_instance_valid(unit):
+		knight = unit
+		update_vitals(unit)
+	else:
+		var active = TurnManager.active
+		if active != null and active.team == "hero" and is_instance_valid(active):
+			knight = active
+			update_vitals(active)
+		elif is_instance_valid(knight):
+			update_vitals(knight)
 	refresh_buttons(ctl)
 	if unit.team != "hero":
 		pass

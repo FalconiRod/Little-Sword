@@ -6,7 +6,7 @@ extends Node3D
 enum Mode { NONE, MOVE_READY, TARGET_ATTACK, TARGET_SKILL }
 
 var knight: BoardUnit
-var board: BoardBuilder
+var board: EnvironmentManager
 var hud
 
 var mode: int = Mode.NONE
@@ -19,7 +19,6 @@ var _it_pool: Array[MeshInstance3D] = []
 var _cv_pool: Array[MeshInstance3D] = []
 var _hover_quad: MeshInstance3D
 var _sel_ring: MeshInstance3D
-var _boss_shown := false
 var _demo := false
 var _rmb_down := false
 var _rmb_moved := false
@@ -28,7 +27,7 @@ var _lmb_down := false
 var _lmb_moved := false
 var _lmb_start := Vector2.ZERO
 
-func init(knight_unit: BoardUnit, board_ref: BoardBuilder, hud_ref) -> void:
+func init(knight_unit: BoardUnit, board_ref: EnvironmentManager, hud_ref) -> void:
 	knight = knight_unit
 	board = board_ref
 	hud = hud_ref
@@ -112,7 +111,8 @@ func _demo_play() -> void:
 	await get_tree().create_timer(0.4).timeout
 	if TurnManager.game_ended or mode == Mode.NONE or TurnManager.active != knight:
 		return
-	if not board.chest_looted and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
+	if not board.chest_looted and board.chest_cell.z == knight.grid_pos.z \
+			and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
 		await _loot_chest()
 		return
 	var targets := _enemies_in_range()
@@ -128,26 +128,72 @@ func _demo_play() -> void:
 	if enemies.is_empty():
 		do_pass()
 		return
-	enemies.sort_custom(func(a, b): return BoardGrid.chebyshev(knight.grid_pos, a.grid_pos) < BoardGrid.chebyshev(knight.grid_pos, b.grid_pos))
-	var goal: Vector2i = enemies[0].grid_pos
+	# Rota real (BFS multinível, ignorando ocupantes): evita perseguir
+	# um inimigo que está no andar de cima "a distância zero".
+	var glob: Dictionary = BoardGrid.compute_reachable(knight.grid_pos, 99, true)
+	enemies.sort_custom(func(a, b):
+		return glob["dist"].get(a.grid_pos, 999) < glob["dist"].get(b.grid_pos, 999))
+	var goal: Vector3i = enemies[0].grid_pos
+	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	var inter = null
+	if glob["dist"].get(goal, 999) >= 999:
+		# Sem rota até o inimigo: procurar porta/alavanca que abra o caminho.
+		var bi = null
+		var bd := 9999
+		for it in board.doors:
+			if it.state == DungeonDoor.State.OPEN:
+				continue
+			var nd := 9999
+			for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
+					Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
+				nd = mini(nd, glob["dist"].get(it.cell + off, 999))
+			if nd < bd:
+				bd = nd
+				bi = it
+		if bi != null and bd < 999:
+			inter = bi
+			goal = bi.cell
+			gdist = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	if _demo:
+		print("[BOT] ", knight.id, " pos=", knight.grid_pos, " ml=", knight.moves_left,
+			" reach=", reach["dist"].size(), " goal=", goal,
+			" rota=", glob["dist"].get(goal, 999))
 	if reach["dist"].size() > 1:
 		var best := knight.grid_pos
 		var best_d := 9999
 		for c in reach["dist"].keys():
 			if c == knight.grid_pos:
 				continue
-			var d: int = BoardGrid.chebyshev(c, goal)
+			var d: int = gdist.get(c, 999)
 			if d < best_d:
 				best_d = d
 				best = c
+		if _demo:
+			print("[BOT] best=", best, " d=", best_d)
 		if best != knight.grid_pos:
 			await _do_move(best)
+			if inter != null:
+				await _demo_interact(inter)
+				return
 			await get_tree().create_timer(0.25).timeout
 			var t2 := _enemies_in_range()
 			if not t2.is_empty():
 				t2.sort_custom(func(a, b): return a.hp < b.hp)
 				await _execute_attack(t2[0])
 				return
+		elif inter != null and knight.grid_pos.z == inter.cell.z \
+				and BoardGrid.chebyshev(knight.grid_pos, inter.cell) <= 1:
+			await _demo_interact(inter)
+			return
+	do_pass()
+
+func _demo_interact(it) -> void:
+	if it is DungeonDoor:
+		it.try_toggle()
+	else:
+		board.pull_lever(it.cell)
+	EventBus.log_msg.emit("%s aciona o mecanismo." % knight.display_name, "#c9a227")
+	await get_tree().create_timer(0.4).timeout
 	do_pass()
 
 func on_turn_end() -> void:
@@ -183,7 +229,8 @@ func _compute_reachable() -> void:
 	_pool_show(_hl_pool, cells, "37e0ff", 0.20)
 	_compute_cover()
 	var it_cells: Array = []
-	if not board.chest_looted and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
+	if not board.chest_looted and board.chest_cell.z == knight.grid_pos.z \
+			and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
 		it_cells.append(board.chest_cell)
 	_pool_show(_it_pool, it_cells, "ffd166")
 
@@ -242,16 +289,36 @@ func _try_cancel() -> void:
 		_cancel_targeting()
 
 func _mouse_cell(screen_pos: Vector2):
+	# Raio contra o plano de CADA andar. Prioridade: casas no andar do herói
+	# ativo (andares empilhados se sobrepõem na tela); senão, a interseção
+	# mais próxima cuja casa exista (permite clicar em escadas/outros pisos).
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return null
 	var origin := cam.project_ray_origin(screen_pos)
 	var dir := cam.project_ray_normal(screen_pos)
-	if dir.y >= -0.001:
+	if absf(dir.y) < 0.0005:
 		return null
-	var t := -origin.y / dir.y
-	var p := origin + dir * t
-	return BoardGrid.cell_of(p)
+	var hero_floor: int = knight.grid_pos.z if knight != null \
+			and is_instance_valid(knight) else 0
+	for pass_floor in [hero_floor, -1]:
+		var best = null
+		var best_t := INF
+		for f in maxi(1, board.floors_n):
+			if pass_floor >= 0 and f != pass_floor:
+				continue
+			var plane_y: float = f * BoardGrid.FLOOR_H + 0.12
+			var t := (plane_y - origin.y) / dir.y
+			if t <= 0.01 or t >= best_t:
+				continue
+			var p := origin + dir * t
+			var c := Vector3i(roundi(p.x / BoardGrid.TILE), roundi(p.z / BoardGrid.TILE), f)
+			if BoardGrid.tiles.has(c):
+				best = c
+				best_t = t
+		if best != null:
+			return best
+	return null
 
 func _update_hover(screen_pos: Vector2) -> void:
 	var c = _mouse_cell(screen_pos)
@@ -292,15 +359,33 @@ func _handle_click(screen_pos: Vector2) -> void:
 			EventBus.log_msg.emit("Selecione um inimigo (casa vermelha).", "#8a8f9c")
 		return
 	# Modo MOVE_READY
+	# Portas e alavancas: interação adjacente.
+	var inter = board.interactive_at(c)
+	if inter != null:
+		if c.z != knight.grid_pos.z or BoardGrid.chebyshev(knight.grid_pos, c) > 1:
+			EventBus.log_msg.emit("Precisa estar ao lado para interagir.", "#ffb84d")
+			return
+		if inter is DungeonDoor:
+			var msg: String = inter.try_toggle()
+			if msg != "":
+				EventBus.log_msg.emit("Trancada. Procure um mecanismo ou chave.", "#ffb84d")
+			else:
+				EventBus.shake_requested.emit(0.06)
+				_compute_reachable()
+		else:
+			board.pull_lever(c)
+			_compute_reachable()
+		return
 	if unit_here != null and unit_here.team == "enemy":
-		if BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range \
+		if c.z == knight.grid_pos.z \
+				and BoardGrid.chebyshev(knight.grid_pos, c) <= knight.attack_range \
 				and BoardGrid.has_line_of_sight(knight.grid_pos, c):
 			_execute_attack(unit_here)
 		else:
 			EventBus.log_msg.emit("Inimigo sem linha de visão ou longe demais.", "#ffb84d")
 		return
 	if c == board.chest_cell and not board.chest_looted:
-		if BoardGrid.chebyshev(knight.grid_pos, c) <= 1:
+		if c.z == knight.grid_pos.z and BoardGrid.chebyshev(knight.grid_pos, c) <= 1:
 			_loot_chest()
 		else:
 			EventBus.log_msg.emit("O baú está longe. Aproxime-se dele.", "#ffb84d")
@@ -312,35 +397,24 @@ func _handle_click(screen_pos: Vector2) -> void:
 
 # ------------------------------------------------------------------ ações --
 
-func _do_move(cell: Vector2i) -> void:
+func _do_move(cell: Vector3i) -> void:
 	busy = true
 	_hide_all()
+	var old_floor := knight.grid_pos.z
 	var path: Array = BoardGrid.path_from_reachable(reach, cell)
 	var dist: int = path.size()
 	BoardGrid.move_unit(knight, cell)
 	await knight.animate_move(path)
 	knight.moves_left -= dist
 	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
-	_check_reveal(cell)
+	if cell.z != old_floor:
+		EventBus.log_msg.emit("Você muda de andar (%s)." % ["desce" if cell.z < old_floor else "sobe"], "#c9a227")
 	hud.update_vitals(knight)
 	busy = false
 	if knight.moves_left > 0 and not acted:
 		_compute_reachable()
 	else:
 		_hide_all()
-
-func _check_reveal(cell: Vector2i) -> void:
-	var idx: int = board.room_index_at(cell)
-	if idx < 0:
-		return
-	if board.is_revealed(idx):
-		return
-	board.reveal_room(idx)
-	if board.ROOMS[idx]["name"] == "Câmara do Boss" and not _boss_shown:
-		_boss_shown = true
-		var boss = board.get_boss_unit()
-		if boss != null and boss.alive:
-			hud.show_boss_bar(boss)
 
 func try_attack() -> void:
 	if mode == Mode.NONE or busy or acted:

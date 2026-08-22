@@ -51,3 +51,20 @@ pela menor distancia Chebyshev.
 MOTIVO: party cresce sem duplicar controladores; HUD/retrato mostram o heroi
 da vez; habilidades viram dados declarativos em UnitDefs.SKILLS.
 IMPACTO: novos herois = entrada em DEFS + SKILLS + builder visual + spawn.
+
+## D12 - Grid multinivel Vector3i + Dungeon Kit modular (2026-08-22)
+DECISAO: BoardGrid migrado para celulas Vector3i(x,y,andar) com elevacao
+por tile e links de escada; cenario vira kit de pecas (src/dungeon/)
+gerado de mapas ASCII por andar (EnvironmentManager).
+MOTIVO: pedido do usuario - multi-andares, escadas, portas interativas,
+plataformas, visao de mesa tatica; pecas modulares permitem trocar por
+assets GLB (Meshy) sem tocar na logica.
+IMPACTO: chebyshev ignora z (usar rota BFS p/ perseguicao); LOS apenas
+no mesmo andar; ataques melee exigem mesmo andar; bonus terreno alto.
+
+## D13 - Click prioriza o andar do heroi ativo (2026-08-22)
+DECISAO: _mouse_cell testa primeiro o plano do andar do heroi; so olha
+os outros andares se nada for atingido.
+MOTIVO: andares empilhados se sobrepoe na tela; intersecao mais proxima
+escolhia tile de cima e travava o jogo no chao.
+IMPACTO: clicar em outro andar exige apontar fora da sobreposicao.

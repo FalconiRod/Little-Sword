@@ -29,3 +29,16 @@ Demo v0.1.0 jogável e validada. Documentação completa. Pronto para iterar.
 ## Sessão 3 — 2026-08-21 (câmera mouse + publicação)
 - Rotação primária por arrasto do botão direito; clique sem arrasto cancela mira
 - Backup v0.1.4 em D:\PROJETOS\BACKUPS (16 MB) e repo público no GitHub criado
+
+## Sessao 2026-08-22 (v0.4.0 - Dungeon Kit)
+Feito: kit modular src/dungeon (tile_piece/door/stairs/environment_manager,
+4 mapas ASCII); BoardGrid multinivel Vector3i + elevacao + links; BFS
+multinivel com ignore_units; portas/alavancas interativas; terreno alto
++1 atk; IA e bot usam rota real entre andares; click prioriza andar do
+heroi; HUD a prova de heroi morto.
+Descobertas: class_name novo exige --import; chebyshev sem Z engana
+perseguicao multi-andar (BUG-007); chars de mapa precisam entrada no
+LEGEND ou viram parede (BUG-008); Start-Process com ArgumentList precisa
+de aspas embutidas p/ caminhos com espaco.
+Validacao: demo 4 mapas OK, clicktest OK, skilltest OK, boot limpo.
+Pendente: camera p/ 3 andares; assets GLB; audio/save.
