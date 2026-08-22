@@ -181,3 +181,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Faiscas procedurais (CPUParticles3D) no ponto do impacto; criticas soltam
   explosao maior em tom alaranjado.
 - Texto flutuante MISS sobre o alvo quando o golpe nao conecta.
+
+## v0.2.15 — 2026-08-21 — Ancoragem visual das pecas
+### Adicionado
+- Sombra fake circular (gradiente radial) sob cada miniatura; fica no chao
+  mesmo com o bobbing, ancorando a peca na mesa.
+- Anel dourado pulsante sob a unidade ativa no turno dela (EventBus
+  turn_started), some ao morrer.

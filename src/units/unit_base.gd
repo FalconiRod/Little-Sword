@@ -92,6 +92,69 @@ func _build() -> void:
 	fg.name = "FG"
 	_bar_root.add_child(fg)
 	refresh_bar()
+	_add_fake_shadow()
+	EventBus.turn_started.connect(_on_turn_started)
+
+func _on_turn_started(unit, _round_num: int) -> void:
+	set_active_ring(unit == self and alive)
+
+## Sombra fake: disco com gradiente radial que ancora a peca no chao
+## (nao acompanha o bobbing da miniatura).
+func _add_fake_shadow() -> void:
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(0.82, 0.82)
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0, 0, 0, 0.40))
+	grad.set_color(1, Color(0, 0, 0, 0.0))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill = GradientTexture2D.FILL_RADIAL
+	gtex.fill_from = Vector2(0.5, 0.5)
+	gtex.fill_to = Vector2(0.5, 0.0)
+	gtex.width = 128
+	gtex.height = 128
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = gtex
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mi := MeshInstance3D.new()
+	mi.mesh = plane
+	mi.material_override = m
+	mi.position.y = 0.015
+	add_child(mi)
+
+var _ring: MeshInstance3D
+var _ring_tween: Tween
+
+## Anel pulsante sob a peca cujo turno esta ativo.
+func set_active_ring(on: bool) -> void:
+	if on:
+		if _ring == null:
+			var torus := TorusMesh.new()
+			torus.inner_radius = 0.40
+			torus.outer_radius = 0.50
+			var m := StandardMaterial3D.new()
+			m.albedo_color = Color.html("#ffd166")
+			m.emission_enabled = true
+			m.emission = Color.html("#ffd166")
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			_ring = MeshInstance3D.new()
+			_ring.mesh = torus
+			_ring.material_override = m
+			_ring.position.y = 0.03
+			add_child(_ring)
+		if not (_ring_tween and _ring_tween.is_valid()):
+			_ring_tween = create_tween().set_loops()
+			_ring_tween.tween_property(_ring, "scale", Vector3.ONE * 1.10, 0.55) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			_ring_tween.tween_property(_ring, "scale", Vector3.ONE, 0.55) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	elif _ring != null:
+		if _ring_tween and _ring_tween.is_valid():
+			_ring_tween.kill()
+		_ring.queue_free()
+		_ring = null
 
 func effective_ac() -> int:
 	return ac + (4 if defending else 0)
@@ -188,6 +251,7 @@ func die() -> void:
 	if not alive:
 		return
 	alive = false
+	set_active_ring(false)
 	BoardGrid.clear_cell(grid_pos)
 	EventBus.unit_died.emit(self)
 	EventBus.log_msg.emit("%s foi derrotado!" % display_name, "#ff6b6b")
