@@ -229,6 +229,11 @@ func _update_hover(screen_pos: Vector2) -> void:
 	if c == null or not BoardGrid.is_walkable(c):
 		_hover_quad.visible = false
 		return
+	# Em mira, o cavaleiro já encara o inimigo sob o cursor (pré-ataque).
+	if mode == Mode.TARGET_ATTACK or mode == Mode.TARGET_SKILL:
+		var u = BoardGrid.unit_at(c)
+		if u != null and u.team == "enemy":
+			knight.face_towards(u.global_position)
 	_hover_quad.position = BoardGrid.world_pos(c) + Vector3(0, 0.08, 0)
 	_hover_quad.visible = true
 

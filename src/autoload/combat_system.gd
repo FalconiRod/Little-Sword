@@ -4,6 +4,8 @@ extends Node
 
 func attack(attacker, target, skill_label := "", skill_dmg := "") -> void:
 	var is_skill := skill_dmg != ""
+	# O atacante vira a peça para o alvo antes do golpe.
+	attacker.face_towards(target.global_position)
 	EventBus.combat_message.emit("%s → %s" % [attacker.display_name, target.display_name])
 	var chk: Dictionary = DiceManager.d20_check(attacker.atk_bonus, target.effective_ac())
 	var label := skill_label if is_skill else "Ataque"

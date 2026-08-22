@@ -160,3 +160,9 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Teto dinamico MAX_HORIZON (30u): em pitch baixo a distancia efetiva
   encolhe; camera nunca se estende para fora do tabuleiro.
 - Piso rigido LEN_FLOOR (2.5) e guarda contra seguir unidade liberada.
+
+## v0.2.12 — 2026-08-21 — Unidades viram para o alvo
+### Adicionado
+- Todo atacante (heroi, goblins, boss) gira a peca para o alvo antes do
+  golpe, dentro de CombatSystem.attack (ponto unico, cobre habilidades).
+- Em modo de mira, o cavaleiro ja encara o inimigo sob o cursor.
