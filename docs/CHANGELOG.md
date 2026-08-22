@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.6.3 — 2026-08-22 — Clicar na escada cruza e desembarca à frente
+### Alterado
+- Clicar na casa da escada como destino: a unidade anda até ela e cruza
+  AUTOMATICAMENTE para o outro andar (pedido do usuário), desembarcando no
+  primeiro grid LIVRE À FRENTE da escada de chegada (`stair_landing`:
+  vizinho ortogonal livre, ordem N/S/O/L) — não fica em cima da escada
+- Chegar PELO salto pareado (destino já era outro andar) não re-cruza;
+  passagem pelo corredor sem clicar na escada segue sem cruzar
+- Saída bloqueada no destino: unidade fica na escada e avisa
+  ("Saída da escada bloqueada no outro andar")
+- Clique extra estando em pé na escada continua funcionando (re-cruza)
+### Testes
+- STAIRTEST 5/5 (cenário 4 agora valida o grid de desembarque exato);
+  demos tower/stone_keep com subida/descida nos dois modos (salto do
+  caminho e clique direto); CLICKTEST/SKILLTEST OK
+
 ## v0.6.2 — 2026-08-22 — Escada deixa de cruzar sozinha (BUG-017)
 ### Corrigido
 - Clicar na casa da escada como destino jogava a unidade para o outro

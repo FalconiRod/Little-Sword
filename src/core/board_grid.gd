@@ -47,6 +47,17 @@ func is_walkable(c: Vector3i) -> bool:
 func is_free(c: Vector3i) -> bool:
 	return is_walkable(c) and not occupied.has(c)
 
+## Primeiro grid LIVRE à frente da escada no andar de destino (desembarque):
+## vizinho ortogonal da célula pareada, ordem fixa N/S/O/L. null se todas
+## as saídas estiverem bloqueadas.
+func stair_landing(cell: Vector3i):
+	for off in [Vector3i(0, -1, 0), Vector3i(0, 1, 0),
+			Vector3i(-1, 0, 0), Vector3i(1, 0, 0)]:
+		var c: Vector3i = cell + off
+		if is_free(c):
+			return c
+	return null
+
 func unit_at(c: Vector3i):
 	return occupied.get(c)
 

@@ -80,22 +80,22 @@ ALTERNATIVAS: links/teleporte (v0.4.0, descartado: salto invisivel, bot
 nao parava em degrau, dois sistemas de pathing).
 IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.
 
-## D13 - Escada = par de celulas ligadas; travessia SEMPRE explicita
-DATA: 2026-08-22 | STATUS: ATIVA (v0.6.2; gatilho v0.6.1 SUPERADO)
+## D13 - Escada = par de celulas ligadas; clicar nela cruza e desembarca a frente
+DATA: 2026-08-22 | STATUS: ATIVA (v0.6.3; v0.6.1 e v0.6.2 SUPERADAS)
 DECISAO: escada e UM par base<->topo (stair_links bidirecional); ambas as
-celulas sao normais e entram no BFS como vizinhas de custo 1. Pisar ou
-parar sobre a escada NUNCA cruza (v0.6.1 testou cruzar ao terminar o
-movimento e o usuario rejeitou: clicar na escada como destino teleportava
-sem querer — BUG-017). A travessia e explicita: (a) o caminho executa o
-salto pareado quando o destino esta em outro andar; (b) em pe na celula,
-clicar nela de novo (try_cross_stairs, custa 1 MP). Cross de inicio de
-turno segue descartado (BUG-015).
-MOTIVO: a celula da escada costuma ser corredor (ex.: linha 7 do
-stone_keep); o jogador precisa poder atravesssa-la/parar nela sem trocar
-de andar, e a intencao de cruzar deve ser um gesto proprio.
-ALTERNATIVAS: degraus caminhaveis (v0.5.0, superada); auto-cross ao
-terminar movimento (v0.6.1, superada pelo BUG-017); auto-cross de inicio
-de turno (BUG-015, descartada).
-IMPACTO: dist_to_goal() para IA cross-floor intacta (usa os pares);
-mapas usam "stairs": [[base],[topo]]; prop espiral fino (62% altura);
-_do_move desconta custo antes do await (BUG-016).
+celulas sao normais e entram no BFS como vizinhas de custo 1. Regra final
+do usuario: CLICAR na casa da escada cruza automaticamente para o outro
+andar, desembarcando no primeiro grid LIVRE a frente da escada de chegada
+(stair_landing: vizinho ortogonal livre N/S/O/L). Chegar pelo salto
+pareado (destino ja era outro andar) nao re-cruza. Passar pelo corredor
+sem clicar na escada nao cruza. Em pe na escada, clicar de novo re-cruza
+(try_cross_stairs, 1 MP). Saida bloqueada: fica na escada e avisa.
+MOTIVO: o usuario quer transicao imediata ao clicar na escada, chegando
+ja posicionado a frente (nao em cima da escada), nos dois sentidos.
+HISTORICO: auto-cross ao terminar movimento (v0.6.1) teleportava sem
+querer em corredores (BUG-017); v0.6.2 removeu todo auto-cross e o
+usuario pediu o clique-direto de volta — versao final distingue "clicou
+NA escada" (cruza) de "passou por ela" (nao cruza).
+IMPACTO: dist_to_goal() intacta; mapas com "stairs": [[base],[topo]];
+prop espiral fino (62% altura); _do_move desconta custo antes do await;
+_do_move decide re-cruzamento comparando o penultimo passo do caminho.

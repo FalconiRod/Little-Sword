@@ -419,6 +419,15 @@ func _do_move(cell: Vector3i) -> void:
 	BoardGrid.move_unit(knight, cell)
 	knight.moves_left -= dist
 	await knight.animate_move(path, from_cell)
+	# Clicou NA casa da escada: atravessa automaticamente e desembarca no
+	# primeiro grid livre à frente do outro andar. Quem chegou PELO salto
+	# pareado (destino já era o outro andar) não re-cruza.
+	var prev_step: Vector3i = from_cell if path.size() == 1 \
+			else path[path.size() - 2]
+	var by_hop := BoardGrid.stair_pair(prev_step) == cell
+	if not by_hop and BoardGrid.stair_links.has(cell):
+		if not knight.try_cross_stairs():
+			EventBus.log_msg.emit("Saída da escada bloqueada no outro andar.", "#ffb84d")
 	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
 	hud.update_vitals(knight)
 	busy = false

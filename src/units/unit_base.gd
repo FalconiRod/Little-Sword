@@ -285,16 +285,20 @@ func animate_move(path: Array, from_cell = null) -> void:
 	# célula clica nela de novo (try_cross_stairs).
 
 ## Atravessa a escada em que a unidade está EM PÉ (ação explícita).
-## Custa 1 de movimento. Retorna true se a travessia aconteceu.
+## Custa 1 de movimento e desembarca no primeiro grid LIVRE à frente da
+## escada no andar de destino. Retorna true se a travessia aconteceu.
 func try_cross_stairs() -> bool:
 	if not BoardGrid.stair_links.has(grid_pos):
 		return false
 	var pair: Vector3i = BoardGrid.stair_pair(grid_pos)
-	if moves_left < 1 or not BoardGrid.is_free(pair):
+	if moves_left < 1:
+		return false
+	var landing = BoardGrid.stair_landing(pair)
+	if landing == null:
 		return false
 	moves_left -= 1
 	var from_z := grid_pos.z
-	change_floor(pair)
+	change_floor(landing)
 	if team == "hero":
 		EventBus.log_msg.emit("Você %s pela escada." %
 				["desce" if pair.z < from_z else "sobe"], "#c9a227")

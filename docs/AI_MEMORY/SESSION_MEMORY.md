@@ -89,3 +89,14 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   7) - auto-cross nelas quebra a navegacao normal do piso
 - Validacao: STAIRTEST 5/5; demos tower/stone_keep com travessias apenas
   cross-floor; CLICKTEST OK; SKILLTEST OK
+
+## Sessao 3e - 2026-08-22 (v0.6.3 clique-na-escada cruza + desembarque a frente)
+- Feito: spec final do usuario — clicar na casa da escada cruza
+  automaticamente e desembarca no primeiro grid LIVRE a frente da escada
+  de chegada (BoardGrid.stair_landing, ordem N/S/O/L); salto pareado no
+  caminho nao re-cruza (compara penultimo passo); saida bloqueada avisa;
+  stairtest cenario 4 valida o grid exato de desembarque
+- Descobertas: stair_landing deve ser computado ANTES da travessia nos
+  testes (depois, a propria unidade ocupa a celula N e muda o resultado)
+- Validacao: STAIRTEST 5/5; demos com sobe/desce nos dois modos; msg
+  "Saida da escada bloqueada" exercitada no demo tower; CLICKTEST/SKILLTEST OK

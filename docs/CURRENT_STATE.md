@@ -1,19 +1,20 @@
-# Estado Atual — 2026-08-22 — v0.6.2
+# Estado Atual — 2026-08-22 — v0.6.3
 
-## Status: ESCADA COM TRAVESSIA EXPLÍCITA — JOGÁVEL E VALIDADO ✅
+## Status: ESCADA COM TRAVESSIA POR CLIQUE + DESEMBARQUE À FRENTE ✅
 
 ## O que funciona (validado headless)
 - 4 mapas modulares: `stone_keep` (3 andares, padrão), `tower`, `house`,
   `crypt` (passagem secreta + cofre) — todos bootam e jogam sem erros
-- **Escada = par de células ligadas** (`stairs`: [[base],[topo]]): ambas
-  são células normais do grid; pisar/parar nelas NUNCA cruza (v0.6.2)
-- **Travessia explícita**: (a) destino em outro andar → o caminho executa
-  o salto pareado; (b) em pé na célula da escada, clicar nela de novo
-  cruza custando 1 MP ("Sem movimento ou escada ocupada" se negado)
+- **Escada = par de células ligadas** (`stairs`: [[base],[topo]])
+- **Clicar na casa da escada cruza automaticamente** para o outro andar
+  (nos dois sentidos) e desembarca no primeiro grid LIVRE À FRENTE da
+  escada de chegada; saída bloqueada → fica na escada e avisa
+- Chegar pelo salto pareado (destino já era outro andar) não re-cruza;
+  passar pelo corredor sem clicar na escada não cruza; em pé nela,
+  clicar de novo re-cruza (custa 1 MP)
 - Visual: prop espiral fino na base + marcador âmbar no topo (pronto
   para trocar por modelo do Meshy)
 - IA e bot perseguem alvos em outros andares via `dist_to_goal`
-  (BFS + propagação pelos pares); bot cruza só quando o destino é cross-floor
 - Iluminação atmosférica; câmera presa ao andar com fade; retratos
   clicáveis; combate completo (LOS, terreno alto, level up, habilidades)
 

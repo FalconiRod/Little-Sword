@@ -138,18 +138,23 @@ func _stairtest() -> void:
 	var ok3: bool = knight.floor_index == 1 and knight.moves_left == 5
 	print("STAIRTEST 3 sem-dupla ml=", knight.moves_left,
 			" => ", "OK" if ok3 else "FALHOU")
-	# (4) EM PÉ na célula com movimento: travessia explícita desce.
+	# (4) EM PÉ na célula com movimento: travessia desembarca À FRENTE.
 	knight.moves_left = 2
+	var landing = BoardGrid.stair_landing(base)
 	var crossed: bool = knight.try_cross_stairs()
-	var ok4: bool = crossed and knight.grid_pos == base \
+	var ok4: bool = crossed and knight.grid_pos == landing \
 			and knight.floor_index == 0 and knight.moves_left == 1
 	print("STAIRTEST 4 cross-explicito pos=", knight.grid_pos,
-			" ml=", knight.moves_left, " => ", "OK" if ok4 else "FALHOU")
+			" esperado=", landing, " ml=", knight.moves_left,
+			" => ", "OK" if ok4 else "FALHOU")
 	# (5) sem movimento a travessia é negada e nada muda.
+	BoardGrid.move_unit(knight, top)
+	knight.grid_pos = top
+	knight.floor_index = 1
 	knight.moves_left = 0
 	var denied: bool = not knight.try_cross_stairs()
-	var ok5: bool = denied and knight.grid_pos == base \
-			and knight.floor_index == 0 and knight.moves_left == 0
+	var ok5: bool = denied and knight.grid_pos == top \
+			and knight.floor_index == 1 and knight.moves_left == 0
 	print("STAIRTEST 5 negado pos=", knight.grid_pos,
 			" => ", "OK" if ok5 else "FALHOU")
 	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5

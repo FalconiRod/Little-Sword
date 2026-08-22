@@ -127,18 +127,17 @@ Arquivos: player_controller.gd (_do_move).
 Solucao: descontar dist ANTES do await (inimigos ja faziam nessa ordem).
 Status: RESOLVIDO (STAIRTEST cenario 1 valida ML exato).
 
-## BUG-017 - Clicar na escada cruzava sem querer - RESOLVIDO (v0.6.2)
+## BUG-017 - Clicar na escada cruzava sem querer - RESOLVIDO (v0.6.3 final)
 Problema: o gatilho "cruzar ao terminar movimento" (v0.6.1) fazia clicar
-na casa da escada como destino teleportar a unidade para o outro andar
-(relato do usuario: "desce abaixo do andar 1 e depois clico em outro grid").
-Pisar na escada como celula de corredor era impossivel.
-Arquivos: unit_base.gd, player_controller.gd.
-Solucao: removido o gatilho de fim de movimento. Travessia so acontece
-(a) quando o caminho executa o salto pareado (destino em outro andar) ou
-(b) por try_cross_stairs(): em pe na celula, clicar nela de novo custa
-1 MP; sem MP/par ocupado -> "Sem movimento ou escada ocupada".
-Prop espiral emagrecido (62% da altura) para nao ler como pedra.
-Status: RESOLVIDO (STAIRTEST 5/5).
+na casa da escada como destino teleportar a unidade para o outro andar,
+inclusive quando ela era corredor (stone_keep linha 7).
+Arquivos: unit_base.gd, player_controller.gd, board_grid.gd.
+Solucao FINAL (v0.6.3, spec do usuario): clicar NA escada cruza de fato
+(era isso que ele queria), mas desembarca no primeiro grid LIVRE a frente
+da escada de chegada (stair_landing), nao em cima dela; chegou pelo salto
+pareado nao re-cruza; passar pelo corredor sem clicar nela nao cruza;
+saida bloqueada avisa e a unidade espera na escada.
+Status: RESOLVIDO (STAIRTEST 5/5; demos com sobe/desce nos dois modos).
 
 ## DISCOVERY - Contrato de animate_move (2026-08-22)
 EVIDENCIA: stairtest cenario 2 falhava porque o teste deixava grid_pos na
