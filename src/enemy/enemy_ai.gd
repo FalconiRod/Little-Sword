@@ -16,6 +16,7 @@ func run_turn(u) -> void:
 		else:
 			EventBus.log_msg.emit("%s mantÃ©m a guarda." % u.display_name, "#5f6472")
 			return
+	await get_tree().create_timer(0.35).timeout
 	match u.id:
 		"goblin_warrior":
 			await _melee(u)
@@ -50,7 +51,7 @@ func _can_see(u, target) -> bool:
 func _step_toward(u, goal: Vector3i, stop_at_range := 1) -> void:
 	if u.moves_left <= 0:
 		return
-	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	var gdist: Dictionary = BoardGrid.dist_to_goal(goal)
 	var cur_d: int = gdist.get(u.grid_pos, 999)
 	if u.grid_pos.z == goal.z:
 		cur_d = mini(cur_d, BoardGrid.chebyshev(u.grid_pos, goal))
@@ -70,16 +71,17 @@ func _step_toward(u, goal: Vector3i, stop_at_range := 1) -> void:
 	if best == u.grid_pos:
 		return
 	var path: Array = BoardGrid.path_from_reachable(reach, best)
+	var from: Vector3i = u.grid_pos
 	BoardGrid.move_unit(u, best)
 	u.moves_left -= path.size()
-	EventBus.log_msg.emit("%s avanÃ§a %d casa(s)." % [u.display_name, path.size()], "#8a8f9c")
+	EventBus.log_msg.emit("%s avança %d casa(s)." % [u.display_name, path.size()], "#8a8f9c")
 	EventBus.unit_moved.emit(u)
-	await u.animate_move(path)
+	await u.animate_move(path, from)
 
 ## Melhor casa de tiro: dentro do alcance com linha de visÃ£o; senÃ£o,
 ## aproxima-se o mÃ¡ximo possÃ­vel.
 func _best_shooting_cell(u, goal: Vector3i) -> Vector3i:
-	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	var gdist: Dictionary = BoardGrid.dist_to_goal(goal)
 	var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
 	var best_fire: Vector3i = u.grid_pos
 	var best_fire_d := 9999
@@ -123,11 +125,12 @@ func _archer(u) -> void:
 		if target != u.grid_pos:
 			var reach: Dictionary = BoardGrid.compute_reachable(u.grid_pos, u.moves_left)
 			var path: Array = BoardGrid.path_from_reachable(reach, target)
+			var from: Vector3i = u.grid_pos
 			BoardGrid.move_unit(u, target)
 			u.moves_left -= path.size()
 			EventBus.log_msg.emit("%s reposiciona-se (%d casa(s))." % [u.display_name, path.size()], "#8a8f9c")
 			EventBus.unit_moved.emit(u)
-			await u.animate_move(path)
+			await u.animate_move(path, from)
 	d = BoardGrid.chebyshev(u.grid_pos, h.grid_pos)
 	if h.alive and d <= u.attack_range and BoardGrid.has_line_of_sight(u.grid_pos, h.grid_pos):
 		await get_tree().create_timer(0.3).timeout

@@ -70,7 +70,7 @@ escolhia tile de cima e travava o jogo no chao.
 IMPACTO: clicar em outro andar exige apontar fora da sobreposicao.
 
 ## D12 - Escada reta = celulas reais com altura incremental (fim do link)
-DATA: 2026-08-22 | STATUS: ATIVA
+DATA: 2026-08-22 | STATUS: SUPERADA por D13
 DECISAO: 'S' contiguos no ASCII viram escada; cada degrau e celula pisavel
 com y absoluto FLOOR_H*(i+1)/(N+1); vizinho em andar adjacente vale quando
 delta-y real <= 2.5 (STEP_MAX_DY). Nada de teleporte.
@@ -79,3 +79,17 @@ visual alinhado ao grid; uma unica regra de movimento para tudo.
 ALTERNATIVAS: links/teleporte (v0.4.0, descartado: salto invisivel, bot
 nao parava em degrau, dois sistemas de pathing).
 IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.
+
+## D13 - Escada = par de celulas ligadas com transicao unica (StairsLink)
+DATA: 2026-08-22 | STATUS: ATIVA
+DECISAO: escada e UM par base<->topo (stair_links bidirecional); ambas as
+celulas sao normais; o par entra no BFS como vizinho de custo 1; a
+transicao dispara quando o caminho EXECUTA o salto (animate_move), nunca
+automaticamente ao terminar turno/andar sobre a celula. Visual = prop unico.
+MOTIVO: modelo mais simples e tabuleiro-like; sem alturas intermediarias,
+sem alinhamento de multiplas pecas, pronto para prop do Meshy; auto-cross
+foi testado e descartado (unidade quicava entre andares a cada turno).
+ALTERNATIVAS: degraus caminhaveis (v0.5.0, superada); auto-cross ao terminar
+movimento + inicio de turno (causava vai-e-vem, removido).
+IMPACTO: dist_to_goal() para IA cross-floor; mapas usam "stairs": [[base],
+[topo]]; prop espiral + marcador ambar.

@@ -9,7 +9,7 @@ extends Node3D
 ##  ~ buraco   = ponte   T baú     R runas    L alavanca
 ##  D porta    H porta trancada (abre por alavanca/evento)
 ##  X passagem secreta (parede disfarçada)
-##  S degrau de escada reta (células contíguas formam a escada)
+##  S célula da escada (base ou topo — par definido em "stairs")
 ##  K cavaleiro  M maga  W druida  g goblin  a arqueiro  B boss
 
 var map_id := ""
@@ -22,8 +22,6 @@ var doors: Array[DungeonDoor] = []
 var levers := {}          ## Vector3i -> true
 var active_floor_index := -1   ## -1 = nenhum andar mostrado ainda
 var _floor_nodes: Array[Node3D] = []
-var s_cells: Array = []        ## células 'S' (degraus) deste mapa
-var s_set := {}                ## Vector3i -> true (busca rápida)
 
 const LEGEND := {
 	"#": ["wall_stone", false, true],
@@ -53,8 +51,6 @@ func load_map(id: String) -> bool:
 	chest_cell = Vector3i.ZERO
 	active_floor_index = -1
 	_floor_nodes.clear()
-	s_cells.clear()
-	s_set.clear()
 	BoardGrid.reset()
 
 	for f in def["floors"].size():
@@ -71,79 +67,27 @@ func load_map(id: String) -> bool:
 			for x in row.length():
 				_place_char(row[x], Vector3i(x, y, f))
 
-	_build_stairs()
+	for st in def.get("stairs", []):
+		var a := Vector3i(st[0][0], st[0][1], st[0][2])
+		var b := Vector3i(st[1][0], st[1][1], st[1][2])
+		BoardGrid.add_stair_link(a, b)
+		_spawn_stairs_visual(a, b)
+
 	_setup_atmosphere()
 	_scatter_torches()
 	set_active_floor(0)
 	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
 	return true
 
-## Escadas retas: agrupa células 'S' contíguas (linha/coluna) numa escada.
-## Cada degrau é célula REAL do grid com altura crescente; o topo conecta
-## a uma célula normal do andar de cima. Sem teleporte, sem rotação livre.
-func _build_stairs() -> void:
-	var used := {}
-	for c in s_cells:
-		if used.has(c):
-			continue
-		var run: Array = [c]
-		var axis := Vector3i.ZERO
-		for ax in [Vector3i(1, 0, 0), Vector3i(0, 1, 0)]:
-			var r: Array = [c]
-			for dir in [1, -1]:
-				var n: Vector3i = c + ax * dir
-				while s_set.has(n):
-					r.append(n)
-					n += ax * dir
-			if r.size() > run.size():
-				run = r.duplicate()
-				axis = ax
-		for cc in run:
-			used[cc] = true
-		if axis == Vector3i.ZERO:
-			EventBus.log_msg.emit("Escada isolada ignorada em %s" % str(c), "#ff6b6b")
-			continue
-		_orient_stair(run, axis)
-
-func _orient_stair(run: Array, axis: Vector3i) -> void:
-	var f: int = run[0].z
-	# Testa os dois sentidos; vale o que tiver aproximação pisável no
-	# andar de origem E célula andável no andar de cima após o topo.
-	var orders: Array = []
-	for fw: Vector3i in [axis, -axis]:
-		var r: Array = run.duplicate()
-		if fw == -axis:
-			r.reverse()
-		orders.append({"run": r, "fwd": fw})
-	var chosen := {}
-	for o in orders:
-		var r: Array = o["run"]
-		var fw: Vector3i = o["fwd"]
-		var base: Vector3i = r[0]
-		var top: Vector3i = r[r.size() - 1]
-		if not BoardGrid.is_walkable(base - fw):
-			continue
-		var landing: Vector3i = Vector3i(top.x + fw.x, top.y + fw.y, f + 1)
-		if not BoardGrid.is_walkable(landing):
-			continue
-		chosen = {"run": r, "fwd": fw}
-		break
-	if chosen.is_empty():
-		EventBus.log_msg.emit("Escada em %s sem aproximacao/destino validos." % str(run[0]), "#ff6b6b")
-		return
-	var run_ok: Array = chosen["run"]
-	var fwd: Vector3i = chosen["fwd"]
-	var n: int = run_ok.size()
-	for i in n:
-		var cc: Vector3i = run_ok[i]
-		var y: float = BoardGrid.FLOOR_H * float(i + 1) / float(n + 1)
-		BoardGrid.set_height(cc, y)
-		var piece := TilePiece.step_piece(y, 0.0 if fwd.x != 0 else PI / 2)
-		_floor_nodes[f].add_child(piece)
-		piece.position = Vector3(cc.x * BoardGrid.TILE, 0.0, cc.y * BoardGrid.TILE)
-	var top: Vector3i = run_ok[n - 1]
-	var landing := Vector3i(top.x + fwd.x, top.y + fwd.y, f + 1)
-	EventBus.log_msg.emit("Escada de %s para %s" % [str(run_ok[0]), str(landing)], "#8fd3ff")
+## Visual da escada: coluna espiral na célula base + marcador âmbar na
+## célula do topo. A travessia em si é try_cross_stairs (transição).
+func _spawn_stairs_visual(base: Vector3i, top: Vector3i) -> void:
+	var prop := TilePiece.build("stairs_prop")
+	_floor_nodes[base.z].add_child(prop)
+	prop.position = BoardGrid.world_pos(base)
+	var mark := TilePiece.build("stairs_top")
+	_floor_nodes[top.z].add_child(mark)
+	mark.position = BoardGrid.world_pos(top)
 
 ## Mostra apenas o andar ativo (esconde os outros; NÃO descarrega da
 ## memória) e avisa câmera/HUD via active_floor_changed.
@@ -244,11 +188,9 @@ func _place_char(ch: String, c: Vector3i) -> void:
 			_piece("chest_prop", c)
 			chest_cell = c
 		"S":
-			# Degrau de escada reta: piso pisável; alturas/visuais montados
-			# depois em _build_stairs() agrupando as células contíguas.
+			# Célula de escada (base ou topo do par em "stairs"):
+			# piso normal; o prop visual nasce de _spawn_stairs_visual.
 			_tile("floor_stone", c)
-			s_cells.append(c)
-			s_set[c] = true
 		_:
 			if LEGEND.has(ch):
 				var p: Array = LEGEND[ch]
@@ -320,8 +262,8 @@ const MAPS := {
 					"#..P...D.o.#",
 					"#W....,#.#.#",
 					"####D###.g.#",
-					"#..m.,.#.S.#",
-					"#T.R.m.D.S##",
+					"#..m.,.#...#",
+					"#T.R.m.D..##",
 					"#..m...#.S##",
 					"############",
 				],
@@ -330,13 +272,13 @@ const MAPS := {
 				"rows": [
 					"############",
 					"#a......P..#",
-					"#..,.S..o..#",
-					"#P..DS.....#",
+					"#..,....o..#",
+					"#P.SD......#",
 					"#.....o....#",
 					"######D#####",
 					"#g.......P.#",
-					"#..........#",
-					"#########..#",
+					"#........S.#",
+					"############",
 				],
 			},
 			{ # Câmara do boss: ponte sobre o abismo
@@ -345,10 +287,14 @@ const MAPS := {
 					"#B.P....R#",
 					"#~=~=..,.#",
 					"#=~~=.P..#",
-					"#...=D...#",
+					"#..S=D...#",
 					"##########",
 				],
 			},
+		],
+		"stairs": [
+			[[9, 7, 0], [9, 7, 1]],
+			[[3, 3, 1], [3, 4, 2]],
 		],
 	},
 
@@ -362,7 +308,7 @@ const MAPS := {
 					"#K..M..a#",
 					"#..P.,..#",
 					"#..,S,..#",
-					"#..PS,..#",
+					"#..P.,..#",
 					"#g.....g#",
 					"#########",
 				],
@@ -372,12 +318,15 @@ const MAPS := {
 					"#########",
 					"#B..P...#",
 					"#......,#",
-					"#..,,,..#",
+					"#..,S,..#",
 					"#....o..#",
 					"#T......#",
 					"#########",
 				],
 			},
+		],
+		"stairs": [
+			[[4, 3, 0], [4, 3, 1]],
 		],
 	},
 
@@ -407,8 +356,8 @@ const MAPS := {
 					"###########",
 					"#K.M.,..#T#",
 					"#.P..,.#X.#",
-					"#..,..,#.S#",
-					"#L.D..,..S#",
+					"#..,..,#..#",
+					"#L.D..,.S.#",
 					"#.m..g.,..#",
 					"###########",
 				],
@@ -419,10 +368,13 @@ const MAPS := {
 					"#R.m...m.R#",
 					"#..P.o.P..#",
 					"#g..,.,..g#",
-					"#..,.,....#",
+					"#..,.,..S.#",
 					"###########",
 				],
 			},
+		],
+		"stairs": [
+			[[8, 4, 0], [8, 3, 1]],
 		],
 	},
 }

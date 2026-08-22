@@ -17,7 +17,7 @@ const PROPS := {
 	"chest_prop": {"w": false, "losb": false},
 	"runes": {"w": true, "losb": false, "special": "r"},
 	"lever_base": {"w": false, "losb": false},
-	# Portas e degraus de escada são componentes próprios (Door.gd / step_piece).
+	# Portas e escadas são componentes próprios (Door.gd / stairs_prop).
 }
 
 static func build(id: String) -> Node3D:
@@ -51,25 +51,39 @@ static func build(id: String) -> Node3D:
 			_lever(root)
 		"torch":
 			_torch(root)
+		"stairs_prop":
+			_stairs_column(root)
+		"stairs_top":
+			_stairs_marker(root)
 	return root
 
-## Degrau de escada RETA: topo exatamente em `top_y` (altura absoluta da
-## celula), riser macico ate a base — alinhado ao centro da celula, sem
-## offset/rotacao aleatorios. `yaw` trava a orientacao (0 ou PI/2).
-static func step_piece(top_y: float, yaw: float) -> Node3D:
-	var root := Node3D.new()
-	root.name = "step"
-	var tread_h := 0.34
-	var tread := BoxMesh.new()
-	tread.size = Vector3(BoardGrid.TILE - 0.12, tread_h, BoardGrid.TILE - 0.12)
-	_add(root, tread, _mat(Color.html("4a4a56"), Color(), 0.0, 0.05, 0.9),
-			Vector3(0, top_y - tread_h * 0.5, 0))
-	if top_y > tread_h + 0.01:
-		var riser := BoxMesh.new()
-		riser.size = Vector3(BoardGrid.TILE - 0.2, top_y - tread_h, BoardGrid.TILE - 0.24)
-		_add(root, riser, _mat(Color.html("3c3c46")), Vector3(0, (top_y - tread_h) * 0.5, 0))
-	root.rotation.y = yaw
-	return root
+## Escada-espiral: prop ÚNICO da célula base. Degraus em volta de um
+## poste central subindo até logo abaixo do piso do andar de cima —
+## puramente estético (a travessia é a transição de células ligadas).
+static func _stairs_column(root: Node3D) -> void:
+	var h: float = BoardGrid.FLOOR_H - 0.35
+	var post := CylinderMesh.new()
+	post.top_radius = 0.14
+	post.bottom_radius = 0.2
+	post.height = h
+	_add(root, post, _mat(Color.html("4a3b2e")), Vector3(0, h * 0.5, 0))
+	var steps := 10
+	for i in steps:
+		var ang := TAU * float(i) / float(steps)
+		var y := (h - 0.22) * float(i) / float(steps)
+		var st := BoxMesh.new()
+		st.size = Vector3(0.54, 0.12, 0.36)
+		var mi := _add(root, st, _mat(Color.html("6b5138"), Color(), 0.0, 0.05, 0.9),
+				Vector3(cos(ang) * 0.6, y + 0.06, sin(ang) * 0.6))
+		mi.rotation.y = -ang - PI / 2
+
+## Marcador discreto da célula do TOPO da escada (chegada).
+static func _stairs_marker(root: Node3D) -> void:
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.62
+	disc.bottom_radius = 0.62
+	disc.height = 0.05
+	_add(root, disc, _mat(Color.html("8a6d1f"), "ffd166", 0.7), Vector3(0, 0.03, 0))
 
 # ------------------------------------------------------------- materiais ----
 

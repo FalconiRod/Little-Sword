@@ -248,10 +248,20 @@ func animate_recoil(from_wp: Vector3) -> void:
 	tw.tween_property(self, "global_position", base, 0.14) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
-## Movimento de peça: saltos curtos célula a célula.
-func animate_move(path: Array) -> void:
-	var start_z: int = grid_pos.z
+## Movimento de peça: saltos curtos célula a célula. Quando um passo do
+## caminho é um salto de escada (célula pareada), dispara a transição de
+## andar naquele ponto. `from_cell` = célula de origem do movimento.
+func animate_move(path: Array, from_cell = null) -> void:
+	var prev: Vector3i = from_cell if from_cell != null else grid_pos
 	for c in path:
+		if BoardGrid.stair_pair(prev) == c and prev != c:
+			floor_index = c.z
+			EventBus.unit_changed_floor.emit(self, floor_index)
+			if team == "hero":
+				EventBus.log_msg.emit("Você muda de andar (%s)." %
+						["desce" if c.z < prev.z else "sobe"], "#c9a227")
+			else:
+				EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
 		var wp: Vector3 = BoardGrid.world_pos(c)
 		face_towards(wp)
 		var dur := 0.17
@@ -266,14 +276,12 @@ func animate_move(path: Array) -> void:
 		th.tween_property(self, "position:y", wp.y, dur * 0.5) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		await tw.finished
+		prev = c
 	position = BoardGrid.world_pos(grid_pos)
-	if grid_pos.z != start_z:
-		floor_index = grid_pos.z
-		EventBus.unit_changed_floor.emit(self, floor_index)
 	EventBus.unit_moved.emit(self)
 
-## Ponto ÚNICO de mudança de andar (escadas futuras, buracos, teleportes).
-## Reposiciona no grid e no mundo e dispara unit_changed_floor.
+## Ponto ÚNICO de mudança de andar (escadas). Reposiciona no grid e no
+## mundo e dispara unit_changed_floor.
 func change_floor(cell: Vector3i) -> void:
 	BoardGrid.move_unit(self, cell)
 	floor_index = cell.z

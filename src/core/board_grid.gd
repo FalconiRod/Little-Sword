@@ -7,33 +7,37 @@ const TILE := 2.0
 const FLOOR_H := 7.0   ## separação vertical entre andares (visual de mesa)
 const ELEV_H := 0.55   ## altura por nível de elevação (plataformas)
 
-var tiles := {}      ## Vector3i -> {w: bool, losb: bool, elev: int, y?: float}
-var occupied := {}   ## Vector3i -> BoardUnit
-var special := {}    ## Vector3i -> String ("r" = runas)
-
-## Maior degrau transponivel entre celulas vizinhas (escada com N>=2
-## degraus entre andares fica dentro disso; plataformas tambem).
-const STEP_MAX_DY := 2.5
+var tiles := {}        ## Vector3i -> {w: bool, losb: bool, elev: int}
+var stair_links := {}  ## Vector3i -> Vector3i (par base<->topo, bidirecional)
+var occupied := {}     ## Vector3i -> BoardUnit
+var special := {}      ## Vector3i -> String ("r" = runas)
 
 func reset() -> void:
 	tiles.clear()
+	stair_links.clear()
 	occupied.clear()
 	special.clear()
 
 func set_tile(c: Vector3i, walkable: bool, blocks_los := false, elev := 0) -> void:
-	var prev_y: float = tiles[c]["y"] if tiles.has(c) and tiles[c].has("y") \
-			else 0.0
-	tiles[c] = {"w": walkable, "losb": blocks_los, "elev": elev, "y": prev_y}
+	tiles[c] = {"w": walkable, "losb": blocks_los, "elev": elev}
 
-## Altura ABSOLUTA da celula (degraus de escada usam y customizado).
-func set_height(c: Vector3i, y: float) -> void:
-	if tiles.has(c):
-		tiles[c]["y"] = y
+## Registra par de células ligadas por escada (base no andar de baixo,
+## topo no de cima). Ambas são células normais; a travessia é discreta
+## (try_cross_stairs), não faz parte do caminho do BFS.
+func add_stair_link(a: Vector3i, b: Vector3i) -> void:
+	if a.z == b.z:
+		push_error("Stair link precisa de andares diferentes: %s" % str([a, b]))
+		return
+	if a.z > b.z:
+		var t := a
+		a = b
+		b = t
+	stair_links[a] = b
+	stair_links[b] = a
 
-func height_at(c: Vector3i) -> float:
-	if tiles.has(c) and tiles[c].has("y") and tiles[c]["y"] != 0.0:
-		return tiles[c]["y"]
-	return c.z * FLOOR_H + elev_at(c) * ELEV_H
+## Célula pareada da escada (ou a própria célula se não é escada).
+func stair_pair(c: Vector3i) -> Vector3i:
+	return stair_links.get(c, c)
 
 # ---------------------------------------------------------------- consulta --
 
@@ -62,22 +66,51 @@ func elev_at(c: Vector3i) -> int:
 	return int(tiles[c]["elev"]) if tiles.has(c) else 0
 
 func world_pos(c: Vector3i) -> Vector3:
-	return Vector3(c.x * TILE, height_at(c), c.y * TILE)
+	var e: int = elev_at(c)
+	return Vector3(c.x * TILE, c.z * FLOOR_H + e * ELEV_H, c.y * TILE)
 
 static func chebyshev(a: Vector3i, b: Vector3i) -> int:
 	return max(abs(a.x - b.x), abs(a.y - b.y))
 
-## Vizinhos com degrau transponivel: ortogonais no MESMO andar e, quando
-## as alturas casarem (Δy real <= limite), também célula adjacente no
-## andar de cima/baixo — é assim que o topo da escada conecta ao andar de
-## destino. Sem teleporte: tudo vira passo normal do BFS.
+## Vizinhos ortogonais no mesmo andar respeitando degrau máximo de 1
+## nível de elevação + célula pareada da escada (custo normal de passo;
+## a transição visual dispara quando o caminho executa esse salto).
 func neighbors(c: Vector3i) -> Array:
 	var out: Array = []
 	for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
-		for dz in [0, 1, -1]:
-			var n: Vector3i = c + off + Vector3i(0, 0, dz)
-			if is_walkable(n) and absf(height_at(n) - height_at(c)) <= STEP_MAX_DY:
-				out.append(n)
+		var n: Vector3i = c + off
+		if is_walkable(n) and abs(elev_at(n) - elev_at(c)) <= 1:
+			out.append(n)
+	var p: Vector3i = stair_links.get(c, c)
+	if p != c and is_walkable(p):
+		out.append(p)
+	return out
+
+## Mapa de distância ATÉ `goal` considerando escadas como passo único
+## (entrar na célula pareada custa +1). Camadas: BFS no andar do alvo,
+## propaga pelos pares e repete no andar de cada lado. Usado por IA/bot
+## para perseguir alvos em outros andares.
+func dist_to_goal(goal: Vector3i, ignore_units := true) -> Dictionary:
+	var out := {}
+	var queue: Array = []
+	var d0: Dictionary = compute_reachable(goal, 99, ignore_units)["dist"]
+	for c in d0:
+		out[c] = d0[c]
+		queue.append([c, d0[c]])
+	while not queue.is_empty():
+		var item: Array = queue.pop_front()
+		var c: Vector3i = item[0]
+		var d: int = item[1]
+		var pair: Vector3i = stair_links.get(c, c)
+		if pair == c or out.has(pair):
+			continue
+		out[pair] = d + 1
+		queue.append([pair, d + 1])
+		var dn: Dictionary = compute_reachable(pair, 99, ignore_units)["dist"]
+		for cc in dn:
+			if not out.has(cc):
+				out[cc] = d + 1 + dn[cc]
+				queue.append([cc, d + 1 + dn[cc]])
 	return out
 
 ## Linha de visão: apenas dentro do mesmo andar; amostra o segmento entre os
@@ -98,7 +131,7 @@ func has_line_of_sight(a: Vector3i, b: Vector3i) -> bool:
 			return false
 	return true
 
-## BFS multinível: anda no mesmo andar (degrau <= 1) e usa escadas.
+## BFS dentro do andar (degrau <= 1 entre plataformas).
 ## ignore_units=true ignora ocupantes (roteamento global, p.ex. IA/bot).
 func compute_reachable(start: Vector3i, max_steps: int, ignore_units := false) -> Dictionary:
 	var dist := {start: 0}

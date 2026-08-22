@@ -29,6 +29,9 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 		await get_tree().create_timer(1.05).timeout
 	if TurnManager.game_ended:
 		return
+	# O alvo pode ter morrido e sido liberado durante a animação do golpe.
+	if not is_instance_valid(target):
+		return
 	# A investida acompanha a resolucao (ataques corpo a corpo apenas).
 	if fx != "projectile_red":
 		attacker.animate_lunge(target.global_position)
@@ -47,10 +50,11 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 		target.take_damage(dmg)
 		# Impacto fisico: alvo recua e solta faiscas (mais fortes em critico).
 		target.last_striker = attacker
-		target.animate_recoil(attacker.global_position)
-		_sparks(target.global_position + Vector3(0, 0.8, 0),
-				"#ff9f43" if chk["crit"] else "#ffd166",
-				26 if chk["crit"] else 14)
+		if is_instance_valid(target):
+			target.animate_recoil(attacker.global_position)
+			_sparks(target.global_position + Vector3(0, 0.8, 0),
+					"#ff9f43" if chk["crit"] else "#ffd166",
+					26 if chk["crit"] else 14)
 		if chk["crit"]:
 			EventBus.log_msg.emit("ACERTO CRÍTICO! %s causa %d de dano (%d vs CA %d)." % [attacker.display_name, dmg, chk["total"], tgt_ac], "#ffd166")
 			EventBus.shake_requested.emit(0.5)

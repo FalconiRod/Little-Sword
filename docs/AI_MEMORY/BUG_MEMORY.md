@@ -100,3 +100,24 @@ Status: RESOLVIDO.
 EVIDENCIA: BUG-012. Ao editar linhas de mapa, posicionar chars por INDICE
 (0-based) e nao "quase visualmente"; largura da linha deve ficar constante.
 IMPACTO: revisar diffs de MAPS sempre com contagem explicita.
+
+## BUG-014 - Alvo morto no voo do projétil acessado após free - RESOLVIDO
+Problema: projétil mata o alvo durante a animação; código seguia chamando
+animate_recoil/global_position em objeto liberado ('previously freed').
+Arquivos: src/autoload/combat_system.gd.
+Solucao: guardas is_instance_valid(target) apos os await points.
+Status: RESOLVIDO (6/6 runs limpos).
+
+## BUG-015 - Auto-cross de escada fazia unidade quicar de andar - RESOLVIDO
+Problema: cruzar ao TERMINAR movimento + cruzar no INICIO do turno fazia
+a IA subir e descer em loop na mesma escada.
+Arquivos: unit_base.gd, player_controller.gd, enemy_ai.gd.
+Solucao: transicao acontece SOMENTE quando o caminho escolhido executa o
+salto pareado (dentro de animate_move); nenhum auto-cross automatico.
+Status: RESOLVIDO.
+
+## DISCOVERY - StairsLink: par entra no BFS como vizinho (2026-08-22)
+EVIDENCIA: reach inclui celulas do outro andar (mage reach=38 na torre);
+custo da travessia = 1 passo, consistente com dist_to_goal (+1).
+IMPACTO: clicar direto na celula do topo funciona; parar NA escada nao
+cruza - intenção explicita do jogador.

@@ -53,3 +53,13 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   skilltest OK; boot sem erros
 - Pendencia: combate em altura proxima (degrau vs landing) bloqueado por
   regra mesmo-andar - decidir regra futura
+
+## Sessao 3b - 2026-08-22 (v0.6.0 StairsLink)
+- Feito: modelo de escada substituido por PAR de celulas ligadas
+  (stair_links); transicao unica via animate_move; prop espiral unico +
+  marcador ambar no topo; dist_to_goal para IA/bot cross-floor; mapas com
+  "stairs": [[base],[topo]]; BUG-014 (freed target) corrigido; backup e
+  commits antes/depois conforme pedido do usuario
+- Descobertas: auto-cross gera vai-e-vem (BUG-015) - transicao so no passo
+  do caminho; dado alto no skilltest expôs freed-target latente
+- Validacao: 4 mapas demo OK (7 travessias), clicktest OK, skilltest 6/6

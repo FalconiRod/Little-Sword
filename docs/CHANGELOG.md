@@ -1,6 +1,28 @@
 # Changelog
 
-## v0.5.0 — 2026-08-22 — Escadas retas por células reais
+## v0.6.0 — 2026-08-22 — Escada como célula única de transição (StairsLink)
+### Removido
+- Modelo v0.5.0 de "degraus caminháveis" (alturas incrementais por célula,
+  `_build_stairs`, `step_piece`, `height_at`/`set_height` em BoardGrid)
+### Adicionado
+- `BoardGrid.stair_links`: par bidirecional base<->topo (`add_stair_link`,
+  `stair_pair`); mapas declaram `"stairs": [[base],[topo]]`
+- `dist_to_goal()` em BoardGrid: mapa de distância cross-floor para IA/bot
+  (BFS no andar do alvo + propagação pelos pares, +1 por travessia)
+- Visual: prop ÚNICO por escada — coluna espiral na célula base
+  (`stairs_prop`) + marcador âmbar no topo (`stairs_top`)
+- Transição: quando o caminho executa o salto pareado, `animate_move`
+  dispara `unit_changed_floor` naquele passo (ponto único; herói vê
+  "Você muda de andar", inimigo "%s usa a escada")
+### Alterado
+- `neighbors()`: célula pareada entra como vizinha de custo normal
+  (subir/descer custa entrar numa célula, sem ação especial)
+- Células de escada são células normais: sem altura especial, pode
+  ocupar/parar nelas; sem transições acidentais no meio do caminho
+- Guarda `is_instance_valid(target)` em CombatSystem (BUG-014: alvo morto
+  durante o voo do projétil era acessado após free)
+
+## v0.5.0 — 2026-08-22 — Escadas retas por células reais (SUBSTITUÍDO)
 ### Removido
 - `src/dungeon/stairs.gd` (DungeonStairs): modelo de "link/teleporte"
   entre andares eliminado; mapas não têm mais a chave `links`

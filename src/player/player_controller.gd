@@ -128,16 +128,20 @@ func _demo_play() -> void:
 	if enemies.is_empty():
 		do_pass()
 		return
-	# Rota real (BFS multinível, ignorando ocupantes): evita perseguir
-	# um inimigo que está no andar de cima "a distância zero".
-	var glob: Dictionary = BoardGrid.compute_reachable(knight.grid_pos, 99, true)
+	# Rota real considerando escadas como passo único: alvo mais próximo
+	# por distância de rota (não "linha reta" entre andares).
 	enemies.sort_custom(func(a, b):
-		return glob["dist"].get(a.grid_pos, 999) < glob["dist"].get(b.grid_pos, 999))
+		var da: int = BoardGrid.chebyshev(knight.grid_pos, a.grid_pos) \
+				+ abs(knight.grid_pos.z - a.grid_pos.z) * 4
+		var db: int = BoardGrid.chebyshev(knight.grid_pos, b.grid_pos) \
+				+ abs(knight.grid_pos.z - b.grid_pos.z) * 4
+		return da < db)
 	var goal: Vector3i = enemies[0].grid_pos
-	var gdist: Dictionary = BoardGrid.compute_reachable(goal, 99, true)["dist"]
+	var gdist: Dictionary = BoardGrid.dist_to_goal(goal)
 	var inter = null
-	if glob["dist"].get(goal, 999) >= 999:
+	if gdist.get(knight.grid_pos, 999) >= 999:
 		# Sem rota até o inimigo: procurar porta/alavanca que abra o caminho.
+		var glob := BoardGrid.compute_reachable(knight.grid_pos, 99, true)
 		var bi = null
 		var bd := 9999
 		for it in board.doors:
@@ -157,7 +161,7 @@ func _demo_play() -> void:
 	if _demo:
 		print("[BOT] ", knight.id, " pos=", knight.grid_pos, " ml=", knight.moves_left,
 			" reach=", reach["dist"].size(), " goal=", goal,
-			" rota=", glob["dist"].get(goal, 999))
+			" rota=", gdist.get(knight.grid_pos, 999))
 	if reach["dist"].size() > 1:
 		var best := knight.grid_pos
 		var best_d := 9999
@@ -400,15 +404,13 @@ func _handle_click(screen_pos: Vector2) -> void:
 func _do_move(cell: Vector3i) -> void:
 	busy = true
 	_hide_all()
-	var old_floor := knight.grid_pos.z
+	var from_cell: Vector3i = knight.grid_pos
 	var path: Array = BoardGrid.path_from_reachable(reach, cell)
 	var dist: int = path.size()
 	BoardGrid.move_unit(knight, cell)
-	await knight.animate_move(path)
+	await knight.animate_move(path, from_cell)
 	knight.moves_left -= dist
 	_sel_ring.position = knight.position + Vector3(0, 0.14, 0)
-	if cell.z != old_floor:
-		EventBus.log_msg.emit("Você muda de andar (%s)." % ["desce" if cell.z < old_floor else "sobe"], "#c9a227")
 	hud.update_vitals(knight)
 	busy = false
 	if knight.moves_left > 0 and not acted:
