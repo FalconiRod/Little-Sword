@@ -49,6 +49,8 @@ static func build(id: String) -> Node3D:
 			_runes(root)
 		"lever_base":
 			_lever(root)
+		"torch":
+			_torch(root)
 	return root
 
 # ------------------------------------------------------------- materiais ----
@@ -185,3 +187,19 @@ static func _lever(root: Node3D) -> void:
 	knob.height = 0.14
 	_add(root, knob, _mat(Color.html("ffd166"), Color.html("ffd166"), 1.2, 0.6, 0.4),
 			Vector3(0, 0.54, -0.09))
+
+static func _torch(root: Node3D) -> void:
+	# Suporte na parede + chama emissiva (a luz Omni entra por parâmetro).
+	var bracket := BoxMesh.new()
+	bracket.size = Vector3(0.08, 0.08, 0.3)
+	_add(root, bracket, _mat(Color.html("4a3626")), Vector3(0, 1.15, 0.18))
+	var stick := CylinderMesh.new()
+	stick.top_radius = 0.035
+	stick.bottom_radius = 0.05
+	stick.height = 0.5
+	_add(root, stick, _mat(Color.html("54381e")), Vector3(0, 1.38, 0.28))
+	var flame := SphereMesh.new()
+	flame.radius = 0.11
+	flame.height = 0.22
+	_add(root, flame, _mat(Color.html("ffb454"), Color.html("ff9d2e"), 3.4, 0.1, 0.4),
+			Vector3(0, 1.68, 0.28))

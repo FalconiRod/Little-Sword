@@ -64,8 +64,71 @@ func load_map(id: String) -> bool:
 		add_child(st)
 		st.setup(a, b)
 
+	_setup_atmosphere()
+	_scatter_torches()
 	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
 	return true
+
+## Iluminação de mesa: ambiente frio fraco + "lua" direcional com sombra.
+func _setup_atmosphere() -> void:
+	var we := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color.html("0a0c14")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color.html("707896")
+	env.ambient_light_energy = 0.9
+	env.fog_enabled = true
+	env.fog_light_color = Color.html("161a2a")
+	env.fog_density = 0.006
+	we.environment = env
+	add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.name = "MoonLight"
+	sun.rotation_degrees = Vector3(-52, -28, 0)
+	sun.light_color = Color.html("cfd6ff")
+	sun.light_energy = 0.9
+	sun.shadow_enabled = true
+	add_child(sun)
+
+## Tochas nas paredes viradas para casas livres — aquecem o cenário.
+func _scatter_torches() -> void:
+	var dirs := [Vector3i(0, 1, 0), Vector3i(1, 0, 0),
+			Vector3i(0, -1, 0), Vector3i(-1, 0, 0)]
+	var spots: Array = []
+	for c in BoardGrid.tiles.keys():
+		if BoardGrid.tiles[c]["w"] or not BoardGrid.tiles[c]["losb"]:
+			continue
+		if (c.x * 31 + c.y * 17 + c.z * 7) % 3 != 0:
+			continue
+		for d in dirs:
+			if BoardGrid.is_walkable(c + d):
+				spots.append([c, d])
+				break
+	spots.shuffle()
+	var placed := 0
+	for s in spots:
+		if placed >= 30:
+			break
+		var c: Vector3i = s[0]
+		var d: Vector3i = s[1]
+		var t := TilePiece.build("torch")
+		add_child(t)
+		t.position = BoardGrid.world_pos(c)
+		t.rotation.y = atan2(float(d.x), float(d.y))
+		var l := OmniLight3D.new()
+		l.light_color = Color.html("ffb454")
+		l.light_energy = 2.4
+		l.omni_range = 5.5
+		l.omni_attenuation = 1.3
+		l.shadow_enabled = false
+		l.position = Vector3(0, 1.75, 0.35).rotated(Vector3.UP, t.rotation.y)
+		t.add_child(l)
+		var tw := t.create_tween().set_loops()
+		tw.tween_property(l, "light_energy", randf_range(1.7, 2.1),
+				randf_range(0.16, 0.38))
+		tw.tween_property(l, "light_energy", 2.5, randf_range(0.1, 0.28))
+		placed += 1
 
 # ----------------------------------------------------------------- interno --
 

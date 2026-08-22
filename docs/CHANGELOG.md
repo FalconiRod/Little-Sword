@@ -260,3 +260,12 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
   inimigo em alerta ganham meio-tapete cinza ('protegido').
 - Level up por abate: heroi que derrota um inimigo ganha nivel (+3 PV,
   +1 dano fixo); retrato mostra o nivel atual.
+
+## Hotfix v0.4.1 — 2026-08-22 — Iluminacao do Dungeon Kit
+### Corrigido
+- Mapa totalmente escuro: EnvironmentManager nao criava luzes (o antigo
+  BoardBuilder tinha as tochas). Adicionado _setup_atmosphere(): ambiente
+  frio + 'lua' direcional com sombra + neblina sutil.
+### Adicionado
+- Tochas nas paredes com OmniLight tremulando (ate 30 por mapa).
+- Screenshot de referencia: screenshots/v040_stone_keep.png
