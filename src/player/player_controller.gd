@@ -394,6 +394,15 @@ func _handle_click(screen_pos: Vector2) -> void:
 		else:
 			EventBus.log_msg.emit("O baú está longe. Aproxime-se dele.", "#ffb84d")
 		return
+	# Escada: clicar de novo na célula ONDE ESTÁ = atravessar (custa 1 MP).
+	# Pisar na escada nunca cruza sozinho (v0.6.2).
+	if c == knight.grid_pos and BoardGrid.stair_links.has(c):
+		if not knight.try_cross_stairs():
+			EventBus.log_msg.emit("Sem movimento ou escada ocupada.", "#ffb84d")
+		else:
+			hud.update_vitals(knight)
+			_compute_reachable()
+		return
 	if reach["dist"].has(c):
 		_do_move(c)
 	elif BoardGrid.is_walkable(c):

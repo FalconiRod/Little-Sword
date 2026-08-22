@@ -80,22 +80,22 @@ ALTERNATIVAS: links/teleporte (v0.4.0, descartado: salto invisivel, bot
 nao parava em degrau, dois sistemas de pathing).
 IMPACTO: add_link removido; height_at suporta y custom; mapas reautorados.
 
-## D13 - Escada = par de celulas ligadas com transicao unica (StairsLink)
-DATA: 2026-08-22 | STATUS: ATIVA (ampliada em v0.6.1)
+## D13 - Escada = par de celulas ligadas; travessia SEMPRE explicita
+DATA: 2026-08-22 | STATUS: ATIVA (v0.6.2; gatilho v0.6.1 SUPERADO)
 DECISAO: escada e UM par base<->topo (stair_links bidirecional); ambas as
-celulas sao normais; o par entra no BFS como vizinho de custo 1; a
-transicao dispara (a) quando o caminho EXECUTA o salto pareado e (b)
-quando o movimento TERMINA sobre uma celula ligada sem ter chegado pelo
-salto (v0.6.1, spec do usuario: "ao terminar o movimento sobre essa casa").
-Cruzar custa 1 de movimento; sem movimento sobrando, a unidade para na
-escada e cruza no turno seguinte andando ate a celula pareada. Nao existe
-cross de inicio de turno (BUG-015). Visual = prop unico.
-MOTIVO: modelo simples e tabuleiro-like, pronto para prop do Meshy; o
-auto-cross de inicio de turno quicava entre andares e segue descartado,
-mas o cross ao terminar movimento e seguro (guarda anti-duplo via
-penultimo passo) e atende a intencao natural do jogador.
+celulas sao normais e entram no BFS como vizinhas de custo 1. Pisar ou
+parar sobre a escada NUNCA cruza (v0.6.1 testou cruzar ao terminar o
+movimento e o usuario rejeitou: clicar na escada como destino teleportava
+sem querer — BUG-017). A travessia e explicita: (a) o caminho executa o
+salto pareado quando o destino esta em outro andar; (b) em pe na celula,
+clicar nela de novo (try_cross_stairs, custa 1 MP). Cross de inicio de
+turno segue descartado (BUG-015).
+MOTIVO: a celula da escada costuma ser corredor (ex.: linha 7 do
+stone_keep); o jogador precisa poder atravesssa-la/parar nela sem trocar
+de andar, e a intencao de cruzar deve ser um gesto proprio.
 ALTERNATIVAS: degraus caminhaveis (v0.5.0, superada); auto-cross ao
-terminar + inicio de turno (causava vai-e-vem, inicio removido).
-IMPACTO: dist_to_goal() para IA cross-floor; mapas usam "stairs": [[base],
-[topo]]; prop espiral + marcador ambar; _do_move desconta custo antes do
-await (BUG-016).
+terminar movimento (v0.6.1, superada pelo BUG-017); auto-cross de inicio
+de turno (BUG-015, descartada).
+IMPACTO: dist_to_goal() para IA cross-floor intacta (usa os pares);
+mapas usam "stairs": [[base],[topo]]; prop espiral fino (62% altura);
+_do_move desconta custo antes do await (BUG-016).

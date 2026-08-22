@@ -1,6 +1,25 @@
 # Changelog
 
-## v0.6.1 — 2026-08-22 — Travessia ao terminar o movimento (spec StairsLink)
+## v0.6.2 — 2026-08-22 — Escada deixa de cruzar sozinha (BUG-017)
+### Corrigido
+- Clicar na casa da escada como destino jogava a unidade para o outro
+  andar sem querer (relato: "clico na escada, desce abaixo do andar 1")
+- Removido o gatilho de cruzar ao TERMINAR movimento (v0.6.1): pisar ou
+  parar sobre a escada agora é como pisar em qualquer célula
+### Alterado
+- Travessia é sempre EXPLÍCITA: (a) caminho cujo passo executa o salto
+  pareado (destino em outro andar); (b) clicar de novo na célula da
+  escada estando EM PÉ nela (`try_cross_stairs`, custa 1 MP; sem MP,
+  "Sem movimento ou escada ocupada")
+- Prop espiral mais fino e baixo (62% da altura do andar): não lê mais
+  como "pedra bloqueando" no corredor/porta do 1º andar
+### Testes
+- `--stairtest` reescrito: 5 cenários (parar não cruza; salto no meio do
+  caminho cruza; sem dupla; cross explícito desce; sem MP é negado) OK
+- Demos tower/stone_keep: travessias só com destino cross-floor;
+  CLICKTEST/SKILLTEST OK
+
+## v0.6.1 — 2026-08-22 — Travessia ao terminar o movimento (SUPERADA)
 ### Alterado
 - `animate_move`: além do salto pareado executado no caminho, terminar o
   movimento SOBRE uma célula de escada agora também cruza (`_cross_stairs_now`),

@@ -279,28 +279,28 @@ func animate_move(path: Array, from_cell = null) -> void:
 		prev = c
 	position = BoardGrid.world_pos(grid_pos)
 	EventBus.unit_moved.emit(self)
-	# Terminou o movimento SOBRE uma escada sem ter chegado pelo salto
-	# pareado: dispara a transição (custa 1 de movimento). Sem movimento
-	# sobrando fica parado — cruza no próximo turno andando até o par.
-	if path.size() > 0 and BoardGrid.stair_links.has(grid_pos):
-		var src: Vector3i = from_cell if from_cell != null else grid_pos
-		var before_final: Vector3i = src if path.size() == 1 \
-				else path[path.size() - 2]
-		if BoardGrid.stair_pair(before_final) != grid_pos:
-			_cross_stairs_now()
+	# Parar sobre a escada NÃO cruza (v0.6.2): pisar nela é como pisar em
+	# qualquer célula. A travessia é sempre explícita: ou o caminho executa
+	# o salto pareado (destino em outro andar), ou quem está EM PÉ na
+	# célula clica nela de novo (try_cross_stairs).
 
-func _cross_stairs_now() -> void:
+## Atravessa a escada em que a unidade está EM PÉ (ação explícita).
+## Custa 1 de movimento. Retorna true se a travessia aconteceu.
+func try_cross_stairs() -> bool:
+	if not BoardGrid.stair_links.has(grid_pos):
+		return false
 	var pair: Vector3i = BoardGrid.stair_pair(grid_pos)
 	if moves_left < 1 or not BoardGrid.is_free(pair):
-		return
+		return false
 	moves_left -= 1
 	var from_z := grid_pos.z
 	change_floor(pair)
 	if team == "hero":
-		EventBus.log_msg.emit("Você muda de andar (%s)." %
+		EventBus.log_msg.emit("Você %s pela escada." %
 				["desce" if pair.z < from_z else "sobe"], "#c9a227")
 	else:
 		EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
+	return true
 
 ## Ponto ÚNICO de mudança de andar (escadas). Reposiciona no grid e no
 ## mundo e dispara unit_changed_floor.

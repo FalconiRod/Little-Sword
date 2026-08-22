@@ -78,3 +78,14 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   erro/ML negativo/quique; CLICKTEST OK; SKILLTEST OK (mapa padrao)
 - Pendente: combate base<->topo bloqueado por regra mesmo-andar (decisao
   futura); prop Meshy no lugar da espiral procedural
+
+## Sessao 3d - 2026-08-22 (v0.6.2 travessia explicita, BUG-017)
+- Feito: usuario rejeitou o cross ao terminar movimento (clicar na escada
+  como destino teleportava sem querer). Removido gatilho; travessia agora
+  so via salto pareado no caminho ou try_cross_stairs() (em pe na celula,
+  clicar de novo, custa 1 MP); prop espiral emagrecido (62% altura) para
+  nao ler como "pedra" no corredor; stairtest reescrito com 5 cenarios
+- Descobertas: celulas de escada costumam ser corredor (stone_keep linha
+  7) - auto-cross nelas quebra a navegacao normal do piso
+- Validacao: STAIRTEST 5/5; demos tower/stone_keep com travessias apenas
+  cross-floor; CLICKTEST OK; SKILLTEST OK

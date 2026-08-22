@@ -105,11 +105,10 @@ func _skilltest() -> void:
 	print("SKILLTEST revert shifted=", druid.shifted)
 	print("SKILLTEST RESULT OK")
 
-## Teste da escada (StairsLink): usa a TORRE (par [[4,3,0],[4,3,1]]).
-## Contrato respeitado: move_unit(dest=path[-1]) ANTES de animate_move.
-## Cenários: (1) terminar o movimento sobre a base com movimento sobrando
-## cruza; (2) chegar SEM movimento não cruza e nada quebra; (3) andar até
-## a célula pareada cruza; (4) caminho que TERMINA no par não dupla-cruza.
+## Teste da escada (StairsLink v0.6.2): usa a TORRE (par [[4,3,0],[4,3,1]]).
+## Contrato: move_unit(dest=path[-1]) ANTES de animate_move.
+## Regras: pisar/parar na escada NUNCA cruza; o salto pareado no meio do
+## caminho cruza; em pé na célula, try_cross_stairs() cruza custando 1 MP.
 func _stairtest() -> void:
 	await get_tree().create_timer(0.5).timeout
 	var base := Vector3i(4, 3, 0)
@@ -120,39 +119,40 @@ func _stairtest() -> void:
 	# Isola o herói ao lado da escada.
 	knight.grid_pos = Vector3i(5, 3, 0)
 	BoardGrid.move_unit(knight, knight.grid_pos)
-	# (1) termina SOBRE a base com movimento sobrando: cruza para o topo.
-	#     (o teste não cobra o custo da caminhada: ml final = 3 - 1 do salto)
+	# (1) terminar sobre a base NÃO cruza: fica em pé na escada.
 	knight.moves_left = 3
 	BoardGrid.move_unit(knight, base)
 	await knight.animate_move([base], Vector3i(5, 3, 0))
-	var ok1: bool = knight.grid_pos == top and knight.floor_index == 1 \
-			and knight.moves_left == 2
-	print("STAIRTEST 1 cruza-ao-terminar pos=", knight.grid_pos,
+	var ok1: bool = knight.grid_pos == base and knight.floor_index == 0 \
+			and knight.moves_left == 3
+	print("STAIRTEST 1 para-na-escada pos=", knight.grid_pos,
 			" ml=", knight.moves_left, " => ", "OK" if ok1 else "FALHOU")
-	# (2) chega na base SEM movimento: não cruza e nada quebra.
-	knight.moves_left = 0
-	BoardGrid.move_unit(knight, base)
-	await knight.animate_move([base], top)
-	var ok2: bool = knight.grid_pos == base and knight.floor_index == 0 \
-			and knight.moves_left == 0
-	print("STAIRTEST 2 sem-movimento pos=", knight.grid_pos,
-			" ml=", knight.moves_left, " => ", "OK" if ok2 else "FALHOU")
-	# (3) turno seguinte: anda até a célula pareada e cruza.
-	knight.moves_left = 1
-	BoardGrid.move_unit(knight, top)
-	await knight.animate_move([top], base)
-	var ok3: bool = knight.grid_pos == top and knight.floor_index == 1
-	print("STAIRTEST 3 proximo-turno pos=", knight.grid_pos,
-			" => ", "OK" if ok3 else "FALHOU")
-	# (4) caminho cujo ÚLTIMO passo é o salto: não re-cruza de volta.
+	# (2) caminho que executa o SALTO pareado cruza no meio do caminho.
 	knight.moves_left = 5
 	BoardGrid.move_unit(knight, top)
-	await knight.animate_move([top], base)
-	var ok4: bool = knight.grid_pos == top and knight.floor_index == 1 \
-			and knight.moves_left == 5
-	print("STAIRTEST 4 sem-dupla pos=", knight.grid_pos,
+	await knight.animate_move([base, top], Vector3i(5, 3, 0))
+	var ok2: bool = knight.grid_pos == top and knight.floor_index == 1
+	print("STAIRTEST 2 salto-no-caminho pos=", knight.grid_pos,
+			" => ", "OK" if ok2 else "FALHOU")
+	# (3) chegou pelo salto: nenhuma cruzada extra de volta.
+	var ok3: bool = knight.floor_index == 1 and knight.moves_left == 5
+	print("STAIRTEST 3 sem-dupla ml=", knight.moves_left,
+			" => ", "OK" if ok3 else "FALHOU")
+	# (4) EM PÉ na célula com movimento: travessia explícita desce.
+	knight.moves_left = 2
+	var crossed: bool = knight.try_cross_stairs()
+	var ok4: bool = crossed and knight.grid_pos == base \
+			and knight.floor_index == 0 and knight.moves_left == 1
+	print("STAIRTEST 4 cross-explicito pos=", knight.grid_pos,
 			" ml=", knight.moves_left, " => ", "OK" if ok4 else "FALHOU")
-	var all_ok := ok1 and ok2 and ok3 and ok4
+	# (5) sem movimento a travessia é negada e nada muda.
+	knight.moves_left = 0
+	var denied: bool = not knight.try_cross_stairs()
+	var ok5: bool = denied and knight.grid_pos == base \
+			and knight.floor_index == 0 and knight.moves_left == 0
+	print("STAIRTEST 5 negado pos=", knight.grid_pos,
+			" => ", "OK" if ok5 else "FALHOU")
+	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5
 	print("STAIRTEST RESULT ", "OK" if all_ok else "FALHOU")
 
 # ------------------------------------------------------------------ build --

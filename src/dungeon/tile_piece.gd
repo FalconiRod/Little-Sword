@@ -61,20 +61,20 @@ static func build(id: String) -> Node3D:
 ## poste central subindo até logo abaixo do piso do andar de cima —
 ## puramente estético (a travessia é a transição de células ligadas).
 static func _stairs_column(root: Node3D) -> void:
-	var h: float = BoardGrid.FLOOR_H - 0.35
+	var h: float = BoardGrid.FLOOR_H * 0.62
 	var post := CylinderMesh.new()
-	post.top_radius = 0.14
-	post.bottom_radius = 0.2
+	post.top_radius = 0.09
+	post.bottom_radius = 0.13
 	post.height = h
 	_add(root, post, _mat(Color.html("4a3b2e")), Vector3(0, h * 0.5, 0))
-	var steps := 10
+	var steps := 11
 	for i in steps:
 		var ang := TAU * float(i) / float(steps)
-		var y := (h - 0.22) * float(i) / float(steps)
+		var y := (h - 0.18) * float(i) / float(steps)
 		var st := BoxMesh.new()
-		st.size = Vector3(0.54, 0.12, 0.36)
+		st.size = Vector3(0.4, 0.09, 0.26)
 		var mi := _add(root, st, _mat(Color.html("6b5138"), Color(), 0.0, 0.05, 0.9),
-				Vector3(cos(ang) * 0.6, y + 0.06, sin(ang) * 0.6))
+				Vector3(cos(ang) * 0.42, y + 0.05, sin(ang) * 0.42))
 		mi.rotation.y = -ang - PI / 2
 
 ## Marcador discreto da célula do TOPO da escada (chegada).

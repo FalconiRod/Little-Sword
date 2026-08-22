@@ -127,6 +127,19 @@ Arquivos: player_controller.gd (_do_move).
 Solucao: descontar dist ANTES do await (inimigos ja faziam nessa ordem).
 Status: RESOLVIDO (STAIRTEST cenario 1 valida ML exato).
 
+## BUG-017 - Clicar na escada cruzava sem querer - RESOLVIDO (v0.6.2)
+Problema: o gatilho "cruzar ao terminar movimento" (v0.6.1) fazia clicar
+na casa da escada como destino teleportar a unidade para o outro andar
+(relato do usuario: "desce abaixo do andar 1 e depois clico em outro grid").
+Pisar na escada como celula de corredor era impossivel.
+Arquivos: unit_base.gd, player_controller.gd.
+Solucao: removido o gatilho de fim de movimento. Travessia so acontece
+(a) quando o caminho executa o salto pareado (destino em outro andar) ou
+(b) por try_cross_stairs(): em pe na celula, clicar nela de novo custa
+1 MP; sem MP/par ocupado -> "Sem movimento ou escada ocupada".
+Prop espiral emagrecido (62% da altura) para nao ler como pedra.
+Status: RESOLVIDO (STAIRTEST 5/5).
+
 ## DISCOVERY - Contrato de animate_move (2026-08-22)
 EVIDENCIA: stairtest cenario 2 falhava porque o teste deixava grid_pos na
 celula de ORIGEM; chamadores reais fazem BoardGrid.move_unit(dest=path[-1])
