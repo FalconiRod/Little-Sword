@@ -269,3 +269,21 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 ### Adicionado
 - Tochas nas paredes com OmniLight tremulando (ate 30 por mapa).
 - Screenshot de referencia: screenshots/v040_stone_keep.png
+
+## v0.4.2 - 2026-08-22 - Camera por andar + selecao de grupo (estilo BG3)
+### Adicionado
+- EnvironmentManager.active_floor_index + set_active_floor(): mostra SOMENTE
+  o andar ativo (pecas/tochas/portas/escadas em contenedores Floor#);
+  dispara EventBus.active_floor_changed.
+- EventBus.unit_changed_floor: ponto unico BoardUnit.change_floor() (e emissao
+  ao fim de animate_move quando cruza escada).
+- Retratos da ordem de turno clicaveis: clique foca a unidade; se estiver em
+  outro andar, fade preto ~0.33s esconde a troca de laje e a camera reposiciona
+  instantaneo no meio do fade (TacticalCamera.snap_focus); mesmo andar =
+  pan suave (focus_on).
+- Indicador por retrato ('^ 2' / 'v 1') quando a unidade nao esta no andar
+  ativo; reage a active_floor_changed e unit_changed_floor (sem polling).
+### Corrigido
+- animate_move pulava com y fixo 0: heroi afundava no terreo visualmente ao
+  subir/descer escadas (agora interpola ate wp.y do waypoint).
+- Andares ficavam todos visiveis no boot (guard do set_active_floor(0)).

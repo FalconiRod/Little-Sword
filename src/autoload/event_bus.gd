@@ -12,6 +12,10 @@ signal unit_damaged(unit, amount: int)
 signal unit_healed(unit, amount: int)
 signal unit_died(unit)
 signal unit_moved(unit)
+
+signal unit_changed_floor(unit, new_floor: int)
+
+signal active_floor_changed(floor_idx: int)
 signal inventory_changed()
 signal reveal_room(room_name: String)
 signal shake_requested(strength: float)

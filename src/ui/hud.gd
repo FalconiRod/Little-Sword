@@ -7,9 +7,13 @@ extends CanvasLayer
 const GOLD := "c9a227"
 const PANEL_BG := Color(0.055, 0.05, 0.09, 0.93)
 
+signal portrait_clicked(unit)
+
 var knight: BoardUnit
 var ctl
 var roster: Array = []
+var env_ref = null          ## EnvironmentManager (para saber o andar ativo)
+var fade_rect: ColorRect
 
 var title_lbl: Label
 var turn_lbl: Label
@@ -53,6 +57,9 @@ func _ready() -> void:
 	_build_boss_bar()
 	_build_inventory()
 	_build_game_over()
+	_build_fade()
+	EventBus.active_floor_changed.connect(func(_f): _refresh_floor_badges())
+	EventBus.unit_changed_floor.connect(func(_u, _f): _refresh_floor_badges())
 	_build_hints()
 	EventBus.log_msg.connect(_on_log)
 	EventBus.dice_rolled.connect(_on_dice)
@@ -242,18 +249,64 @@ func _build_order_rows() -> void:
 		var row := PanelContainer.new()
 		var dot_hex := "37e0ff" if u.team == "hero" else ("ff5544" if u.id != "boss_knight" else "b04dff")
 		row.add_theme_stylebox_override("panel", _sb(Color(0.09, 0.08, 0.14, 0.8), Color(0.2, 0.2, 0.28)))
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed \
+					and ev.button_index == MOUSE_BUTTON_LEFT:
+				portrait_clicked.emit(u))
+		row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 8)
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(h)
 		var dot := ColorRect.new()
 		dot.color = Color.html(dot_hex)
 		dot.custom_minimum_size = Vector2(12, 12)
 		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h.add_child(dot)
 		var lbl := _label(entry["name"], 14, "cfc8b8", h)
-		order_rows.append({"row": row, "lbl": lbl, "unit": u})
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var badge := _label("", 11, "8fd3ff", h)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		order_rows.append({"row": row, "lbl": lbl, "unit": u, "badge": badge})
 		v.add_child(row)
 	_refresh_order_highlight()
+	_refresh_floor_badges()
+
+## Indicador de andar: seta + numero quando a unidade NAO esta no andar ativo.
+func _refresh_floor_badges() -> void:
+	for r in order_rows:
+		var u = r["unit"]
+		var badge: Label = r["badge"]
+		if not is_instance_valid(u) or env_ref == null or not u.alive:
+			badge.text = ""
+			continue
+		var dz: int = u.grid_pos.z - env_ref.active_floor_index
+		if dz == 0:
+			badge.text = ""
+		else:
+			badge.text = ("↑ %d" % (u.grid_pos.z + 1)) if dz > 0 \
+					else ("↓ %d" % (u.grid_pos.z + 1))
+
+## Fade preto curto: escurece, executa `mid` no ponto mais escuro, clareia.
+func fade_swap(mid: Callable) -> void:
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	var tw := create_tween()
+	tw.tween_property(fade_rect, "color:a", 1.0, 0.16)
+	await tw.finished
+	mid.call()
+	var tw2 := create_tween()
+	tw2.tween_property(fade_rect, "color:a", 0.0, 0.18)
+	await tw2.finished
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+func _build_fade() -> void:
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0, 0, 0, 0)
+	fade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade_rect)
 
 func _refresh_order_highlight() -> void:
 	for r in order_rows:

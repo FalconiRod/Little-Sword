@@ -137,11 +137,33 @@ func _build_camera() -> void:
 		BoardGrid.TILE * 16.0, BoardGrid.TILE * 14.0))
 	EventBus.shake_requested.connect(camera_rig.shake)
 	camera_rig.set_follow(knight, true)
+	env.set_active_floor(knight.grid_pos.z)
+	_apply_floor_visibility()
 	EventBus.turn_started.connect(_on_turn_started)
 
+## A câmera SEMPRE mostra o andar da unidade em foco.
 func _on_turn_started(unit, _round_num: int) -> void:
 	if unit.team == "hero":
-		camera_rig.set_follow(unit, true)
+		await _go_to_unit(unit)
+
+## Clique em retrato (estilo BG3): mesmo andar = pan suave; outro andar =
+## fade curto que esconde a troca de laje, focando já sobre o novo andar.
+func _go_to_unit(u) -> void:
+	if u == null or not is_instance_valid(u):
+		return
+	var f: int = u.grid_pos.z
+	if f != env.active_floor_index:
+		await hud.fade_swap(func():
+			env.set_active_floor(f)
+			_apply_floor_visibility()
+			camera_rig.snap_focus(u.global_position))
+	else:
+		camera_rig.focus_on(u.global_position)
+
+func _apply_floor_visibility() -> void:
+	for u in units:
+		if is_instance_valid(u):
+			u.visible = u.grid_pos.z == env.active_floor_index
 
 func _build_ui() -> void:
 	hud = GameHUD.new()
@@ -153,7 +175,11 @@ func _build_ui() -> void:
 	var roster: Array = []
 	for u in units:
 		roster.append({"name": u.display_name, "unit": u})
+	hud.env_ref = env
 	hud.bind_units(knight, roster)
+	hud.portrait_clicked.connect(_go_to_unit)
+	EventBus.unit_changed_floor.connect(func(u, _f): _apply_floor_visibility())
+	EventBus.active_floor_changed.connect(func(_f): _apply_floor_visibility())
 
 func _wire_systems() -> void:
 	ai = EnemyAI.new()

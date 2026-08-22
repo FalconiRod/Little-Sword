@@ -23,6 +23,7 @@ var strength := 10
 var dexterity := 10
 var intelligence := 10
 var grid_pos := Vector3i.ZERO
+var floor_index := 0
 var defending := false
 var alerted := false
 var alive := true
@@ -61,6 +62,7 @@ func setup(uid: String, cell: Vector3i) -> void:
 	intelligence = d["intelligence"]
 	_bar_h = d["bar_h"]
 	base_visual_id = uid
+	floor_index = cell.z
 	position = BoardGrid.world_pos(cell)
 	if team == "hero":
 		rotation.y = PI
@@ -248,6 +250,7 @@ func animate_recoil(from_wp: Vector3) -> void:
 
 ## Movimento de peça: saltos curtos célula a célula.
 func animate_move(path: Array) -> void:
+	var start_z: int = grid_pos.z
 	for c in path:
 		var wp: Vector3 = BoardGrid.world_pos(c)
 		face_towards(wp)
@@ -256,12 +259,26 @@ func animate_move(path: Array) -> void:
 		tw.set_parallel(true)
 		tw.tween_property(self, "position:x", wp.x, dur)
 		tw.tween_property(self, "position:z", wp.z, dur)
+		tw.tween_property(self, "position:y", wp.y, dur)
 		var th := create_tween()
-		th.tween_property(self, "position:y", 0.3, dur * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		th.tween_property(self, "position:y", 0.0, dur * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		th.tween_property(self, "position:y", wp.y + 0.3, dur * 0.5) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		th.tween_property(self, "position:y", wp.y, dur * 0.5) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		await tw.finished
-	position.y = 0.0
+	position = BoardGrid.world_pos(grid_pos)
+	if grid_pos.z != start_z:
+		floor_index = grid_pos.z
+		EventBus.unit_changed_floor.emit(self, floor_index)
 	EventBus.unit_moved.emit(self)
+
+## Ponto ÚNICO de mudança de andar (escadas futuras, buracos, teleportes).
+## Reposiciona no grid e no mundo e dispara unit_changed_floor.
+func change_floor(cell: Vector3i) -> void:
+	BoardGrid.move_unit(self, cell)
+	floor_index = cell.z
+	position = BoardGrid.world_pos(cell)
+	EventBus.unit_changed_floor.emit(self, floor_index)
 
 func take_damage(amount: int) -> void:
 	hp = maxi(0, hp - amount)

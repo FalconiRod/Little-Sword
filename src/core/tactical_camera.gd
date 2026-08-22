@@ -296,6 +296,20 @@ func set_focus(p: Vector3) -> void:
 	_clamp_pan_target()
 
 
+## Pan suave até o ponto, largando o follow (clique em retrato mesmo andar).
+func focus_on(p: Vector3) -> void:
+	stop_follow()
+	set_focus(p)
+
+
+## Reposiciona SEM deslize (meio do fade ao trocar de andar).
+func snap_focus(p: Vector3) -> void:
+	stop_follow()
+	_pan_position = p
+	set_focus(p)
+	position = p
+
+
 func shake(strength: float) -> void:
 	_shake = maxf(_shake, strength)
 

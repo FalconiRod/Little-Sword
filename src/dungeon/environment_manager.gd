@@ -20,6 +20,8 @@ var chest_cell := Vector3i.ZERO
 var chest_looted := false
 var doors: Array[DungeonDoor] = []
 var levers := {}          ## Vector3i -> true
+var active_floor_index := -1   ## -1 = nenhum andar mostrado ainda
+var _floor_nodes: Array[Node3D] = []
 
 const LEGEND := {
 	"#": ["wall_stone", false, true],
@@ -47,7 +49,15 @@ func load_map(id: String) -> bool:
 	levers.clear()
 	chest_looted = false
 	chest_cell = Vector3i.ZERO
+	active_floor_index = -1
+	_floor_nodes.clear()
 	BoardGrid.reset()
+
+	for f in def["floors"].size():
+		var flnode := Node3D.new()
+		flnode.name = "Floor%d" % f
+		add_child(flnode)
+		_floor_nodes.append(flnode)
 
 	for f in def["floors"].size():
 		var fl: Dictionary = def["floors"][f]
@@ -61,13 +71,24 @@ func load_map(id: String) -> bool:
 		var a := Vector3i(lk[0][0], lk[0][1], lk[0][2])
 		var b := Vector3i(lk[1][0], lk[1][1], lk[1][2])
 		var st := DungeonStairs.new()
-		add_child(st)
+		_floor_nodes[a.z].add_child(st)
 		st.setup(a, b)
 
 	_setup_atmosphere()
 	_scatter_torches()
+	set_active_floor(0)
 	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
 	return true
+
+## Mostra apenas o andar ativo (esconde os outros; NÃO descarrega da
+## memória) e avisa câmera/HUD via active_floor_changed.
+func set_active_floor(f: int) -> void:
+	if f == active_floor_index or f < 0 or f >= _floor_nodes.size():
+		return
+	active_floor_index = f
+	for i in _floor_nodes.size():
+		_floor_nodes[i].visible = i == f
+	EventBus.active_floor_changed.emit(f)
 
 ## Iluminação de mesa: ambiente frio fraco + "lua" direcional com sombra.
 func _setup_atmosphere() -> void:
@@ -113,7 +134,7 @@ func _scatter_torches() -> void:
 		var c: Vector3i = s[0]
 		var d: Vector3i = s[1]
 		var t := TilePiece.build("torch")
-		add_child(t)
+		_floor_nodes[c.z].add_child(t)
 		t.position = BoardGrid.world_pos(c)
 		t.rotation.y = atan2(float(d.x), float(d.y))
 		var l := OmniLight3D.new()
@@ -177,14 +198,14 @@ func _tile(pid: String, c: Vector3i) -> void:
 
 func _piece(pid: String, c: Vector3i) -> void:
 	var n := TilePiece.build(pid)
-	add_child(n)
+	_floor_nodes[c.z].add_child(n)
 	n.position = BoardGrid.world_pos(c)
 	n.name = "%s_%d_%d_%d" % [pid, c.x, c.y, c.z]
 
 func _door(c: Vector3i, locked: bool, key: String, disguised: bool,
 		id := "") -> void:
 	var d := DungeonDoor.new()
-	add_child(d)
+	_floor_nodes[c.z].add_child(d)
 	d.position = BoardGrid.world_pos(c)
 	d.setup(c, locked, key, disguised, id)
 	doors.append(d)
