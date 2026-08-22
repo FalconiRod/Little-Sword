@@ -120,3 +120,21 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   sem warnings. STAIRTEST 7/7
 - Descoberta: set_active_floor so era chamado em retrato/turno — eventos
   de movimento precisam sincronizar estado visual eles mesmos
+
+## Sessao 3h - 2026-08-22 (v0.7.1 tween orfao do arco - BUG-021)
+- Sintoma do usuario: clicar na escada fazia as pecas irem para BAIXO do
+  tabuleiro em vez de subir
+- Investigacao: instrumentacao progressiva (prints pos-cenario, janela
+  temporal, _process com detector de mudanca de Y + frame number) provou:
+  y=0.0 correto apos change_floor, e y=7.0 EXATO no frame seguinte -
+  assinatura de TWEEN, nao de codigo direto
+- Causa raiz: th (tween do arco do salto, position:y) nao era aguardado
+  em animate_move; no fluxo real ele escrevia o y do andar antigo POR
+  CIMA do change_floor no frame seguinte
+- Fix: await th.finished; stairtest 7 -> 8 cenarios (asserts de Y +
+  fluxo real com janela 0.5s para heroi E camera)
+- Validado: stairtest 8/8, demos x4 sem warnings, clicktest OK,
+  skilltest OK
+- Licoes: (1) tween paralelo nao aguardado = escrita fantasma posterior;
+  (2) recalcular landing DEPOIS do cross e inconsistente (heroi ocupa o
+  proprio desembarque) - capturar antes

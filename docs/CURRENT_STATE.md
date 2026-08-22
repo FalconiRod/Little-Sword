@@ -1,39 +1,32 @@
-# Estado Atual — 2026-08-22 — v0.7.0
+# Estado Atual - 2026-08-22 - v0.7.1
 
-## Status: TRANSIÇÃO DE ESCADA CORRIGIDA NA RAIZ + PORTAS VALIDADAS ✅
+## Status: ESCADA ESTAVEL (8/8) - tween orfao do arco eliminado (BUG-021)
 
 ## O que funciona (validado headless)
-- 4 mapas modulares (`stone_keep` 3 andares, `tower`, `house`, `crypt`)
-  — carregam sem nenhum warning de configuração
-- **Transição de escada em UM clique, com troca visual imediata**: fade +
-  andar ativo + câmera sincronizados no próprio evento
-  (`_on_unit_changed_floor`); herói nunca fica invisível; sem "piso flutuando"
-- **Clicar na casa da escada cruza automaticamente** e desembarca no
-  primeiro grid livre à frente (8 direções); esgotadas as saídas, chega
-  em pé na própria escada de chegada; só falha se até o par estiver ocupado
-- Chegar pelo salto pareado não re-cruza; corredor não cruza;
-  re-click re-cruza (custa 1 MP)
-- **Regra D14**: portas validadas na carga — eixo de abertura livre dos
-  dois lados, sem porta encostada; violação vira warning no console
-- Validação do pareamento de escada na carga do mapa
-- IA/bot cross-floor via `dist_to_goal`; combate completo (LOS, terreno
-  alto, level up, habilidades); retratos clicáveis com fade
+- 4 mapas modulares (stone_keep 3 andares, tower, house, crypt)
+  carregam sem nenhum warning de configuracao
+- Transicao de escada em UM clique: fade + troca de andar + camera
+  sincronizados no proprio evento; heroi nunca invisivel nem afundando
+- Clicar na casa da escada cruza automaticamente e desembarca no
+  primeiro grid livre a frente (8 direcoes); fallback em pe no par;
+  codigo 2 so se ate o par estiver ocupado
+- Chegar pelo salto nao re-cruza; corredor nao cruza; re-click re-cruza
+- Regra D14: portas validadas na carga (eixo de abertura livre,
+  sem porta encostada); pareamento de escada tambem validado
+- IA/bot cross-floor; combate completo; retratos com fade
+- STAIRTEST 8/8 incluindo fluxo real (andar + cruzar mesmo frame)
 
 ## Como jogar / validar
-```
-godot --path .                                    # editor/PLAY
-godot --headless --path . --quit-after 3500 ++ --demo            # bot joga stone_keep
-godot --headless --path . --quit-after 6000 ++ --demo ++ --map=tower|crypt|house
-godot --headless --path . --quit-after 1500 ++ --clicktest       # => OK
-godot --headless --path . --quit-after 1500 ++ --skilltest       # => OK
-godot --headless --path . --quit-after 3000 ++ --stairtest ++ --map=tower   # 7/7 => OK
-```
+godot --path .                                          # PLAY
+godot --headless --path . --quit-after 5000 -- --stairtest --map=tower
+godot --headless --path . --quit-after 3500 -- --demo [--map=X]
+godot --headless --path . --quit-after 1500 -- --clicktest / --skilltest
 
-## Próximo passo recomendado
-1. Prop GLB do Meshy no lugar da espiral procedural (`stairs_prop`)
-2. Conteúdo: novos mapas só com ASCII + pares "stairs" (portas já validadas)
-3. Combate entre células pareadas (base↔topo) — decidir regra futura
-4. Depois: áudio e save
+## Proximo passo recomendado
+1. Prop GLB do Meshy no lugar da espiral procedural
+2. Novos mapas (portas/escadas ja validadas na carga)
+3. Combate entre celulas pareadas (base<->topo) - decidir regra
+4. Depois: audio e save
 
-## Pendências conhecidas
-- Nenhuma bloqueante. BUG-011..020 resolvidos (ver BUG_MEMORY).
+## Pendencias conhecidas
+- Nenhuma bloqueante. BUG-001..021 resolvidos (ver BUG_MEMORY).

@@ -198,4 +198,26 @@ v0.5.0 que ocupavam o corredor da porta — eliminada pelo S unico.
 EVIDENCIA: reach inclui celulas do outro andar (mage reach=38 na torre);
 custo da travessia = 1 passo, consistente com dist_to_goal (+1).
 IMPACTO: clicar direto na celula do topo funciona; parar NA escada nao
-cruza - inten��o explicita do jogador.
+cruza - intencao explicita do jogador.
+
+## BUG-021 - Tween orfao do arco puxava heroi de volta ao andar baixo - RESOLVIDO
+Sintoma (usuario): "quando clico na escada, as pecas vao pra baixo do
+tabuleiro e nao acima" - heroi cruzava para cima e afundava de volta.
+Problema: animate_move cria 2 tweens por passo: tw (xyz, aguardado) e th
+(arco do salto em position:y, NAO aguardado). No fluxo real (_do_move:
+animate ate a escada -> try_cross_stairs NO MESMO FRAME), o th ainda vivo
+escrevia position:y=andar antigo por cima do change_floor (teleporte).
+Instrumentacao _process/YCHANGE provou: y=0.0 apos change_floor e y=7.0
+exato no frame seguinte (escrita final do th).
+Causa raiz: tween nao aguardado sobrescrevendo teleporte de andar.
+Arquivos: unit_base.gd (await th.finished), main.gd (stairtest).
+Solucao: await do arco antes de retornar de animate_move + stairtest com
+asserts de Y por cenario e cenario 8 (fluxo real + janela 0.5s verificando
+heroi E camera no andar certo). STATUS: RESOLVIDO (v0.7.1).
+
+## DISCOVERY - Teste nao pode recalcular landing depois do cross (2026-08-22)
+EVIDENCIA: stairtest s8 calculava up_landing DEPOIS de try_cross_stairs e
+obtia celula diferente: o proprio heroi ocupava o desembarque, mudando o
+resultado de stair_landing.
+IMPACTO: capturar landing ANTES do cross (como s4); recompute pos-cross e
+inconsistente por design (ocupacao muda o resultado).

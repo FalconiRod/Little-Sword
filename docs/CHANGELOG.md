@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.7.1 - 2026-08-22 - Tween orfao do arco (pecas afundavam ao cruzar)
+### Corrigido (BUG-021 - causa raiz achada por instrumentacao de frames)
+- Sintoma: "clico na escada e as pecas vao para BAIXO do tabuleiro" -
+  o animate_move tem um segundo tween por passo (arco do salto em
+  position:y) que NAO era aguardado; no fluxo real (chegar na escada e
+  cruzar no mesmo frame) ele ainda estava vivo e sobrescrevia o
+  change_floor, puxando o heroi de volta ao andar antigo
+- Fix: await th.finished em animate_move antes de retornar
+- STAIRTEST: 7 -> 8 cenarios - asserts de Y em todos + s8 reproduz o
+  fluxo real do jogo com janela de 0.5s (heroi E camera no andar certo)
+### Validacao
+- stairtest 8/8 OK; demos stone_keep/tower/crypt/house sem warnings;
+  clicktest OK; skilltest OK
 ## v0.7.0 — 2026-08-22 — Causa raiz da transição + regra de porta desobstruída
 ### Corrigido (BUG-019 — causa raiz, não sintoma)
 - `unit_changed_floor` nunca sincronizava `active_floor_index` nem a

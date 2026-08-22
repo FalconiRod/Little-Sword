@@ -124,14 +124,16 @@ func _stairtest() -> void:
 	BoardGrid.move_unit(knight, base)
 	await knight.animate_move([base], Vector3i(5, 3, 0))
 	var ok1: bool = knight.grid_pos == base and knight.floor_index == 0 \
-			and knight.moves_left == 3
+			and knight.moves_left == 3 \
+			and is_equal_approx(knight.position.y, BoardGrid.world_pos(base).y)
 	print("STAIRTEST 1 para-na-escada pos=", knight.grid_pos,
 			" ml=", knight.moves_left, " => ", "OK" if ok1 else "FALHOU")
 	# (2) caminho que executa o SALTO pareado cruza no meio do caminho.
 	knight.moves_left = 5
 	BoardGrid.move_unit(knight, top)
 	await knight.animate_move([base, top], Vector3i(5, 3, 0))
-	var ok2: bool = knight.grid_pos == top and knight.floor_index == 1
+	var ok2: bool = knight.grid_pos == top and knight.floor_index == 1 \
+			and is_equal_approx(knight.position.y, BoardGrid.world_pos(top).y)
 	print("STAIRTEST 2 salto-no-caminho pos=", knight.grid_pos,
 			" => ", "OK" if ok2 else "FALHOU")
 	# (3) chegou pelo salto: nenhuma cruzada extra de volta.
@@ -143,7 +145,8 @@ func _stairtest() -> void:
 	var landing = BoardGrid.stair_landing(base)
 	var crossed: int = knight.try_cross_stairs()
 	var ok4: bool = crossed == 0 and knight.grid_pos == landing \
-			and knight.floor_index == 0 and knight.moves_left == 1
+			and knight.floor_index == 0 and knight.moves_left == 1 \
+			and is_equal_approx(knight.position.y, BoardGrid.world_pos(landing).y)
 	print("STAIRTEST 4 cross-explicito pos=", knight.grid_pos,
 			" esperado=", landing, " ml=", knight.moves_left,
 			" => ", "OK" if ok4 else "FALHOU")
@@ -151,6 +154,7 @@ func _stairtest() -> void:
 	BoardGrid.move_unit(knight, top)
 	knight.grid_pos = top
 	knight.floor_index = 1
+	knight.position = BoardGrid.world_pos(top)
 	knight.moves_left = 0
 	var denied: int = knight.try_cross_stairs()
 	var ok5: bool = denied == 1 and knight.grid_pos == top \
@@ -170,14 +174,22 @@ func _stairtest() -> void:
 	var res6: int = knight.try_cross_stairs()
 	for c3 in fakes:
 		BoardGrid.clear_cell(c3)
-	var ok6: bool = res6 == 0 and knight.grid_pos == base \
-			and knight.floor_index == 0 and knight.moves_left == 2
+	var ok6a: bool = res6 == 0 and knight.grid_pos == base \
+			and knight.floor_index == 0 and knight.moves_left == 2 \
+			and is_equal_approx(knight.position.y, BoardGrid.world_pos(base).y)
+	# Janela de frames: nenhum tween órfão pode puxar o herói de volta.
+	await get_tree().create_timer(0.5).timeout
+	var ok6b: bool = is_equal_approx(knight.position.y,
+			BoardGrid.world_pos(base).y) \
+			and is_equal_approx(camera_rig.position.y,
+					BoardGrid.world_pos(base).y)
 	print("STAIRTEST 6 fallback-par res=", res6, " pos=", knight.grid_pos,
-			" => ", "OK" if ok6 else "FALHOU")
+			" => ", "OK" if ok6a and ok6b else "FALHOU")
 	# (7) par TAMBÉM ocupado => código 2, unidade espera na escada.
 	BoardGrid.move_unit(knight, top)
 	knight.grid_pos = top
 	knight.floor_index = 1
+	knight.position = BoardGrid.world_pos(top)
 	knight.moves_left = 2
 	var fakes2: Array[Vector3i] = []
 	for off in [Vector3i(0, -1, 0), Vector3i(0, 1, 0), Vector3i(-1, 0, 0),
@@ -196,7 +208,29 @@ func _stairtest() -> void:
 			and knight.floor_index == 1 and knight.moves_left == 2
 	print("STAIRTEST 7 total-bloqueada res=", res7,
 			" => ", "OK" if ok7 else "FALHOU")
-	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 and ok6 and ok7
+	# (8) FLUXO REAL DO JOGO: anda até a escada e cruza NO MESMO FRAME.
+	# Regressão BUG-021: o tween do arco do último passo sobrescrevia o
+	# change_floor e puxava o herói de volta para o andar de baixo.
+	knight.grid_pos = Vector3i(5, 3, 0)
+	BoardGrid.move_unit(knight, Vector3i(5, 3, 0))
+	knight.floor_index = 0
+	knight.position = BoardGrid.world_pos(Vector3i(5, 3, 0))
+	knight.moves_left = 3
+	BoardGrid.move_unit(knight, base)
+	var up_landing = BoardGrid.stair_landing(top)
+	await knight.animate_move([base], Vector3i(5, 3, 0))
+	var res8: int = knight.try_cross_stairs()
+	await get_tree().create_timer(0.5).timeout
+	var ok8: bool = res8 == 0 and knight.grid_pos == up_landing \
+			and knight.floor_index == 1 \
+			and is_equal_approx(knight.position.y,
+					BoardGrid.world_pos(up_landing).y)
+	print("STAIRTEST 8 fluxo-real res=", res8, " pos=", knight.grid_pos,
+			" fi=", knight.floor_index,
+			" y=", snappedf(knight.position.y, 0.01),
+			" => ", "OK" if ok8 else "FALHOU")
+	var all_ok := ok1 and ok2 and ok3 and ok4 and ok5 \
+			and ok6a and ok6b and ok7 and ok8
 	print("STAIRTEST RESULT ", "OK" if all_ok else "FALHOU")
 
 # ------------------------------------------------------------------ build --

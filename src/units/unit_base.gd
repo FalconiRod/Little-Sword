@@ -276,6 +276,11 @@ func animate_move(path: Array, from_cell = null) -> void:
 		th.tween_property(self, "position:y", wp.y, dur * 0.5) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		await tw.finished
+		# O arco do salto continua escrevendo position:y DEPOIS do tween
+		# principal terminar; sem aguardá-lo, ele sobrescreve um
+		# change_floor() que ocorra logo em seguida (herói "afundava"
+		# de volta para o andar antigo após cruzar a escada).
+		await th.finished
 		prev = c
 	position = BoardGrid.world_pos(grid_pos)
 	EventBus.unit_moved.emit(self)
