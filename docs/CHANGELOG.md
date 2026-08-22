@@ -220,3 +220,10 @@ src/player/*.gd, src/enemy/*.gd, src/ui/hud.gd, src/scenes/main.*, project.godot
 - Mensagens de feedback quando o alvo esta sem visao/fora de alcance.
 ### Nota
 - IA ja respeitava LOS (arqueiro reposiciona para conseguir angulo).
+
+## v0.3.2 — 2026-08-21 — Cobertura e progressao
+### Adicionado
+- Marcador de cobertura: casas alcancaveis fora da linha de visao de todo
+  inimigo em alerta ganham meio-tapete cinza ('protegido').
+- Level up por abate: heroi que derrota um inimigo ganha nivel (+3 PV,
+  +1 dano fixo); retrato mostra o nivel atual.

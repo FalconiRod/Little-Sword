@@ -34,12 +34,14 @@ func attack(attacker, target, skill_label := "", skill_dmg := "", fx := "", tran
 		if chk["crit"]:
 			nota = DiceManager.double_dice(nota)
 		var dmg := DiceManager.roll_notation(nota)
+		dmg += attacker.dmg_bonus
 		# Runas mágicas do chão amplificam golpes de quem está sobre elas.
 		if BoardGrid.special.get(attacker.grid_pos, "") == "r":
 			dmg += 2
 			EventBus.log_msg.emit("As runas amplificam o golpe! (+2)", "#37e0ff")
 		target.take_damage(dmg)
 		# Impacto fisico: alvo recua e solta faiscas (mais fortes em critico).
+		target.last_striker = attacker
 		target.animate_recoil(attacker.global_position)
 		_sparks(target.global_position + Vector3(0, 0.8, 0),
 				"#ff9f43" if chk["crit"] else "#ffd166",

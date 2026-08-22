@@ -393,7 +393,7 @@ func _build_game_over() -> void:
 func update_vitals(u: BoardUnit) -> void:
 	if u == null:
 		return
-	_name_lbl.text = "%s — Nível 1" % u.display_name
+	_name_lbl.text = "%s — Nível %d" % [u.display_name, u.level]
 	fl_lbl.text = u.display_name.substr(0, 3).to_upper()
 	hp_bar.value = 100.0 * float(u.hp) / float(maxi(1, u.max_hp))
 	mp_bar.value = 100.0 * float(u.mana) / float(maxi(1, u.max_mana))

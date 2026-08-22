@@ -16,6 +16,7 @@ var reach: Dictionary = {}
 var _hl_pool: Array[MeshInstance3D] = []
 var _tg_pool: Array[MeshInstance3D] = []
 var _it_pool: Array[MeshInstance3D] = []
+var _cv_pool: Array[MeshInstance3D] = []
 var _hover_quad: MeshInstance3D
 var _sel_ring: MeshInstance3D
 var _boss_shown := false
@@ -54,9 +55,9 @@ func _build_overlays() -> void:
 	add_child(_sel_ring)
 	_sel_ring.position.y = 0.14
 
-func _make_quad(hex: String, alpha: float) -> MeshInstance3D:
+func _make_quad(hex: String, alpha: float, quad_size := 1.7) -> MeshInstance3D:
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(1.7, 1.7)
+	pm.size = Vector2(quad_size, quad_size)
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color.html(hex)
 	m.albedo_color.a = alpha
@@ -70,20 +71,20 @@ func _make_quad(hex: String, alpha: float) -> MeshInstance3D:
 	mi.material_override = m
 	return mi
 
-func _pool_show(pool: Array[MeshInstance3D], cells: Array, hex: String, alpha := 0.34) -> void:
+func _pool_show(pool: Array[MeshInstance3D], cells: Array, hex: String, alpha := 0.34, qsize := 1.7, yoff := 0.09) -> void:
 	while pool.size() < cells.size():
-		var q := _make_quad(hex, alpha)
+		var q := _make_quad(hex, alpha, qsize)
 		pool.append(q)
 		add_child(q)
 	for i in pool.size():
 		if i < cells.size():
-			pool[i].position = BoardGrid.world_pos(cells[i]) + Vector3(0, 0.09, 0)
+			pool[i].position = BoardGrid.world_pos(cells[i]) + Vector3(0, yoff, 0)
 			pool[i].visible = true
 		else:
 			pool[i].visible = false
 
 func _hide_all() -> void:
-	for p in [_hl_pool, _tg_pool, _it_pool]:
+	for p in [_hl_pool, _tg_pool, _it_pool, _cv_pool]:
 		for q in p:
 			q.visible = false
 	_hover_quad.visible = false
@@ -155,11 +156,32 @@ func on_turn_end() -> void:
 	_sel_ring.visible = false
 	_hide_all()
 
+## Células "protegidas": nenhum inimigo em alerta tem linha de visão.
+func _compute_cover() -> void:
+	var foes: Array = []
+	for c in BoardGrid.occupied.keys():
+		var e = BoardGrid.occupied[c]
+		if is_instance_valid(e) and e.alive and e.team == "enemy" and e.alerted:
+			foes.append(c)
+	var safe: Array = []
+	for c in reach["dist"].keys():
+		if not BoardGrid.is_free(c):
+			continue
+		var seen := false
+		for fc in foes:
+			if BoardGrid.has_line_of_sight(c, fc):
+				seen = true
+				break
+		if not seen:
+			safe.append(c)
+	_pool_show(_cv_pool, safe, "8a8f9c", 0.22, 1.0, 0.075)
+
 func _compute_reachable() -> void:
 	reach = BoardGrid.compute_reachable(knight.grid_pos, knight.moves_left)
 	var cells: Array = reach["dist"].keys()
 	cells.erase(knight.grid_pos)
 	_pool_show(_hl_pool, cells, "37e0ff", 0.20)
+	_compute_cover()
 	var it_cells: Array = []
 	if not board.chest_looted and BoardGrid.chebyshev(knight.grid_pos, board.chest_cell) <= 1:
 		it_cells.append(board.chest_cell)

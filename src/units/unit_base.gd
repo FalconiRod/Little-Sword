@@ -28,6 +28,10 @@ var alerted := false
 var alive := true
 var base_visual_id := ""
 var shifted := false
+var level := 1
+var dmg_bonus := 0
+var kills := 0
+var last_striker = null
 
 var visual: Node3D
 var _bar_root: Node3D
@@ -217,6 +221,17 @@ func animate_lunge(target_wp: Vector3) -> void:
 	tw.tween_property(self, "global_position", base, 0.16) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
+## Abate por heroi: sobe de nivel (+3 PV, +1 dano).
+func gain_kill() -> void:
+	kills += 1
+	level += 1
+	max_hp += 3
+	hp = mini(max_hp, hp + 3)
+	dmg_bonus += 1
+	refresh_bar()
+	spawn_float_text("NIVEL %d! +3 PV" % level, "#ffd166")
+	EventBus.log_msg.emit("%s subiu para o nivel %d! (+3 PV, +1 dano)" % [display_name, level], "#ffd166")
+
 ## Recuo curto na direcao oposta ao atacante (vende o impacto).
 func animate_recoil(from_wp: Vector3) -> void:
 	var dir := global_position - from_wp
@@ -270,6 +285,10 @@ func die() -> void:
 		return
 	alive = false
 	set_active_ring(false)
+	# Abate por heroi rende nivel: +3 PV e +1 de dano.
+	if last_striker != null and is_instance_valid(last_striker) \
+			and last_striker.get("team") == "hero":
+		last_striker.gain_kill()
 	BoardGrid.clear_cell(grid_pos)
 	EventBus.unit_died.emit(self)
 	EventBus.log_msg.emit("%s foi derrotado!" % display_name, "#ff6b6b")
