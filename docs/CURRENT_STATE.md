@@ -1,6 +1,6 @@
-# Estado Atual - 2026-08-23 - v0.9.0
+# Estado Atual - 2026-08-23 - v0.9.2
 
-## Status: PISO-FOLHA BATTLE-GRID ATIVO (mapa grande 50x50 + grade impressa)
+## Status: GRID SINCRONIZADO (célula = casa impressa; convenção D17)
 
 ## O que funciona (validado headless + windowed RX580)
 - 4 mapas modulares carregam sem warnings (portas/escadas validadas)
@@ -10,27 +10,29 @@
   * ataque de oportunidade ao sair da adjacencia (1x/inimigo/movimento)
   * cobertura +2 CA (obstaculo na direcao do golpe)
   * acao Dispersar [6] imune a oportunidade ate proximo turno
-- NOVO PISO-FOLHA (D16): mapas com chave "sheet" trocam os pisos por
-  celula por UMA malha mesclada com a folha do usuario repetida
-  (20x20 celulas/folha = 400 casas, celula de 2,4 cm na impressao),
-  alinhada a origem; grade vetorial via shader next_pass por cima;
-  paredes/arvores continuam miniaturas EM CIMA da folha ('~' fica sem)
-- NOVO MAPA bosque_50: procedural 50x50 deterministico (seed 20260823,
-  flood-fill garante conectividade dos spawns), IA navega rotas de 20+
-  passos; camera pan/zoom derivados do tamanho real do mapa
+- PISO-FOLHA (D16): mapas com chave "sheet" trocam os pisos por celula
+  por UMA malha mesclada com a folha do usuario repetida (20x20
+  celulas/folha = 400 casas, celula de 2,4 cm impressa), alinhada a
+  origem; grade vetorial via shader next_pass; paredes/arvores ficam EM
+  CIMA da folha ('~' fica sem)
+- MAPA bosque_30: procedural 30x30 deterministico (seed 20260823,
+  flood-fill de conectividade; spawns PROPORCIONAIS ao w/h - o mesmo
+  gerador serve de 20x20 a 70x50); combate inicia ja na rodada 1
+- Camera: pan/zoom derivados do tamanho real do mapa (map_bounds)
 - COMBATTEST 4/4; STAIRTEST 8/8; CLICKTEST OK; SKILLTEST OK
 
 ## Como jogar / validar
-godot --path . --map=bosque_50                           # PLAY mapa novo
-godot --headless --path . --quit-after 900 -- --demo --map=bosque_50
+JOGAR_bosque.bat                                        # duplo clique!
+godot --path . -- --map=bosque_30                       # PLAY mapa novo
+godot --headless --path . --quit-after 900 -- --demo --map=bosque_30
 godot --headless --path . --quit-after 1200 -- --combattest --map=tower
 godot --headless --path . --quit-after 1200 -- --stairtest --map=tower
 godot --headless --path . --quit-after 4000 -- --demo [--map=X]
 godot --headless --path . --quit-after 1500 -- --clicktest / --skilltest
 
 ## Proximo passo recomendado
-1. Ver in-game as costuras da folha no bosque_50 (corrigir bordas se
-   visiveis) e afinar opacity da grade (uniform grid_opacity no mapa def)
+1. Feedback visual do usuario: azul de movimento agora casa com as casas
+   impressas da folha (centro = col*2+1, bordas nas linhas)
 2. Props GLB do usuario no lugar das arvores 'P'/rochas 'o' (com AABB
    ~1,8 unid) e miniaturas GLB para unidades
 3. IA usando Dispersar ao recuar / flanqueando em dupla
@@ -40,6 +42,9 @@ godot --headless --path . --quit-after 1500 -- --clicktest / --skilltest
 - Combate base<->topo entre celulas pareadas da escada: EXCLUIDO por
   decisao do usuario na D15 (revisitavel no futuro)
 - Costura entre repeticoes da folha ainda nao inspecionada visualmente
-  (textura de IA pode nao ser seamless perfeita nas bordas)
-- cells_per_sheet=20 confirmado pelo usuario; grade impressa na arte deve
-  coincidir com o shader - conferir em jogo
+- Grade impressa na arte deve coincidir com o shader - conferir em jogo
+
+## Notas
+- IMPORTANTE ao lancar por terminal: argumentos do jogo exigem '--'
+  antes (ex.: `-- --map=bosque_30`); sem isso abre stone_keep silencioso
+- JOGAR_bosque.bat ja correto (duplo clique abre o bosque)

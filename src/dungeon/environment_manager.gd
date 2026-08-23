@@ -347,9 +347,11 @@ func _build_sheet_floors(cfg: Dictionary) -> void:
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		for c in cells:
 			var y: float = BoardGrid.world_pos(c).y
-			var x0: float = c.x * BoardGrid.TILE - BoardGrid.TILE * 0.5
+			# Célula ocupa [col*TILE, col*TILE+TILE]: as linhas impressas da
+			# textura (múltiplos de cells_per_sheet*TILE) caem nas BORDAS.
+			var x0: float = c.x * BoardGrid.TILE
 			var x1: float = x0 + BoardGrid.TILE
-			var z0: float = c.y * BoardGrid.TILE - BoardGrid.TILE * 0.5
+			var z0: float = c.y * BoardGrid.TILE
 			var z1: float = z0 + BoardGrid.TILE
 			var u0: float = x0 / sheet_world
 			var u1: float = x1 / sheet_world
@@ -455,14 +457,17 @@ func _forest_rows_try(w: int, h: int, s: int) -> Array:
 				var r := rng.randf()
 				row.append("P" if r < 0.07 else ("o" if r < 0.09 else "."))
 		grid.append(row)
+	# Spawns proporcionais ao tamanho da mesa (funciona de 20x20 a 70x50).
 	var marks := {
 		"K": Vector2i(w / 2, h - 9),
 		"M": Vector2i(w / 2 - 2, h - 8),
 		"W": Vector2i(w / 2 + 2, h - 8),
-		"g": [Vector2i(10, 10), Vector2i(38, 12), Vector2i(14, 28),
-				Vector2i(33, 30)],
-		"a": Vector2i(24, 8),
-		"B": Vector2i(24, 4),
+		"g": [Vector2i(roundi(w * 0.20), roundi(h * 0.33)),
+				Vector2i(roundi(w * 0.76), roundi(h * 0.40)),
+				Vector2i(roundi(w * 0.28), roundi(h * 0.56)),
+				Vector2i(roundi(w * 0.66), roundi(h * 0.60))],
+		"a": Vector2i(roundi(w * 0.48), roundi(h * 0.16)),
+		"B": Vector2i(roundi(w * 0.48), roundi(h * 0.07)),
 	}
 	var stamps: Array = []
 	for ch in marks:
@@ -628,12 +633,13 @@ const MAPS := {
 	},
 
 	# --------------------------------------------- Bosque das Sombras ------
-	# Mapa grande procedural (50×50) com estética battle-grid: chão =
-	# folhas impressas de 20×20 células (400 casas, célula de 2,4 cm na
+	# Mapa procedural (30×30) com estética battle-grid: chão = folhas
+	# impressas de 20×20 células (400 casas, célula de 2,4 cm na
 	# impressão) repetidas lado a lado; árvores/rochas são miniaturas.
-	"bosque_50": {
-		"name": "Bosque das Sombras — 50×50",
-		"proc": {"w": 50, "h": 50, "seed": 20260823},
+	# Tamanho ajustável em "proc" (w/h); spawns são proporcionais.
+	"bosque_30": {
+		"name": "Bosque das Sombras — 30×30",
+		"proc": {"w": 30, "h": 30, "seed": 20260823},
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
 			"cells_per_sheet": 20.0, "grid": true},

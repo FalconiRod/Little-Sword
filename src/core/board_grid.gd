@@ -80,7 +80,21 @@ func elev_at(c: Vector3i) -> int:
 
 func world_pos(c: Vector3i) -> Vector3:
 	var e: int = elev_at(c)
-	return Vector3(c.x * TILE, c.z * FLOOR_H + e * ELEV_H, c.y * TILE)
+	return Vector3(c.x * TILE + TILE * 0.5,
+			c.z * FLOOR_H + e * ELEV_H,
+			c.y * TILE + TILE * 0.5)
+
+## CONVENÇÃO ÚNICA DE COORDENADAS (v0.9.2): a célula (col, row) ocupa o
+## quadrado [col*TILE, col*TILE+TILE] × [row*TILE, row*TILE+TILE]; seu
+## CENTRO fica em col*TILE + TILE/2 — coincidindo com as linhas impressas
+## na folha e com o shader de grade. TODA conversão posição<->célula do
+## jogo passa por este par (grid_to_world / world_to_cell); nada de
+## round/floor avulso em outros arquivos.
+func grid_to_world(cell: Vector3i) -> Vector3:
+	return world_pos(cell)
+
+func world_to_cell(p: Vector3, floor_idx := 0) -> Vector3i:
+	return Vector3i(floori(p.x / TILE), floori(p.z / TILE), floor_idx)
 
 static func chebyshev(a: Vector3i, b: Vector3i) -> int:
 	return max(abs(a.x - b.x), abs(a.y - b.y))
@@ -139,7 +153,7 @@ func has_line_of_sight(a: Vector3i, b: Vector3i) -> bool:
 	var steps := int(ceil(dist / (TILE * 0.25)))
 	for i in range(1, steps):
 		var p := wa.lerp(wb, float(i) / float(steps))
-		var cc := Vector3i(roundi(p.x / TILE), roundi(p.z / TILE), a.z)
+		var cc := world_to_cell(p, a.z)
 		if tiles.has(cc) and tiles[cc]["losb"]:
 			return false
 	return true

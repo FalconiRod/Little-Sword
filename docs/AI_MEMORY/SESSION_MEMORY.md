@@ -163,3 +163,9 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
   (5) JPG novo precisa de --import headless antes de usar em runtime
 - Textura importada e validada; windowed RX580 exit 0
 - Pendente: inspecionar costuras/opacidade da grade in-game; props GLB
+- Descoberta 3j-b: argumentos do jogo (--map=, --demo...) exigem o separador '--' antes; sem ele o Godot consome/ignora e main.gd cai no mapa padrao (stone_keep) SEM erro - usuario viu 'jogo sem mudanca'. Corrigido no JOGAR_bosque.bat
+
+- Usuario achou 50x50 grande demais -> v0.9.1: bosque_30 (30x30); gerador agora usa spawns PROPORCIONAIS ao w/h; bat atualizado; validado (combate na rodada 1)
+
+- v0.9.2 (D17): convencao unica de grid - centro = col*TILE+TILE/2; grid_to_world/world_to_cell canonicos em BoardGrid; roundi/floori avulsos proibidos fora deles; causa do desalinhamento era a folha imprimir linhas nas bordas enquanto o codigo centrava celulas em pares
+

@@ -156,3 +156,21 @@ inviavel acima de ~1000 celulas.
 IMPACTO: camera agora deriva pan/zoom de map_bounds(); assets pesados
 do usuario (GLB/JPG) excluidos do Git via .gitignore; proximo passo da
 linha visual = props GLB com AABB normalizado (~1,8 unid).
+
+## D17 - 2026-08-23 - CONVENÇÃO ÚNICA DE GRID (célula = [col*2, col*2+2])
+DECISAO: origem do tabuleiro movida para o canto da célula (0,0).
+Centro da celula = col*TILE + TILE/2 (TILE=2.0), como pedido pelo
+usuario (padrao FFT/Fire Emblem/BG3: 1 casa = 1 movimento). Funcoes
+canonicas em BoardGrid: grid_to_world(cell) / world_to_cell(p, andar);
+proibido round/floor de TILE fora delas.
+CAUSA DO BUG: antes, centro ficava em col*TILE (coordenadas pares) -
+as linhas impressas da folha e do shader caiam no MEIO das casas,
+desalinhando a area azul de movimento em meio quadrado.
+ALTERADOS: board_grid.world_pos (+TILE/2) + world_to_cell (floori);
+LOS amostra por floori; player_controller._mouse_cell usa world_to_cell;
+sheet-floor nasce em col*TILE (borda, nao centro). map_bounds() agora
+bate exato com o span das celulas.
+VALIDACAO: stairtest 8/8, combattest 4/4, clicktest OK, demo bosque_30
+limpa; pecas/realce/quadrados impressos coincidem.
+NOTA: GRID_SIZE nao virou constante global - cada mapa define w/h
+(bosque_30 usa 30x30); TILE_SIZE segue sendo BoardGrid.TILE = 2.0.

@@ -317,7 +317,7 @@ func _mouse_cell(screen_pos: Vector2):
 			if t <= 0.01 or t >= best_t:
 				continue
 			var p := origin + dir * t
-			var c := Vector3i(roundi(p.x / BoardGrid.TILE), roundi(p.z / BoardGrid.TILE), f)
+			var c := BoardGrid.world_to_cell(p, f)
 			if BoardGrid.tiles.has(c):
 				best = c
 				best_t = t

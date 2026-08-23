@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.2 - 2026-08-23 - Grid sincronizado com as casas impressas (D17)
+### Corrigido
+- Area azul de movimento desalinhada meio quadrado das casas do tabuleiro:
+  centro de celula passou de col*TILE para col*TILE+TILE/2 - agora as
+  linhas impressas da folha e o shader de grade caem nas BORDAS das
+  celulas (padrao FFT/Fire Emblem/BG3)
+- Conversao raio->celula e amostragem de linha de visao usavam roundi()
+  na convencao antiga; agora TODAS passam por BoardGrid.world_to_cell()
+  (floori) / grid_to_world() - zero matematica avulsa fora do BoardGrid
+### Alterado
+- Malha da folha nasce em col*TILE (borda) em vez de col*TILE-TILE/2
+- map_bounds() passa a bater exato com o span real das celulas
+### Testes / Validacao
+- stairtest 8/8; combattest 4/4; clicktest OK; demo bosque_30 limpa
+
+## v0.9.1 - 2026-08-23 - Bosque 30x30 (usuario achou 50x50 grande)
+### Alterado
+- bosque_50 -> bosque_30; spawns do gerador ficam PROPORCIONAIS ao w/h
+  (mesmo gerador serve de 20x20 a 70x50); combate inicia ja na rodada 1
+- JOGAR_bosque.bat corrigido: faltava o separador '--' antes de --map
+  (sem ele o Godot ignorava o argumento e abria stone_keep silencioso)
+
 ## v0.9.0 - 2026-08-23 - Piso-folha battle-grid + mapa 50x50 (D16)
 ### Adicionado
 - Modo "sheet" no EnvironmentManager: pisos deixam de nascer por celula;
