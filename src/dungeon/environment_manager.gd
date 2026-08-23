@@ -123,7 +123,7 @@ func load_map(id: String) -> bool:
 	# PARTE 2: porta precisa de eixo de passagem livre dos DOIS lados.
 	_validate_doors()
 
-	_setup_atmosphere()
+	_setup_atmosphere(def.get("outdoor", false))
 	_scatter_torches()
 	set_active_floor(0)
 	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
@@ -182,24 +182,48 @@ func _validate_doors() -> void:
 					% [map_id, c])
 
 ## Iluminação de mesa: ambiente frio fraco + "lua" direcional com sombra.
-func _setup_atmosphere() -> void:
+## Mapas externos (outdoor) recebem céu + sol de dia.
+func _setup_atmosphere(outdoor := false) -> void:
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color.html("0a0c14")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color.html("707896")
-	env.ambient_light_energy = 0.9
-	env.fog_enabled = true
-	env.fog_light_color = Color.html("161a2a")
-	env.fog_density = 0.006
+	var sun := DirectionalLight3D.new()
+	if outdoor:
+		env.background_mode = Environment.BG_SKY
+		var sm := ProceduralSkyMaterial.new()
+		sm.sky_top_color = Color.html("3f6fb5")
+		sm.sky_horizon_color = Color.html("a8c4de")
+		sm.ground_bottom_color = Color.html("27301f")
+		sm.ground_horizon_color = Color.html("8fa98c")
+		sm.sun_angle_max = 30.0
+		var sky := Sky.new()
+		sky.sky_material = sm
+		env.sky = sky
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color.html("b9c7d8")
+		env.ambient_light_energy = 1.1
+		env.fog_enabled = true
+		env.fog_light_color = Color.html("cfe0ee")
+		env.fog_density = 0.002
+		sun.name = "SunLight"
+		sun.rotation_degrees = Vector3(-46, -34, 0)
+		sun.light_color = Color.html("fff2cf")
+		sun.light_energy = 1.25
+	else:
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color.html("0a0c14")
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color.html("707896")
+		env.ambient_light_energy = 0.9
+		env.fog_enabled = true
+		env.fog_light_color = Color.html("161a2a")
+		env.fog_density = 0.006
+		sun.name = "MoonLight"
+		sun.rotation_degrees = Vector3(-52, -28, 0)
+		sun.light_color = Color.html("cfd6ff")
+		sun.light_energy = 0.9
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
-	sun.name = "MoonLight"
-	sun.rotation_degrees = Vector3(-52, -28, 0)
-	sun.light_color = Color.html("cfd6ff")
-	sun.light_energy = 0.9
 	sun.shadow_enabled = true
 	add_child(sun)
 
@@ -576,10 +600,13 @@ func _forest_rows_try(w: int, h: int, s: int) -> Array:
 	for y in h:
 		var row: Array = []
 		for x in w:
+			# Borda ABERTA (sem muro): o jogador decora com arvores/pedras
+			# pelo editor. O rng sorteia MESMO ASSIM para nao deslocar o
+			# interior do mapa gerado com o mesmo seed.
+			var r := rng.randf()
 			if x == 0 or y == 0 or x == w - 1 or y == h - 1:
-				row.append("#")
+				row.append(".")
 			else:
-				var r := rng.randf()
 				row.append("P" if r < 0.07 else ("o" if r < 0.09 else "."))
 		grid.append(row)
 	# Spawns proporcionais ao tamanho da mesa (funciona de 20x20 a 70x50).
@@ -764,6 +791,7 @@ const MAPS := {
 	# (sem costuras). Árvores/rochas são miniaturas EM CIMA da folha.
 	"bosque_30": {
 		"name": "Bosque das Sombras — 30×30",
+		"outdoor": true,
 		"proc": {"w": 30, "h": 30, "seed": 20260823},
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
