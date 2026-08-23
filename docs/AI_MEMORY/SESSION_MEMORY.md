@@ -173,3 +173,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.4: sistema tile-GLB pronto - _build_tile_multimeshes instancia UM glb de casa via MultiMesh (1 draw call), escala AABB->TILE=2.0, topo em y=0, centro na celula; ativado por 'tile_glb': pasta no map def; sem glb cai para folha. Usuario vai fornecer o modelo
 
+- v0.9.5: tile GLB do bosque FUNCIONANDO - usuario forneceu 'piso modelo bosque.glb' (meshopt+quantizado); convertido p/ float32 (deq.cjs) como tile_bosque.glb; MultiMesh monta tabuleiro casa a casa; BUG-024 registrado (tripo pendentes)
+

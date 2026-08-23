@@ -221,3 +221,12 @@ obtia celula diferente: o proprio heroi ocupava o desembarque, mudando o
 resultado de stair_landing.
 IMPACTO: capturar landing ANTES do cross (como s4); recompute pos-cross e
 inconsistente por design (ocupacao muda o resultado).
+
+### BUG-024 — GLB com meshopt/quantizacao nao importa (valid=false silencioso)
+- PROBLEMA: Godot 4.7.2 desta maquina NAO suporta EXT_meshopt_compression nem KHR_mesh_quantization. GLBs de ferramentas IA (Tripo etc.) falham importacao com valid=false no .import, SEM mensagem clara (so via GLTFDocument.append_from_file aparece "required extension not supported").
+- SINTOMA: load() retorna null / "Failed loading resource" sem detalhe.
+- CAUSA: extensoes exigidas nao compiladas neste build.
+- SOLUCAO: desquantizar para float32 com glTF-transform: npm i @gltf-transform/core+extensions em %TEMP%\opencode\gtt; script deq.cjs (setArray(getArray()) em todos accessors + dispose das extensoes) -> GLB limpo que importa normal.
+- ARQUIVOS: src/assets/piso bosque/tile_bosque.glb (convertido), deq.cjs em TEMP.
+- STATUS: RESOLVIDO para o tile do bosque. PENDENTE: 6 miniaturas tripo_*_meshopt.glb tem o mesmo problema e precisam do mesmo tratamento quando forem usadas.
+- DATA: 2026-08-23
