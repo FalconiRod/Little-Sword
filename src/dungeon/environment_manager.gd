@@ -633,15 +633,15 @@ const MAPS := {
 	},
 
 	# --------------------------------------------- Bosque das Sombras ------
-	# Mapa procedural (30×30) com estética battle-grid: chão = folhas
-	# impressas de 20×20 células (400 casas, célula de 2,4 cm na
-	# impressão) repetidas lado a lado; árvores/rochas são miniaturas.
-	# Tamanho ajustável em "proc" (w/h); spawns são proporcionais.
+	# Mapa procedural (30×30) com estética battle-grid: chão = folha
+	# impressa do usuário com grade de 50×50 células (v2 da arte,
+	# 5908²px ≈ 118px/célula); o mapa 30×30 cabe inteiro numa folha só
+	# (sem costuras). Árvores/rochas são miniaturas EM CIMA da folha.
 	"bosque_30": {
 		"name": "Bosque das Sombras — 30×30",
 		"proc": {"w": 30, "h": 30, "seed": 20260823},
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
-			"cells_per_sheet": 20.0, "grid": true},
+			"cells_per_sheet": 50.0, "grid": true},
 	},
 }

@@ -169,3 +169,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.2 (D17): convencao unica de grid - centro = col*TILE+TILE/2; grid_to_world/world_to_cell canonicos em BoardGrid; roundi/floori avulsos proibidos fora deles; causa do desalinhamento era a folha imprimir linhas nas bordas enquanto o codigo centrava celulas em pares
 
+- Folha v2: usuario trocou bosque.jpg por versao com grade 50x50 impressa (5908px, ~118px/celula); cells_per_sheet 20->50; mapa 30x30 cabe em UMA folha (zero costuras)
+
