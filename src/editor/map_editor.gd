@@ -77,7 +77,11 @@ func _input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			_apply_tool(c)
 		else:
-			_erase_at(c)
+			if _dup_src != null:
+				_dup_src = null
+				_set_status("Modo carimbo encerrado.")
+			else:
+				_erase_at(c)
 
 func _dbg_gui(hov: Control) -> void:
 	var l: Control = _q("dbg")
@@ -132,8 +136,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				_cycle_mode(1)
 			KEY_DELETE, KEY_X:
 				_delete_selected()
+			KEY_Z:
+				if event.ctrl_pressed:
+					_undo_last()
 			KEY_ESCAPE:
-				if selected_unit != null:
+				if _dup_src != null:
+					_dup_src = null
+					_set_status("Modo carimbo encerrado.")
+				elif selected_unit != null:
 					selected_unit = null
 					_set_status("Selecao de unidade limpa.")
 				else:
@@ -287,6 +297,9 @@ func _set_axis(axis: int, v: float) -> void:
 func _apply_tool(c) -> void:
 	if c == null:
 		return
+	if _dup_src != null:
+		_stamp_duplicate(c)
+		return
 	match mode:
 		"select":
 			var u = BoardGrid.unit_at(c)
@@ -341,12 +354,14 @@ func _select_unit(u, c: Vector3i) -> void:
 	EventBus.log_msg.emit("Unidade %s selecionada" % uid, "#ffd166")
 
 func _move_unit(u, nc: Vector3i) -> void:
+	var oc: Vector3i = u.grid_pos
 	BoardGrid.move_unit(u, nc)
 	u.floor_index = nc.z
 	u.position = BoardGrid.world_pos(nc)
 	var key: String = UNIT_KEY.get(u.id, "")
 	if key != "":
 		edits["spawns"][key] = [nc.x, nc.y, nc.z]
+	_push_undo({"op": "moveu", "u": u, "from": oc})
 	_set_status("Unidade %s movida para %s (salva ao sair do editor)." %
 			[u.id, nc])
 	EventBus.log_msg.emit("%s -> %s" % [u.id, nc], "#ffd166")
@@ -381,10 +396,114 @@ func _delete_selected() -> void:
 	if selected_key != null and _placed.has(selected_key):
 		_erase_at(selected_key)
 
+## ------------------------------------------------- DESFAZER / DUPLICAR ---
+## Undo v1 cobre: colocar, apagar (exceto escada), mover peca, mover
+## unidade e troca de piso (restaurando o estado anterior da casa).
+
+var _undo: Array[Dictionary] = []
+var _dup_src = null   # {kind,data,fit} para carimbar copias
+
+func _push_undo(d: Dictionary) -> void:
+	_undo.append(d)
+	if _undo.size() > 60:
+		_undo.pop_front()
+
+func _undo_last() -> void:
+	if _undo.is_empty():
+		_set_status("Nada para desfazer.")
+		return
+	var a: Dictionary = _undo.pop_back()
+	match a["op"]:
+		"place":
+			_erase_at(a["c"], false)
+			_set_status("Desfeito: colocacao em %s." % str(a["c"]))
+		"erase":
+			_restore_entry(a["c"], a)
+			_set_status("Desfeito: remocao em %s." % str(a["c"]))
+		"floor":
+			_restore_floor(a["c"], a.get("prev"))
+			_set_status("Desfeito: troca de piso em %s." % str(a["c"]))
+		"movep":
+			_move_selected_piece_impl(a["to"], a["from"], false)
+			selected_key = a["from"]
+			_set_status("Desfeito: movimento de peca.")
+		"moveu":
+			var u = a["u"]
+			if is_instance_valid(u):
+				BoardGrid.move_unit(u, a["from"])
+				u.floor_index = a["from"].z
+				u.position = BoardGrid.world_pos(a["from"])
+			_set_status("Desfeito: movimento de unidade.")
+
+func _restore_entry(c: Vector3i, a: Dictionary) -> void:
+	var kind: String = a["kind"]
+	var data: Dictionary = a["data"].duplicate()
+	if kind == "glb":
+		_silent_glb(data.get("p", ""), c, data)
+	else:
+		_silent_place(data.get("id", "rubble"), c, data)
+		if kind == "struct":
+			var meta: Dictionary = TilePiece.PROPS.get(data.get("id", ""), {})
+			BoardGrid.set_tile(c, meta.get("w", true),
+					BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c)
+					else false)
+	var e = _placed.get(c)
+	if e != null and a.has("fit"):
+		e["fit"] = a["fit"]
+
+func _restore_floor(c: Vector3i, prev) -> void:
+	if _floor_overrides.has(c):
+		_floor_overrides[c]["node"].queue_free()
+		_floor_overrides.erase(c)
+	env.set_sheet_cell_hidden(c, false)
+	if prev != null:
+		_silent_floor(prev["id"], c)
+		# _silent_floor ja esconde o base; registrar override manualmente.
+		var node := Node3D.new()
+		_floor_overrides[c] = {"node": _floor_overrides.get(
+				c, {"node": null})["node"] if _floor_overrides.has(c)
+				else node, "data": prev.duplicate()}
+
+func _arm_duplicate() -> void:
+	var e = _sel_entry()
+	if e == null:
+		_set_status("Selecione uma peca primeiro para duplicar.")
+		return
+	_dup_src = {"kind": e["kind"], "data": e["data"].duplicate(),
+			"fit": float(e.get("fit", 1.0))}
+	_set_status("MODO CARIMBO: clique nas casas para colocar copias. " +
+			"Botao direito/ESC sai.")
+
+func _stamp_duplicate(c: Vector3i) -> void:
+	if c == null or not BoardGrid.is_walkable(c) or _placed.has(c):
+		EventBus.log_msg.emit("Casa invalida para copia.", "#ff6b6b")
+		return
+	match _dup_src["kind"]:
+		"glb":
+			_silent_glb(_dup_src["data"].get("p", ""), c,
+					_dup_src["data"].duplicate())
+		_:
+			_silent_place(_dup_src["data"].get("id", "rubble"), c,
+					_dup_src["data"].duplicate())
+			var e = _placed.get(c)
+			if e != null:
+				e["fit"] = _dup_src["fit"]
+				_apply_transform(e, float(e["data"].get("rot", 0.0)),
+						float(e["data"].get("s", 1.0)), _adv_v(e["data"]),
+						_dup_src["fit"])
+	if _placed.has(c):
+		_push_undo({"op": "place", "c": c})
+		_select(c)
+		_set_status("Copia em %s (%d carimbos ativos)." % [str(c), 1])
+
 ## Move a peca do editor selecionada para outra casa livre.
 func _move_selected_piece(nc: Vector3i) -> void:
-	var e = _placed[selected_key]
-	var oc: Vector3i = selected_key
+	_move_selected_piece_impl(nc, selected_key, true)
+
+func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void:
+	if not _placed.has(oc):
+		return
+	var e = _placed[oc]
 	e["node"].position = BoardGrid.world_pos(nc) \
 			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
 	if e["kind"] == "struct":
@@ -397,6 +516,8 @@ func _move_selected_piece(nc: Vector3i) -> void:
 	_placed[nc] = e
 	selected_key = nc
 	_refresh_transform_ui()
+	if record:
+		_push_undo({"op": "movep", "from": oc, "to": nc})
 	_set_status("%s movido para %s. Q/E gira; DEL apaga." %
 			[e["data"].get("id", "peca"), nc])
 
@@ -434,6 +555,7 @@ func _place_piece(id: String, c: Vector3i, kind: String) -> void:
 		var meta: Dictionary = TilePiece.PROPS.get(id, {})
 		BoardGrid.set_tile(c, meta.get("w", true), BoardGrid.tiles[c]["losb"])
 	_select(c)
+	_push_undo({"op": "place", "c": c})
 	_set_status("OK: %s colocado em %s. Q/E gira, roda muda escala." % [id, c])
 	EventBus.log_msg.emit("%s em %s" % [id, c], "#7fd4ff")
 
@@ -443,6 +565,8 @@ func _place_floor(id: String, c: Vector3i) -> void:
 		return
 	# Troca SOMENTE o piso da celula: overrides de piso vivem em registro
 	# proprio, preservando prop/obstaculo ja colocado ali.
+	var prev = _floor_overrides[c]["data"].duplicate() \
+			if _floor_overrides.has(c) else null
 	if _floor_overrides.has(c):
 		_floor_overrides[c]["node"].queue_free()
 	var piece := TilePiece.build(id)
@@ -458,6 +582,7 @@ func _place_floor(id: String, c: Vector3i) -> void:
 			"data": {"id": id, "c": [c.x, c.y, c.z]}}
 	# Some com o tile base GLB da casa para o novo piso aparecer limpo.
 	env.set_sheet_cell_hidden(c, true)
+	_push_undo({"op": "floor", "c": c, "prev": prev})
 	EventBus.log_msg.emit("Piso -> %s em %s" % [id, c], "#7fd4ff")
 
 func _place_glb(path: String, c: Vector3i) -> void:
@@ -491,6 +616,7 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
 			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
 	_select(c)
+	_push_undo({"op": "place", "c": c})
 	_set_status("OK: modelo %s em %s. Q/E gira; roda do mouse muda escala."
 			% [path.get_file(), c])
 	EventBus.log_msg.emit("GLB em %s" % c, "#7fd4ff")
@@ -557,11 +683,12 @@ func _draw_spawn_mark(key: String, c: Vector3i) -> void:
 	m.position = BoardGrid.world_pos(c) + Vector3(0, 0.16, 0)
 	_spawn_marks[c] = m
 
-func _erase_at(c) -> void:
+func _erase_at(c, record := true) -> void:
 	if c == null:
 		return
 	if _placed.has(c):
 		var e = _placed[c]
+		var can_undo: bool = record and e["kind"] != "stair"
 		e["node"].queue_free()
 		if e["kind"] == "struct":
 			BoardGrid.set_tile(c, true,
@@ -578,6 +705,10 @@ func _erase_at(c) -> void:
 		if selected_key != null and selected_key == c:
 			_select(null)
 		_placed.erase(c)
+		if can_undo:
+			_push_undo({"op": "erase", "c": c, "kind": e["kind"],
+					"data": e["data"].duplicate(),
+					"fit": float(e.get("fit", 1.0))})
 		_set_status("Removido: %s em %s." %
 				[e["kind"], c])
 		EventBus.log_msg.emit("Item removido em %s" % c, "#ffb84d")
@@ -626,8 +757,17 @@ func _update_hover(c) -> void:
 		add_child(_cursor_quad)
 	var sel: bool = _hover_cell == selected_key
 	var mat: StandardMaterial3D = _cursor_quad.material_override
-	mat.albedo_color = Color(0.3, 1.0, 0.5, 0.45) if sel \
-			else Color(1.0, 0.83, 0.2, 0.35)
+	var armed: bool = mode in ["floor", "structure", "obstacle", "prop",
+			"glb", "stairs"] or _dup_src != null
+	if armed:
+		# Verde = pode colocar aqui; vermelho = ocupada/invalida.
+		var ok: bool = BoardGrid.is_walkable(c) and not _placed.has(c) \
+				and not BoardGrid.occupied.has(c)
+		mat.albedo_color = Color(0.3, 1.0, 0.5, 0.45) if ok \
+				else Color(1.0, 0.25, 0.25, 0.4)
+	else:
+		mat.albedo_color = Color(0.3, 1.0, 0.5, 0.45) if sel \
+				else Color(1.0, 0.83, 0.2, 0.35)
 	_cursor_quad.visible = true
 	_cursor_quad.position = BoardGrid.world_pos(c) + Vector3(0, 0.14, 0)
 	_update_ghost(c)
@@ -894,6 +1034,16 @@ func _build_ui() -> void:
 	ds.text = "EXCLUIR o que esta selecionado (DEL)"
 	ds.pressed.connect(_delete_selected)
 	vb.add_child(ds)
+	var un := Button.new()
+	un.name = "undo_btn"
+	un.text = "DESFAZER (Ctrl+Z)"
+	un.pressed.connect(_undo_last)
+	vb.add_child(un)
+	var dp := Button.new()
+	dp.name = "dup_btn"
+	dp.text = "DUPLICAR selecao (modo carimbo)"
+	dp.pressed.connect(_arm_duplicate)
+	vb.add_child(dp)
 	for m in MODES:
 		var b := Button.new()
 		b.name = "mode_" + m[0]

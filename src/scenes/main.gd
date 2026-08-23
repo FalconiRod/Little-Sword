@@ -375,6 +375,28 @@ func _editortest() -> void:
 	MapEditor.mode = "select"
 	MapEditor.save_edits()
 	await _et_wait(0.2)
+	print("ET9a duplicar selecao (carimbo)")
+	MapEditor.mode = "select"
+	_click_cell(target)
+	await get_tree().process_frame
+	MapEditor._arm_duplicate()
+	var dcell := Vector3i(-1, -1, -1)
+	for off in [Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(-1, 0, 0)]:
+		var dc: Vector3i = target + off
+		if BoardGrid.is_walkable(dc) and not MapEditor._placed.has(dc):
+			dcell = dc
+			break
+	if dcell.x >= 0:
+		_click_cell(dcell)
+		await get_tree().process_frame
+		print("ET9b copia_em=" + str(MapEditor._placed.has(dcell)))
+		print("ET9c desfazendo...")
+		MapEditor._undo_last()
+		await get_tree().process_frame
+		print("ET9d pos_undo_copia=" + str(MapEditor._placed.has(dcell)))
+	else:
+		print("ET9b sem casa livre p/ carimbo")
+	MapEditor._dup_src = null
 	print("ET8 toggle OFF")
 	_push_key(KEY_F1)
 	await get_tree().process_frame
