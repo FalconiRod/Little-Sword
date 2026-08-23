@@ -842,6 +842,7 @@ func save_edits() -> void:
 	out["stairs"] = edits["stairs"]
 	out["unit_removed"] = edits["unit_removed"]
 	out["unit_rot"] = edits["unit_rot"]
+	out["mat_glb"] = edits.get("mat_glb", "")
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
 		EventBus.log_msg.emit("Editor: falha ao salvar!", "#ff6b6b")
@@ -872,6 +873,8 @@ func load_edits() -> void:
 		edits["unit_removed"] = []
 	if not edits.has("unit_rot"):
 		edits["unit_rot"] = {}
+	if not edits.has("mat_glb"):
+		edits["mat_glb"] = ""
 
 ## Reaplica edicoes salvas por cima do mapa recem-gerado (instancias).
 func apply_edits_to(environment: Node) -> void:
@@ -905,6 +908,11 @@ func apply_edits_to(environment: Node) -> void:
 	for k in edits.get("unit_removed", []):
 		if not edits["spawns"].has(k):
 			environment.spawns.erase(k)
+	# Battlemat alternativo salvo pelo editor (troca do GLB do chao base).
+	var mat: String = str(edits.get("mat_glb", ""))
+	if mat != "" and ResourceLoader.exists(mat) \
+			and environment.has_method("set_battle_mat"):
+		environment.set_battle_mat.call_deferred(mat)
 	var total: int = int(edits.get("props", []).size()) \
 			+ int(edits.get("glbs", []).size()) \
 			+ int(edits.get("floors", []).size()) \
@@ -1101,6 +1109,13 @@ func _build_ui() -> void:
 				_set_spawn(sk[0], _hover_cell)
 			_refresh_ui())
 		vb.add_child(b)
+	_add_label(vb, "cat_mat", "--- Battlemat (chao base) ---")
+	var mats: Array = _mat_candidates()
+	for i in mats.size():
+		var mb := Button.new()
+		mb.name = "mat_%d" % i
+		mb.pressed.connect(func() -> void: _apply_battle_mat(mats[i]))
+		vb.add_child(mb)
 	_add_label(vb, "tf_title", "--- Transformacao ---")
 	_add_label(vb, "tf_sel", "nenhuma peca selecionada")
 	var rot_row := HBoxContainer.new()
@@ -1164,6 +1179,33 @@ func _q(n: String) -> Control:
 		return null
 	return _ui.get_node_or_null(NodePath("ScrollContainer/VB/" + n))
 
+## ------------------------------------------------------- BATTLEMAT GLB ---
+## Candidatos = qualquer .glb na pasta de assets cujo arquivo comece com
+## "tile_" (ex.: tile_bosque.glb). Solte novos tiles_*.glb em
+## src/assets/editor e clique RECARREGAR ASSETS para lista-los aqui.
+
+func _mat_candidates() -> Array:
+	var out: Array = []
+	for p in glb_list:
+		if p.get_file().begins_with("tile_"):
+			out.append(p)
+	return out
+
+func _apply_battle_mat(path: String) -> void:
+	if env == null or not env.has_method("set_battle_mat"):
+		return
+	if env.set_battle_mat(path):
+		edits["mat_glb"] = path
+		# Reconstrucao da folha zera escondimentos: re-aplica os overrides.
+		for c in _floor_overrides:
+			env.set_sheet_cell_hidden(c, true)
+		_refresh_ui()
+		_set_status("Battlemat trocado para %s. Salve para manter."
+				% path.get_file())
+		EventBus.log_msg.emit("Battlemat: %s" % path.get_file(), "#8fdc7f")
+	else:
+		_set_status("Falha ao trocar battlemat para %s." % path.get_file())
+
 func _refresh_ui() -> void:
 	if _ui == null:
 		return
@@ -1212,6 +1254,13 @@ func _refresh_ui() -> void:
 				extra = " @%s,%s,%s" % [v[0], v[1], v[2]]
 			b.text = ("[x] " if spawn_key == sk[0] else "[  ] ") \
 					+ "Spawn " + sk[1] + extra
+	var mats: Array = _mat_candidates()
+	for i in mats.size():
+		var mb: Control = _q("mat_%d" % i)
+		if mb is Button:
+			var active: bool = edits.get("mat_glb", "") == mats[i]
+			mb.text = ("[x] Battlemat: " if active else "[  ] Battlemat: ") \
+					+ mats[i].get_file()
 
 func _refresh_transform_ui() -> void:
 	var l: Control = _q("tf_sel")

@@ -53,3 +53,18 @@ normalizada para ~1,4 m de altura; use Q/E e a roda para ajustar.
 ---
 Qualquer comportamento estranho: anote o que fez e me diga — tem log de
 diagnóstico embutido que eu consigo ler.
+
+## Battlemat (trocar o chao base inteiro)
+- Secao **Battlemat (chao base)** no fim do painel lista todo 	ile_*.glb
+  encontrado nos assets.
+- Clique num deles: o chao inteiro e reconstruido com esse modelo na hora.
+- Para usar um tile novo: solte o arquivo 	ile_NOME.glb em
+  `src/assets/editor/` e clique **RECARREGAR ASSETS**.
+- A escolha so fica permanente depois de **SALVAR MAPA**.
+
+## Pisos por casa (rio, terra, pedra)
+- Modo **Trocar piso (tileset)**: os dois primeiros sao
+  loor_water (agua translucida) e loor_dirt (terra).
+- Pinte as casas clicando nelas (cursor verde = pode, vermelho = nao).
+- Para voltar ao grama original numa casa: modo **Apagar** nela.
+- A linha azul "VAI COLOCAR" no topo do painel mostra o nome do item armado.

@@ -110,7 +110,6 @@ func load_map(id: String) -> bool:
 		# cai para o piso-folha texturizado.
 		if not (def.has("tile_glb") and _build_tile_multimeshes(def["tile_glb"])):
 			_build_sheet_floors(def["sheet"])
-
 	for st in def.get("stairs", []):
 		var a := Vector3i(st[0][0], st[0][1], st[0][2])
 		var b := Vector3i(st[1][0], st[1][1], st[1][2])
@@ -317,10 +316,24 @@ func _door(c: Vector3i, locked: bool, key: String, disguised: bool,
 ## num pé exato de TILE × TILE, centralizado na célula, com o TOPO da
 ## malha em y=0 (altura onde as peças ficam). Retorna false se não houver
 ## GLB utilizável — o chamador cai para o piso-folha texturizado.
+## Troca o GLB do battlemat em tempo de execucao (editor de mapa):
+## remove os MultiMesh atuais e reconstrui todas as casas com o novo tile.
+func set_battle_mat(glb_path: String) -> bool:
+	if not _sheet_active or glb_path == "":
+		return false
+	for f in _floor_nodes.size():
+		for ch in _floor_nodes[f].get_children():
+			if ch.name.begins_with("BoardTiles"):
+				ch.free()
+	return _build_tile_multimeshes_glb(glb_path)
+
 func _build_tile_multimeshes(dir_path: String) -> bool:
 	var glb := _find_first_glb(dir_path)
 	if glb == "":
 		return false
+	return _build_tile_multimeshes_glb(glb)
+
+func _build_tile_multimeshes_glb(glb: String) -> bool:
 	var packed: PackedScene = load(glb)
 	if packed == null:
 		return false

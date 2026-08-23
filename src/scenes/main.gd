@@ -401,6 +401,23 @@ func _editortest() -> void:
 	_push_key(KEY_F1)
 	await get_tree().process_frame
 	print("ET9 active=", MapEditor.active)
+	# ET9e: troca de battlemat (GLB do chao base) + persistencia na edicao.
+	var mats: Array = MapEditor._mat_candidates()
+	if not mats.is_empty() \
+			and MapEditor.env.has_method("set_battle_mat"):
+		var mat0: String = mats[0]
+		MapEditor._apply_battle_mat(mat0)
+		var rebuilt: bool = false
+		for f in MapEditor.env._floor_nodes.size():
+			if MapEditor.env._floor_nodes[f].get_node_or_null(
+					"BoardTiles%d" % f) != null:
+				rebuilt = true
+				break
+		print("ET9e mat=%s salvo=%s rebuilt=%s" % [
+				mat0.get_file(), str(MapEditor.edits.get("mat_glb", "")),
+				str(rebuilt)])
+	else:
+		print("ET9e sem candidatos de battlemat")
 	for i in 10:
 		await get_tree().create_timer(1.0).timeout
 		print("ET10 vivo t=%d turnos_ok" % (i + 1))
