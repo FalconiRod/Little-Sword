@@ -6,3 +6,10 @@
 - ARQUIVOS: src/assets/*.glb (originais em D:\PROJETOS\BACKUPS\little_sword_glb_orig)
 - EFEITO: jogo fluido; visual quase igual em peca pequena.
 - DATA: 2026-08-23
+
+### SOL-013 — Freeze na transformacao do druida (texturas 8K)
+- PROBLEMA: transformar druida em urso travava o jogo todo.
+- CAUSA: texturas 8192x8192 (~358MB VRAM cada, x2 = ~716MB) despejadas no MEIO da partida — urso era a unica peca carregada fora do boot. RX580 + gl_compatibility congela no upload.
+- SOLUCAO: resize.cjs (sharp via gltf-transform core) reduz TODAS as texturas dos 8 GLBs para <=1024px; arquivos ficaram <1MB cada. CLI resize tem bug de colourspace — usar script programatico em %TEMP%\opencode\gtt.
+- ARQUIVOS: src/assets/**/*.glb; guard anti-AABB-degenerado em _glb_piece.
+- DATA: 2026-08-23

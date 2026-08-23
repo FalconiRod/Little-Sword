@@ -149,6 +149,10 @@ static func _glb_piece(root: Node3D, path: String,
 		inst.free()
 		return false
 	var s := target_h / box.size.y
+	if not is_finite(s) or s <= 0.0001:
+		inst.free()
+		push_warning("[VISUAL] AABB degenerado em %s (usando placeholder)" % path)
+		return false
 	var holder := Node3D.new()
 	holder.name = "GlbModel"
 	holder.scale = Vector3(s, s, s)

@@ -179,3 +179,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.7: TODAS as pecas com GLB real (ranger/maga/druida/urso/2 goblins/hobgoblin boss), alturas por peca (boss 1.95, goblins 1.10, urso 1.30); circulos brilhantes (_base) removidos; retopologia geral (SOL-012) resolveu travamento
 
+- v0.9.8: fix freeze do urso - texturas 8K/4K -> 1024px em todos os GLBs (<1MB cada); guard AABB degenerado; skilltest janela OK
+
