@@ -1,5 +1,5 @@
-extends Node
-## EDITOR DE MAPA v2 — biblioteca de pecas por categoria + painel de
+﻿extends Node
+## EDITOR DE MAPA v2 â€” biblioteca de pecas por categoria + painel de
 ## transformacao da peca selecionada (rotacao 90graus, escala uniforme
 ## por padrao e por-eixo apenas em modo avancado), troca de piso por
 ## celula, colocacao de escadas (par) e persistencia em JSON aplicada
@@ -11,7 +11,8 @@ extends Node
 const SAVE_NAME := "map_edits_%s.json"
 
 ## Biblioteca por categoria (nomes = ids do catalogo TilePiece).
-const CAT_FLOORS := ["floor_stone", "floor_carpet", "floor_moss", "bridge_plank"]
+const CAT_FLOORS := ["floor_water", "floor_dirt", "floor_stone",
+	"floor_carpet", "floor_moss", "bridge_plank"]
 const CAT_WALLS := ["wall_stone", "pillar"]
 const CAT_OBSTACLES := ["rubble"]
 const CAT_PROPS := ["chest_prop", "torch", "lever_base"]
@@ -80,6 +81,7 @@ func _input(event: InputEvent) -> void:
 			if _dup_src != null:
 				_dup_src = null
 				_set_status("Modo carimbo encerrado.")
+				_refresh_ui()
 			else:
 				_erase_at(c)
 
@@ -143,6 +145,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if _dup_src != null:
 					_dup_src = null
 					_set_status("Modo carimbo encerrado.")
+					_refresh_ui()
 				elif selected_unit != null:
 					selected_unit = null
 					_set_status("Selecao de unidade limpa.")
@@ -225,7 +228,7 @@ func _cycle_mode(d: int) -> void:
 	for m in MODES:
 		names.append(m[0])
 	mode = names[(names.find(mode) + d + names.size()) % names.size()]
-	_set_status("Modo: %s — clique numa casa do tabuleiro." % mode)
+	_set_status("Modo: %s â€” clique numa casa do tabuleiro." % mode)
 	_refresh_ui()
 
 func _cat_items(mode_name: String) -> Array:
@@ -372,7 +375,7 @@ func _erase_unit_at(c) -> void:
 		return
 	var key: String = UNIT_KEY.get(u.id, "")
 	if key in ["K", "M", "W"]:
-		_set_status("Herois nao podem ser excluidos — so reposicionar.")
+		_set_status("Herois nao podem ser excluidos â€” so reposicionar.")
 		return
 	edits["unit_removed"].append(key)
 	u.die()
@@ -386,7 +389,7 @@ func _delete_selected() -> void:
 		var u = selected_unit
 		var key: String = UNIT_KEY.get(u.id, "")
 		if key in ["K", "M", "W"]:
-			_set_status("Herois nao podem ser excluidos — so reposicionar.")
+			_set_status("Herois nao podem ser excluidos â€” so reposicionar.")
 			return
 		edits["unit_removed"].append(key)
 		u.die()
@@ -471,6 +474,7 @@ func _arm_duplicate() -> void:
 		return
 	_dup_src = {"kind": e["kind"], "data": e["data"].duplicate(),
 			"fit": float(e.get("fit", 1.0))}
+	_refresh_ui()
 	_set_status("MODO CARIMBO: clique nas casas para colocar copias. " +
 			"Botao direito/ESC sai.")
 
@@ -1005,6 +1009,13 @@ func _build_ui() -> void:
 	vb.custom_minimum_size = Vector2(295, 0)
 	sc.add_child(vb)
 	_add_label(vb, "title", "EDITOR DE MAPA (F1 fecha)")
+	var armed := Label.new()
+	armed.name = "armed_name"
+	armed.text = "VAI COLOCAR: (nada)"
+	armed.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	armed.add_theme_font_size_override("font_size", 16)
+	armed.add_theme_color_override("font_color", Color.html("7fd4ff"))
+	vb.add_child(armed)
 	var dbg := Label.new()
 	dbg.name = "dbg"
 	dbg.text = "DBG: aguardando eventos..."
@@ -1156,6 +1167,27 @@ func _q(n: String) -> Control:
 func _refresh_ui() -> void:
 	if _ui == null:
 		return
+	# Linha "VAI COLOCAR": nome escrito do asset armado no momento.
+	var armed: Control = _q("armed_name")
+	if armed is Label:
+		var t := ""
+		if _dup_src != null:
+			t = "VAI COLOCAR: COPIA de %s (carimbo)" % [
+					str(_dup_src["data"].get("id",
+					_dup_src["data"].get("p", "?")).get_file())]
+		elif mode in ["floor", "structure", "obstacle", "prop"]:
+			var items: Array = _cat_items(mode)
+			t = "VAI COLOCAR: %s (%s)" % [str(items[_active_item(mode)]), mode]
+		elif mode == "glb" and not glb_list.is_empty():
+			t = "VAI COLOCAR: %s (modelo GLB)" \
+					% glb_list[_active_item("glb")].get_file()
+		elif mode == "stairs":
+			t = "MODO ESCADA: clique casa baixa e depois a alta"
+		elif mode == "erase":
+			t = "MODO APAGAR: clique no que quer remover"
+		else:
+			t = "MODO SELECIONAR/MOVER"
+		(armed as Label).text = t
 	for m in MODES:
 		var b: Control = _q("mode_" + m[0])
 		if b is Button:

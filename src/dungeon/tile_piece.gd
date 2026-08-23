@@ -7,6 +7,8 @@ class_name TilePiece
 
 const PROPS := {
 	"floor_stone": {"w": true, "losb": false},
+	"floor_water": {"w": true, "losb": false},
+	"floor_dirt": {"w": true, "losb": false},
 	"floor_carpet": {"w": true, "losb": false},
 	"floor_moss": {"w": true, "losb": false},
 	"wall_stone": {"w": false, "losb": true},
@@ -26,6 +28,11 @@ static func build(id: String) -> Node3D:
 	match id:
 		"floor_stone":
 			_floor(root, Color.html("3a3a44"), 0.9)
+		"floor_water":
+			_water(root)
+		"floor_dirt":
+			_floor(root, Color.html("5c4531"), 1.0)
+			_dirt_speckles(root)
 		"floor_carpet":
 			_floor(root, Color.html("5a1f2a"), 0.95)
 			_carpet(root)
@@ -113,6 +120,38 @@ static func _floor(root: Node3D, col: Color, rough := 0.9) -> void:
 	var b := BoxMesh.new()
 	b.size = Vector3(1.98, 0.12, 1.98)
 	_add(root, b, _mat(col, Color(), 0.0, 0.05, rough), Vector3(0, -0.06, 0))
+
+## Agua rasa de rio: leito escuro + lamina translucida azulada com brilho.
+static func _water(root: Node3D) -> void:
+	var bed := BoxMesh.new()
+	bed.size = Vector3(1.98, 0.06, 1.98)
+	_add(root, bed, _mat(Color.html("2b2f26"), Color(), 0.0, 0.0, 1.0),
+			Vector3(0, -0.09, 0))
+	var surf := BoxMesh.new()
+	surf.size = Vector3(1.98, 0.08, 1.98)
+	var wm := StandardMaterial3D.new()
+	wm.albedo_color = Color.html("2e6f9e")
+	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wm.albedo_color.a = 0.78
+	wm.metallic = 0.25
+	wm.roughness = 0.12
+	wm.emission_enabled = true
+	wm.emission = Color.html("123a52")
+	wm.emission_energy_multiplier = 0.35
+	_add(root, surf, wm, Vector3(0, -0.02, 0))
+
+## Pontos escuros/claros na terra para nao ficar chapado.
+static func _dirt_speckles(root: Node3D) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(root.name)
+	for i in 6:
+		var s := SphereMesh.new()
+		s.radius = rng.randf_range(0.04, 0.09)
+		s.height = s.radius * 2.0
+		var col := "4a3826" if i % 2 == 0 else "6e573c"
+		_add(root, s, _mat(Color.html(col), Color(), 0.0, 0.0, 1.0),
+				Vector3(rng.randf_range(-0.8, 0.8), -0.02,
+					rng.randf_range(-0.8, 0.8)))
 
 static func _carpet(root: Node3D) -> void:
 	var b := BoxMesh.new()
