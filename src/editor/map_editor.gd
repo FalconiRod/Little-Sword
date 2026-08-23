@@ -912,6 +912,18 @@ func _build_ui() -> void:
 				mode = cat[0]; cat_item[cat[0]] = i; _refresh_ui())
 			vb.add_child(b)
 	_add_label(vb, "cat_glb", "modelos GLB")
+	var hint := Label.new()
+	hint.name = "glb_hint"
+	hint.text = "Coloque .glb em src/assets/editor e clique RECARREGAR"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.add_theme_color_override("font_color", Color.html("8a8f9c"))
+	vb.add_child(hint)
+	var rl := Button.new()
+	rl.name = "reload_assets"
+	rl.text = "RECARREGAR ASSETS (.glb)"
+	rl.pressed.connect(_reload_assets)
+	vb.add_child(rl)
 	for i in glb_list.size():
 		var b := Button.new()
 		b.name = "item_glb_%d" % i
@@ -1117,6 +1129,22 @@ func _scan_glbs() -> void:
 				glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
+
+## Reescaneia os .glb sem reiniciar o jogo (fluxo do game designer:
+## solta arquivos novos em src/assets/editor e clica aqui).
+func _reload_assets() -> void:
+	var before: int = glb_list.size()
+	_scan_glbs()
+	if _ui != null:
+		_teardown_ui()
+		_build_ui()
+		_refresh_ui()
+		_set_status("Assets recarregados: %d modelos (%d novos). Clique num " +
+				"modelo e depois numa casa do tabuleiro." %
+				[glb_list.size(), glb_list.size() - before])
+	else:
+		EventBus.log_msg.emit("Assets: %d modelos GLB." % glb_list.size(),
+				"#7fd4ff")
 
 ## adv chega como Array (JSON); Vector3 nao tem construtor de Array.
 func _adv_v(d: Dictionary) -> Vector3:

@@ -1,0 +1,7 @@
+COLOQUE SEUS MODELOS .glb NESTA PASTA.
+
+Depois, no jogo: F1 (abre o editor) -> botao "RECARREGAR ASSETS (.glb)"
+-> o modelo aparece na lista "modelos GLB" -> clique nele -> clique numa
+casa do tabuleiro para colocar.
+
+Dica de nomes: use nomes simples (ex.: arvore_grande.glb, bau_fechado.glb).
