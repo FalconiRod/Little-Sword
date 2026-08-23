@@ -177,3 +177,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.6: cavaleiro agora usa GLB real do Ranger (ranger.glb renomeado p/ ASCII; reimport necessario apos renomear texturas); _glb_piece normaliza: pe em y=0, centrado, altura 1.55 (PIECE_HEIGHT). Fallback procedural mantido.
 
+- v0.9.7: TODAS as pecas com GLB real (ranger/maga/druida/urso/2 goblins/hobgoblin boss), alturas por peca (boss 1.95, goblins 1.10, urso 1.30); circulos brilhantes (_base) removidos; retopologia geral (SOL-012) resolveu travamento
+

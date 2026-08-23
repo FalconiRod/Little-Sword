@@ -1,6 +1,6 @@
-class_name BoardUnit
+﻿class_name BoardUnit
 extends Node3D
-## Uma peça de tabuleiro (miniatura). Nunca anda livre: move-se por células,
+## Uma peÃ§a de tabuleiro (miniatura). Nunca anda livre: move-se por cÃ©lulas,
 ## com pequenos saltos, como uma figura sobre a mesa.
 
 var id := ""
@@ -75,7 +75,7 @@ func set_visual_id(vname: String, mark_shifted := true) -> void:
 	if visual != null:
 		remove_child(visual)
 		visual.queue_free()
-	visual = UnitVisuals.build(vname)
+	visual = UnitVisuals.build_from_id(vname)
 	add_child(visual)
 	shifted = mark_shifted
 
@@ -86,7 +86,7 @@ func revert_visual() -> void:
 	set_visual_id(base_visual_id, false)
 
 func _build() -> void:
-	visual = UnitVisuals.build(id)
+	visual = UnitVisuals.build_from_id(id)
 	add_child(visual)
 	_bar_root = Node3D.new()
 	_bar_root.position = Vector3(0, _bar_h, 0)
@@ -249,9 +249,9 @@ func animate_recoil(from_wp: Vector3) -> void:
 	tw.tween_property(self, "global_position", base, 0.14) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
-## Movimento de peça: saltos curtos célula a célula. Quando um passo do
-## caminho é um salto de escada (célula pareada), dispara a transição de
-## andar naquele ponto. `from_cell` = célula de origem do movimento.
+## Movimento de peÃ§a: saltos curtos cÃ©lula a cÃ©lula. Quando um passo do
+## caminho Ã© um salto de escada (cÃ©lula pareada), dispara a transiÃ§Ã£o de
+## andar naquele ponto. `from_cell` = cÃ©lula de origem do movimento.
 func animate_move(path: Array, from_cell = null) -> void:
 	var prev: Vector3i = from_cell if from_cell != null else grid_pos
 	var reacted: Array = []
@@ -261,7 +261,7 @@ func animate_move(path: Array, from_cell = null) -> void:
 			floor_index = c.z
 			EventBus.unit_changed_floor.emit(self, floor_index)
 			if team == "hero":
-				EventBus.log_msg.emit("Você muda de andar (%s)." %
+				EventBus.log_msg.emit("VocÃª muda de andar (%s)." %
 						["desce" if c.z < prev.z else "sobe"], "#c9a227")
 			else:
 				EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
@@ -280,22 +280,22 @@ func animate_move(path: Array, from_cell = null) -> void:
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		await tw.finished
 		# O arco do salto continua escrevendo position:y DEPOIS do tween
-		# principal terminar; sem aguardá-lo, ele sobrescreve um
-		# change_floor() que ocorra logo em seguida (herói "afundava"
-		# de volta para o andar antigo após cruzar a escada).
+		# principal terminar; sem aguardÃ¡-lo, ele sobrescreve um
+		# change_floor() que ocorra logo em seguida (herÃ³i "afundava"
+		# de volta para o andar antigo apÃ³s cruzar a escada).
 		await th.finished
 		prev = c
 	position = BoardGrid.world_pos(grid_pos)
 	EventBus.unit_moved.emit(self)
-	# Parar sobre a escada NÃO cruza (v0.6.2): pisar nela é como pisar em
-	# qualquer célula. A travessia é sempre explícita: ou o caminho executa
-	# o salto pareado (destino em outro andar), ou quem está EM PÉ na
-	# célula clica nela de novo (try_cross_stairs).
+	# Parar sobre a escada NÃƒO cruza (v0.6.2): pisar nela Ã© como pisar em
+	# qualquer cÃ©lula. A travessia Ã© sempre explÃ­cita: ou o caminho executa
+	# o salto pareado (destino em outro andar), ou quem estÃ¡ EM PÃ‰ na
+	# cÃ©lula clica nela de novo (try_cross_stairs).
 
-## ATAQUE DE OPORTUNIDADE: SAIR de uma célula adjacente a um inimigo
-## alertado (mesmo andar) provoca um golpe grátis dele — uma vez por
+## ATAQUE DE OPORTUNIDADE: SAIR de uma cÃ©lula adjacente a um inimigo
+## alertado (mesmo andar) provoca um golpe grÃ¡tis dele â€” uma vez por
 ## inimigo a cada movimento. Dispersar cancela; trocar de andar pela
-## escada não provoca; continuar ao alcance do mesmo inimigo também não.
+## escada nÃ£o provoca; continuar ao alcance do mesmo inimigo tambÃ©m nÃ£o.
 func _provoke_leaving(from_cell: Vector3i, to_cell: Vector3i,
 		reacted: Array) -> void:
 	if disengaging or from_cell == to_cell or from_cell.z != to_cell.z:
@@ -318,10 +318,10 @@ func _provoke_leaving(from_cell: Vector3i, to_cell: Vector3i,
 		if not alive:
 			return
 
-## Atravessa a escada em que a unidade está EM PÉ.
-## Custa 1 de movimento e desembarca no primeiro grid LIVRE à frente da
+## Atravessa a escada em que a unidade estÃ¡ EM PÃ‰.
+## Custa 1 de movimento e desembarca no primeiro grid LIVRE Ã  frente da
 ## escada no andar de destino. Retorna: 0 = cruzou, 1 = sem movimento,
-## 2 = saída bloqueada no destino (ou célula não é escada).
+## 2 = saÃ­da bloqueada no destino (ou cÃ©lula nÃ£o Ã© escada).
 func try_cross_stairs() -> int:
 	if not BoardGrid.stair_links.has(grid_pos):
 		return 2
@@ -330,20 +330,20 @@ func try_cross_stairs() -> int:
 		return 1
 	var landing = BoardGrid.stair_landing(pair)
 	if landing == null and BoardGrid.is_free(pair):
-		landing = pair  # 8 saídas ocupadas: chega em pé na escada de chegada
+		landing = pair  # 8 saÃ­das ocupadas: chega em pÃ© na escada de chegada
 	if landing == null:
 		return 2
 	moves_left -= 1
 	var from_z := grid_pos.z
 	change_floor(landing)
 	if team == "hero":
-		EventBus.log_msg.emit("Você %s pela escada." %
+		EventBus.log_msg.emit("VocÃª %s pela escada." %
 				["desce" if pair.z < from_z else "sobe"], "#c9a227")
 	else:
 		EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
 	return 0
 
-## Ponto ÚNICO de mudança de andar (escadas). Reposiciona no grid e no
+## Ponto ÃšNICO de mudanÃ§a de andar (escadas). Reposiciona no grid e no
 ## mundo e dispara unit_changed_floor.
 func change_floor(cell: Vector3i) -> void:
 	BoardGrid.move_unit(self, cell)

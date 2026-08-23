@@ -8,6 +8,12 @@ class_name UnitVisuals
 
 const PIECE_HEIGHT := 1.55
 const KNIGHT_GLB := "res://src/assets/ranger.glb"
+const MAGE_GLB := "res://src/assets/maga/Hi3D_Untitled_allparts_20260822_200343.glb"
+const DRUID_GLB := "res://src/assets/druida.glb"
+const BEAR_GLB := "res://src/assets/urso transformaçao/Hi3D_Untitled_allparts_20260822_203801.glb"
+const GOBLIN_WARRIOR_GLB := "res://src/assets/goblins/goblin guerreiro.glb"
+const GOBLIN_ARCHER_GLB := "res://src/assets/goblins/goblin arqueiro.glb"
+const BOSS_GLB := "res://src/assets/goblins/hob goblin.glb"
 
 static func _mat(hex: String, emis_hex := "", e_energy := 1.0, metal := 0.1, rough := 0.7) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -60,10 +66,8 @@ static func _torus(parent: Node3D, inner: float, outer: float, mat: Material, po
 	t.outer_radius = outer
 	return _add(parent, t, mat, pos)
 
-## Base circular padrão de miniatura de mesa.
-static func _base(root: Node3D, hex: String, radius := 0.42) -> void:
-	_cyl(root, radius, radius * 1.05, 0.09, _mat(hex, "", 1.0, 0.8, 0.35), Vector3(0, 0.05, 0))
-	_torus(root, radius - 0.03, radius + 0.02, _mat("c9a227", "c9a227", 0.5, 0.9, 0.3), Vector3(0, 0.08, 0))
+## Base circular padrão de miniatura de mesa (REMOVIDO a pedido — sem
+## círculos brilhantes sob as peças).
 
 ## Espada grande com runas.
 static func _great_sword(root: Node3D, blade_len: float, blade_hex: String, rune_hex: String, grip_hex := "2a2118") -> void:
@@ -97,10 +101,36 @@ static func build(id: String) -> Node3D:
 			_build_boss(root)
 	return root
 
+## Alturas alvo por peça: heróis em pé 1.55; urso mais baixo; goblins
+## pequenos; boss imponente.
+static func _height_for(id: String) -> float:
+	match id:
+		"druid_bear": return 1.30
+		"goblin_warrior", "goblin_archer": return 1.10
+		"boss_knight": return 1.95
+		_: return PIECE_HEIGHT
+
+static func build_from_id(id: String) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Visual"
+	var path := ""
+	match id:
+		"knight": path = KNIGHT_GLB
+		"mage": path = MAGE_GLB
+		"druid": path = DRUID_GLB
+		"druid_bear": path = BEAR_GLB
+		"goblin_warrior": path = GOBLIN_WARRIOR_GLB
+		"goblin_archer": path = GOBLIN_ARCHER_GLB
+		"boss_knight": path = BOSS_GLB
+	if path != "" and _glb_piece(root, path, _height_for(id)):
+		return root
+	return build(id)
+
 ## Instancia um GLB como miniatura, normalizado: pés em y=0, centrado
-## no eixo horizontal, altura total = PIECE_HEIGHT. Retorna false se o
+## no eixo horizontal, altura total = altura pedida. Retorna false se o
 ## modelo não carregar (caller usa o placeholder procedural).
-static func _glb_piece(root: Node3D, path: String) -> bool:
+static func _glb_piece(root: Node3D, path: String,
+		target_h := PIECE_HEIGHT) -> bool:
 	var packed: PackedScene = load(path)
 	if packed == null:
 		push_warning("[VISUAL] GLB não carregado: %s (usando placeholder)" % path)
@@ -118,7 +148,7 @@ static func _glb_piece(root: Node3D, path: String) -> bool:
 	if box.size.y <= 0.0001:
 		inst.free()
 		return false
-	var s := PIECE_HEIGHT / box.size.y
+	var s := target_h / box.size.y
 	var holder := Node3D.new()
 	holder.name = "GlbModel"
 	holder.scale = Vector3(s, s, s)
@@ -142,7 +172,6 @@ static func _collect_aabbs(n: Node, xf: Transform3D, out: Array) -> void:
 static func _build_knight(root: Node3D) -> void:
 	if _glb_piece(root, KNIGHT_GLB):
 		return
-	_base(root, "17171d")
 	# Pernas / corpo / ombreiras
 	_box(root, Vector3(0.36, 0.3, 0.26), _mat("20202a"), Vector3(0, 0.28, 0))
 	_box(root, Vector3(0.54, 0.62, 0.38), _mat("262631", "", 1.0, 0.55, 0.45), Vector3(0, 0.76, 0))
@@ -158,7 +187,6 @@ static func _build_knight(root: Node3D) -> void:
 	_great_sword(root, 0.98, "b9c2cf", "37e0ff")
 
 static func _goblin_body(root: Node3D) -> void:
-	_base(root, "14251a", 0.36)
 	var body := CapsuleMesh.new()
 	body.radius = 0.19
 	body.height = 0.56
@@ -191,7 +219,6 @@ static func _build_goblin_archer(root: Node3D) -> void:
 
 static func _build_boss(root: Node3D) -> void:
 	root.scale = Vector3(1.55, 1.55, 1.55)
-	_base(root, "121216", 0.44)
 	_box(root, Vector3(0.4, 0.34, 0.3), _mat("191921"), Vector3(0, 0.3, 0))
 	_box(root, Vector3(0.6, 0.68, 0.42), _mat("1d1d27", "", 1.0, 0.6, 0.4), Vector3(0, 0.82, 0))
 	_sphere(root, 0.17, _mat("23232f", "", 1.0, 0.6, 0.4), Vector3(0.36, 1.14, 0))
@@ -213,7 +240,8 @@ static func _build_boss(root: Node3D) -> void:
 
 ## Maga Elara: robe arroxeado, chapéu pontudo e cajado com orbe vermelho.
 static func _build_mage(root: Node3D) -> void:
-	_base(root, "1a1226")
+	if _glb_piece(root, MAGE_GLB):
+		return
 	# Robe (cone invertido) + torso
 	_cone(root, 0.34, 0.9, _mat("2d1b47", "", 1.0, 0.05, 0.95), Vector3(0, 0.52, 0))
 	_box(root, Vector3(0.4, 0.42, 0.3), _mat("35215a"), Vector3(0, 1.12, 0))
@@ -238,7 +266,8 @@ static func _build_mage(root: Node3D) -> void:
 
 ## Druida Rowan: manto verde-musgo, capuz e cajado de madeira com orbe verde.
 static func _build_druid(root: Node3D) -> void:
-	_base(root, "16211a")
+	if _glb_piece(root, DRUID_GLB):
+		return
 	# Manto longo
 	_cone(root, 0.33, 0.95, _mat("274a2c", "", 1.0, 0.0, 0.95), Vector3(0, 0.54, 0))
 	_box(root, Vector3(0.38, 0.4, 0.28), _mat("2f5a34"), Vector3(0, 1.1, 0))
@@ -262,7 +291,6 @@ static func _build_druid(root: Node3D) -> void:
 ## Forma de urso da Rowan: quadrupede robusto com garras.
 static func _build_bear(root: Node3D) -> void:
 	root.scale = Vector3(1.25, 1.25, 1.25)
-	_base(root, "16211a", 0.48)
 	# Corpo macico
 	_box(root, Vector3(0.62, 0.55, 0.95), _mat("5a4028", "", 1.0, 0.0, 0.95), Vector3(0, 0.62, -0.05))
 	_box(root, Vector3(0.5, 0.3, 0.5), _mat("6b4c30"), Vector3(0, 0.92, -0.18), Vector3(12, 0, 0))
