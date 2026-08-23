@@ -32,7 +32,7 @@ var selected_key = null     # Vector3i da peca selecionada (instancia)
 var _pending_stair = null   # primeira celula do par de escada
 
 var edits := {"props": [], "glbs": [], "floors": [], "stairs": [],
-	"spawns": {}}
+	"spawns": {}, "unit_removed": []}
 var _placed := {}           # Vector3i -> {node, kind, data, fit}
 var _floor_overrides := {}  # Vector3i -> {node, data} (troca de piso)
 var _spawn_marks := {}
@@ -158,6 +158,7 @@ func _toggle() -> void:
 	_pending_stair = null
 	if active:
 		_build_ui()
+		selected_unit = null
 		_set_status("PAINEL ABERTO. 1) Escolha um item na lista. " +
 				"2) CLIQUE NUMA CASA DO TABULEIRO (area central da tela).")
 	else:
@@ -256,7 +257,12 @@ func _apply_tool(c) -> void:
 		return
 	match mode:
 		"select":
-			if _placed.has(c):
+			var u = BoardGrid.unit_at(c)
+			if u != null:
+				_select_unit(u, c)
+			elif selected_unit != null and BoardGrid.is_free(c):
+				_move_unit(selected_unit, c)
+			elif _placed.has(c):
 				_select(c)
 			elif BoardGrid.stair_links.has(c):
 				EventBus.log_msg.emit("Escada: selecione os degraus colocados.", "#ffb84d")
@@ -277,7 +283,51 @@ func _apply_tool(c) -> void:
 		"stairs":
 			_stairs_click(c)
 		"erase":
-			_erase_at(c)
+			if _placed.has(c):
+				_erase_at(c)
+			else:
+				_erase_unit_at(c)
+
+## ------------------------------------------------------- UNITS DO MAPA ---
+## Unidades nativas do mapa (herois/goblins) tambem sao editaveis:
+## selecionar, mover para casa livre e excluir (so inimigos).
+
+const UNIT_KEY := {"knight": "K", "mage": "M", "druid": "W",
+		"goblin_warrior": "g", "goblin_archer": "a", "boss_knight": "B"}
+var selected_unit = null
+
+func _select_unit(u, c: Vector3i) -> void:
+	selected_unit = u
+	_select(null)
+	var uid: String = str(u.id) if "id" in u else "?"
+	_set_status(("Unidade selecionada: %s em %s. Clique noutra casa livre "
+			+ "para move-la.") % [uid, str(c)])
+	EventBus.log_msg.emit("Unidade %s selecionada" % uid, "#ffd166")
+
+func _move_unit(u, nc: Vector3i) -> void:
+	BoardGrid.move_unit(u, nc)
+	u.floor_index = nc.z
+	u.position = BoardGrid.world_pos(nc)
+	var key: String = UNIT_KEY.get(u.id, "")
+	if key != "":
+		edits["spawns"][key] = [nc.x, nc.y, nc.z]
+	_set_status("Unidade %s movida para %s (salva ao sair do editor)." %
+			[u.id, nc])
+	EventBus.log_msg.emit("%s -> %s" % [u.id, nc], "#ffd166")
+
+func _erase_unit_at(c) -> void:
+	var u = BoardGrid.unit_at(c)
+	if u == null:
+		return
+	var key: String = UNIT_KEY.get(u.id, "")
+	if key in ["K", "M", "W"]:
+		_set_status("Herois nao podem ser excluidos — so reposicionar.")
+		return
+	edits["unit_removed"].append(key)
+	u.die()
+	selected_unit = null
+	_set_status("Inimigo %s removido do mapa." % u.id)
+	EventBus.log_msg.emit("Inimigo removido: %s" % u.id, "#ffb84d")
 
 func _floor_node(c: Vector3i) -> Node3D:
 	return env.get_node_or_null("Floor%d" % c.z)
@@ -335,6 +385,8 @@ func _place_floor(id: String, c: Vector3i) -> void:
 	piece.position = BoardGrid.world_pos(c) + Vector3(0, 0.02, 0)
 	_floor_overrides[c] = {"node": piece,
 			"data": {"id": id, "c": [c.x, c.y, c.z]}}
+	# Some com o tile base GLB da casa para o novo piso aparecer limpo.
+	env.set_sheet_cell_hidden(c, true)
 	EventBus.log_msg.emit("Piso -> %s em %s" % [id, c], "#7fd4ff")
 
 func _place_glb(path: String, c: Vector3i) -> void:
@@ -361,7 +413,10 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	var fit := 1.0
 	if box.size.y > 0.001:
 		fit = 1.4 / box.size.y
-		inst.position = -box.get_center() * fit
+	# Pes no nivel do topo do tile (nao afundado): base do AABB em y=0,
+	# centrado em XZ. holder escala depois; offset fica em unidades do GLB.
+	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
+			-box.position.y, -(box.position.z + box.size.z * 0.5))
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
 			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
 	_select(c)
@@ -458,6 +513,8 @@ func _erase_at(c) -> void:
 	elif _floor_overrides.has(c):
 		_floor_overrides[c]["node"].queue_free()
 		_floor_overrides.erase(c)
+		env.set_sheet_cell_hidden(c, false)
+		_set_status("Piso base restaurado em %s." % c)
 		EventBus.log_msg.emit("Piso restaurado em %s" % c, "#ffb84d")
 	elif _spawn_marks.has(c):
 		_spawn_marks[c].queue_free()
@@ -522,6 +579,7 @@ func save_edits() -> void:
 	for c in _floor_overrides:
 		out["floors"].append(_floor_overrides[c]["data"])
 	out["stairs"] = edits["stairs"]
+	out["unit_removed"] = edits["unit_removed"]
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
 		EventBus.log_msg.emit("Editor: falha ao salvar!", "#ff6b6b")
@@ -548,6 +606,8 @@ func load_edits() -> void:
 	f.close()
 	if parsed is Dictionary:
 		edits = parsed
+	if not edits.has("unit_removed"):
+		edits["unit_removed"] = []
 
 ## Reaplica edicoes salvas por cima do mapa recem-gerado (instancias).
 func apply_edits_to(environment: Node) -> void:
@@ -577,6 +637,10 @@ func apply_edits_to(environment: Node) -> void:
 		var v: Array = edits["spawns"][k]
 		environment.spawns[k] = [Vector3i(v[0], v[1], v[2])]
 		_draw_spawn_mark(k, Vector3i(v[0], v[1], v[2]))
+	# Inimigos removidos pelo editor nao nascem (herois nunca sao removidos).
+	for k in edits.get("unit_removed", []):
+		if not edits["spawns"].has(k):
+			environment.spawns.erase(k)
 	var total: int = int(edits.get("props", []).size()) \
 			+ int(edits.get("glbs", []).size()) \
 			+ int(edits.get("floors", []).size()) \
@@ -642,7 +706,8 @@ func _silent_glb(path: String, c: Vector3i, data: Dictionary) -> void:
 	var fit := 1.0
 	if box.size.y > 0.001:
 		fit = 1.4 / box.size.y
-		inst.position = -box.get_center() * fit
+	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
+			-box.position.y, -(box.position.z + box.size.z * 0.5))
 	data["c"] = [c.x, c.y, c.z]
 	_register("glb", holder, c, data, fit)
 
@@ -656,6 +721,7 @@ func _silent_floor(id: String, c: Vector3i) -> void:
 		return
 	fl.add_child(piece)
 	piece.position = BoardGrid.world_pos(c) + Vector3(0, 0.02, 0)
+	env.set_sheet_cell_hidden(c, true)
 
 # -------------------------------------------------------------------- UI ---
 
@@ -695,6 +761,14 @@ func _build_ui() -> void:
 	tb.text = "TESTE: colocar pedra ao lado do heroi"
 	tb.pressed.connect(_place_test_piece)
 	vb.add_child(tb)
+	var du := Button.new()
+	du.name = "del_unit"
+	du.text = "EXCLUIR inimigo sob o cursor (modo Apagar)"
+	du.pressed.connect(func() -> void:
+		mode = "erase"
+		_set_status("Modo APAGAR: clique num item OU num INIMIGO para remover.")
+		_refresh_ui())
+	vb.add_child(du)
 	for m in MODES:
 		var b := Button.new()
 		b.name = "mode_" + m[0]

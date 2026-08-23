@@ -29,3 +29,10 @@
 - ARQUIVOS: src/core/tactical_camera.gd
 - SENSIBILIDADE (-/=): ja era clampeada (SENS_MIN/MAX), verificada OK. Follow/zoom-max: nao interferem em rotacao, verificado.
 - DATA: 2026-08-23
+
+## SOL-016 — GLB do editor afundado no tile (2026-08-23)
+PROBLEMA: modelos GLB colocados pelo editor apareciam "no meio do tile".
+CAUSA: inst.position = -box.get_center()*fit centraliza o AABB verticalmente →
+metade do corpo abaixo de y=0. SOLUCAO: posicionar por PES:
+inst.position = (-(x+sx/2), -min.y, -(z+sz/2)) em unidades do GLB (sem fit;
+holder escala depois). ARQUIVOS: map_editor.gd (_place_glb/_silent_glb).

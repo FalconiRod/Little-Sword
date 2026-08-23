@@ -340,6 +340,23 @@ func _editortest() -> void:
 			" selected=", MapEditor.selected_key,
 			" rot=", MapEditor._placed[target]["data"]["rot"],
 			" s=", MapEditor._placed[target]["data"]["s"])
+	print("ET7 mover unidade nativa (goblin)")
+	var gu: Vector3i = env.spawns["g"][0]
+	var gdest := gu
+	for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, -1, 0),
+			Vector3i(0, 1, 0)]:
+		if BoardGrid.is_free(gu + off) and BoardGrid.is_walkable(gu + off):
+			gdest = gu + off
+			break
+	MapEditor.mode = "select"
+	_click_cell(gu)
+	await get_tree().process_frame
+	_click_cell(gdest)
+	await get_tree().process_frame
+	var goblin = BoardGrid.unit_at(gdest)
+	print("ET7b goblin_em_destino=" + str(goblin != null) +
+			" spawn_salvo=" + str(MapEditor.edits["spawns"].has("g")) +
+			" celula=" + str(MapEditor.edits["spawns"].get("g", [])))
 	print("ET7 salvar")
 	MapEditor.save_edits()
 	await _et_wait(0.2)

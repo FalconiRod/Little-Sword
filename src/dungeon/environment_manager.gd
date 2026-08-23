@@ -348,6 +348,8 @@ func _build_tile_multimeshes(dir_path: String) -> bool:
 			Vector3(-(aabb.position.x + aabb.size.x * 0.5) * s,
 					-aabb.end.y * s,
 					-(aabb.position.z + aabb.size.z * 0.5) * s))
+	_tile_base = base
+	_tile_xf = xf
 	for f in floors_n:
 		var cells: Array = _sheet_cells[f]
 		if cells.is_empty():
@@ -371,6 +373,28 @@ func _build_tile_multimeshes(dir_path: String) -> bool:
 	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s)."
 			% glb.get_file(), "#8a8f9c")
 	return true
+
+## Base do tile GLB guardada p/ manipulacao por celula (editor de mapa).
+var _tile_base := Transform3D.IDENTITY
+var _tile_xf := Transform3D.IDENTITY
+
+## Esconde/restaura o tile base de UMA celula (MultiMesh): escondida,
+## a instancia desce -999 (fora da vista); restaurada, volta ao padrao.
+func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
+	if c.z >= _floor_nodes.size():
+		return
+	var mmi := _floor_nodes[c.z].get_node_or_null("BoardTiles%d" % c.z)
+	if mmi == null:
+		return
+	var idx: int = _sheet_cells[c.z].find(c)
+	if idx < 0:
+		return
+	var mm: MultiMesh = mmi.multimesh
+	var t := Transform3D(Basis(),
+			Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+					BoardGrid.world_pos(c).y + (-999.0 if hidden else 0.0),
+					c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
+	mm.set_instance_transform(idx, t * _tile_base * _tile_xf)
 
 func _find_first_glb(dir_path: String) -> String:
 	if dir_path == "":
