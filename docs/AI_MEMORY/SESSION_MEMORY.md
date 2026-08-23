@@ -175,3 +175,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.5: tile GLB do bosque FUNCIONANDO - usuario forneceu 'piso modelo bosque.glb' (meshopt+quantizado); convertido p/ float32 (deq.cjs) como tile_bosque.glb; MultiMesh monta tabuleiro casa a casa; BUG-024 registrado (tripo pendentes)
 
+- v0.9.6: cavaleiro agora usa GLB real do Ranger (ranger.glb renomeado p/ ASCII; reimport necessario apos renomear texturas); _glb_piece normaliza: pe em y=0, centrado, altura 1.55 (PIECE_HEIGHT). Fallback procedural mantido.
+

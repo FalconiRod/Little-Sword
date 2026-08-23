@@ -1,6 +1,13 @@
 class_name UnitVisuals
 ## Construção procedural das miniaturas (placeholders estilizados).
 ## Frente da peça aponta para +Z.
+##
+## Peças podem usar GLB real: se o modelo carregar, ele é normalizado
+## (pés no chão y=0, centrado na célula, altura padrão PIECE_HEIGHT);
+## sem GLB cai no placeholder procedural.
+
+const PIECE_HEIGHT := 1.55
+const KNIGHT_GLB := "res://src/assets/ranger.glb"
 
 static func _mat(hex: String, emis_hex := "", e_energy := 1.0, metal := 0.1, rough := 0.7) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -90,7 +97,51 @@ static func build(id: String) -> Node3D:
 			_build_boss(root)
 	return root
 
+## Instancia um GLB como miniatura, normalizado: pés em y=0, centrado
+## no eixo horizontal, altura total = PIECE_HEIGHT. Retorna false se o
+## modelo não carregar (caller usa o placeholder procedural).
+static func _glb_piece(root: Node3D, path: String) -> bool:
+	var packed: PackedScene = load(path)
+	if packed == null:
+		push_warning("[VISUAL] GLB não carregado: %s (usando placeholder)" % path)
+		return false
+	var inst: Node = packed.instantiate()
+	var abbs: Array = []
+	_collect_aabbs(inst, Transform3D.IDENTITY, abbs)
+	if abbs.is_empty():
+		inst.free()
+		push_warning("[VISUAL] GLB sem malha: %s" % path)
+		return false
+	var box: AABB = abbs[0]
+	for i in range(1, abbs.size()):
+		box = box.merge(abbs[i])
+	if box.size.y <= 0.0001:
+		inst.free()
+		return false
+	var s := PIECE_HEIGHT / box.size.y
+	var holder := Node3D.new()
+	holder.name = "GlbModel"
+	holder.scale = Vector3(s, s, s)
+	root.add_child(holder)
+	holder.add_child(inst)
+	var c := box.get_center()
+	inst.position = Vector3(-c.x, -box.position.y, -c.z)
+	return true
+
+static func _collect_aabbs(n: Node, xf: Transform3D, out: Array) -> void:
+	var local := xf
+	if n is Node3D:
+		local = xf * (n as Node3D).transform
+	if n is MeshInstance3D:
+		var mi := n as MeshInstance3D
+		if mi.mesh != null:
+			out.append(local * mi.mesh.get_aabb())
+	for ch in n.get_children():
+		_collect_aabbs(ch, local, out)
+
 static func _build_knight(root: Node3D) -> void:
+	if _glb_piece(root, KNIGHT_GLB):
+		return
 	_base(root, "17171d")
 	# Pernas / corpo / ombreiras
 	_box(root, Vector3(0.36, 0.3, 0.26), _mat("20202a"), Vector3(0, 0.28, 0))
