@@ -156,6 +156,9 @@ static func _glb_piece(root: Node3D, path: String,
 	var holder := Node3D.new()
 	holder.name = "GlbModel"
 	holder.scale = Vector3(s, s, s)
+	# Modelos de IA sao autorados com a frente em -Z; a convencao do jogo
+	# e frente em +Z (face_towards usa atan2(x,z)) -> vira 180 graus.
+	holder.rotation.y = PI
 	root.add_child(holder)
 	holder.add_child(inst)
 	var c := box.get_center()

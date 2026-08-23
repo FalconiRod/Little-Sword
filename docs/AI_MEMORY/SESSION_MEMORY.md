@@ -187,3 +187,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - FASE 2: fix camera girando (SOL-015) - watchdog de drag orfao + clamps de delta/motion/velocidade angular; sensibilidade ja clampada
 
+- FASE 3 parcial: GLBs virados 180graus (frente IA=-Z, jogo=+Z); pulo entre casas 0.17s->0.26s, arco SINE 0.22 mais organico; alinhamento e proporcao aprovados pelo usuario
+

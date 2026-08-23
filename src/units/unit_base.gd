@@ -267,17 +267,21 @@ func animate_move(path: Array, from_cell = null) -> void:
 				EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
 		var wp: Vector3 = BoardGrid.world_pos(c)
 		face_towards(wp)
-		var dur := 0.17
+		# Salto organico: mais lento, arco simetrico com easing SINE na
+		# subida/descida e deslize horizontal suavizado (acelera e freia).
+		var dur := 0.26
 		var tw := create_tween()
 		tw.set_parallel(true)
-		tw.tween_property(self, "position:x", wp.x, dur)
-		tw.tween_property(self, "position:z", wp.z, dur)
+		tw.tween_property(self, "position:x", wp.x, dur) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(self, "position:z", wp.z, dur) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_property(self, "position:y", wp.y, dur)
 		var th := create_tween()
-		th.tween_property(self, "position:y", wp.y + 0.3, dur * 0.5) \
-				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		th.tween_property(self, "position:y", wp.y + 0.22, dur * 0.5) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 		th.tween_property(self, "position:y", wp.y, dur * 0.5) \
-				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		await tw.finished
 		# O arco do salto continua escrevendo position:y DEPOIS do tween
 		# principal terminar; sem aguardÃ¡-lo, ele sobrescreve um
