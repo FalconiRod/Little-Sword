@@ -19,3 +19,9 @@ Regras: pausa+testes (--demo/--skilltest/--combattest/--editortest) ao fim
 de cada fase; editor F1 nunca quebrar; retrocompat total do bosque.
 Auditoria completa desta decisao: conversa 2026-08-23 (docs .tres enviados
 pelo usuario). NAO confundir com sandbox/decor-export resetados (130b52e).
+
+## BACKLOG PRE-DEMO (2026-08-23) — ANTES do showcase/video e das FASES A-F
+Usuario: "primeiro terminar mecanicas de jogabilidade, combate, arrumar
+HUD, UI, IA dos inimigos, polir o editor, arrumar bag, magias, itens".
+Ordem exata de execucao = decidida item a item com o usuario.
+So depois disso: modo showcase + video. E so entao FASES A-F (.tres).
