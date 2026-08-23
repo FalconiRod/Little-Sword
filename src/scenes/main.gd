@@ -358,6 +358,21 @@ func _editortest() -> void:
 			" spawn_salvo=" + str(MapEditor.edits["spawns"].has("g")) +
 			" celula=" + str(MapEditor.edits["spawns"].get("g", [])))
 	print("ET7 salvar")
+	print("ET8c trocar piso da casa alvo")
+	var fcell := Vector3i(-1, -1, -1)
+	for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1),
+			Vector3i(0, 0, -1), Vector3i(0, 1, 0)]:
+		var cc: Vector3i = target + off
+		if BoardGrid.is_walkable(cc) and not MapEditor._placed.has(cc):
+			fcell = cc
+			break
+	if fcell.x >= 0:
+		MapEditor.mode = "floor"
+		MapEditor.cat_item["floor"] = 1
+		_click_cell(fcell)
+		await get_tree().process_frame
+		print("ET8d floor_override=", MapEditor._floor_overrides.has(fcell))
+	MapEditor.mode = "select"
 	MapEditor.save_edits()
 	await _et_wait(0.2)
 	print("ET8 toggle OFF")
@@ -438,6 +453,12 @@ func _spawn_units() -> void:
 	if env.spawns.has("B") and not env.spawns["B"].is_empty():
 		boss = _make_unit("boss_knight", env.spawns["B"][0])
 		units.append(boss)
+	# Rotacoes definidas no editor (Q/E sobre unidade selecionada).
+	var rots: Dictionary = MapEditor.edits.get("unit_rot", {})
+	for u in units:
+		var key: String = MapEditor.UNIT_KEY.get(u.id, "")
+		if key != "" and rots.has(key):
+			u.rotation.y = deg_to_rad(float(rots[key]))
 	InventorySystem.apply_to_unit(knight)
 
 func _make_unit(id: String, cell: Vector3i) -> BoardUnit:

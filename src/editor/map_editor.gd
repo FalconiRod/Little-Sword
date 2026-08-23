@@ -15,7 +15,7 @@ const CAT_FLOORS := ["floor_stone", "floor_carpet", "floor_moss", "bridge_plank"
 const CAT_WALLS := ["wall_stone", "pillar"]
 const CAT_OBSTACLES := ["rubble"]
 const CAT_PROPS := ["chest_prop", "torch", "lever_base"]
-const MODES := [["select", "Selecionar"], ["floor", "Trocar chao"],
+const MODES := [["select", "Selecionar/Mover"], ["floor", "Trocar piso (tileset)"],
 	["structure", "Paredes/Colunas"], ["obstacle", "Obstaculos"],
 	["prop", "Props"], ["glb", "Modelos GLB"], ["stairs", "Escada"],
 	["erase", "Apagar"]]
@@ -32,7 +32,7 @@ var selected_key = null     # Vector3i da peca selecionada (instancia)
 var _pending_stair = null   # primeira celula do par de escada
 
 var edits := {"props": [], "glbs": [], "floors": [], "stairs": [],
-	"spawns": {}, "unit_removed": []}
+	"spawns": {}, "unit_removed": [], "unit_rot": {}}
 var _placed := {}           # Vector3i -> {node, kind, data, fit}
 var _floor_overrides := {}  # Vector3i -> {node, data} (troca de piso)
 var _spawn_marks := {}
@@ -130,8 +130,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				_rotate_selected(90.0)
 			KEY_G:
 				_cycle_mode(1)
+			KEY_DELETE, KEY_X:
+				_delete_selected()
 			KEY_ESCAPE:
-				_select(null)
+				if selected_unit != null:
+					selected_unit = null
+					_set_status("Selecao de unidade limpa.")
+				else:
+					_select(null)
 
 ## Diagnostico ao vivo: mostra no painel o ultimo evento e a celula vista
 ## pelo picking (remover apos estabilizar o editor).
@@ -159,10 +165,26 @@ func _toggle() -> void:
 	if active:
 		_build_ui()
 		selected_unit = null
+		_set_hud_visible(false)
 		_set_status("PAINEL ABERTO. 1) Escolha um item na lista. " +
 				"2) CLIQUE NUMA CASA DO TABULEIRO (area central da tela).")
 	else:
 		_teardown_ui()
+		_set_hud_visible(true)
+
+## Esconde TODO o HUD do jogador (vida, status, bag) enquanto edita.
+var _hud: CanvasLayer = null
+
+func _set_hud_visible(v: bool) -> void:
+	if _hud == null:
+		for n in get_tree().root.get_children():
+			if n is CanvasLayer and n != _ui and n != self \
+					and n.get_script() != null \
+					and str(n.get_script().resource_path).ends_with("hud.gd"):
+				_hud = n
+				break
+	if _hud != null:
+		_hud.visible = v
 	EventBus.log_msg.emit("Editor de mapa %s." %
 			["ABERTO (turnos em espera)" if active else "fechado"], "#7fd4ff")
 
@@ -224,6 +246,16 @@ func _apply_transform(e, rot: float, su: float, adv: Vector3, fit: float) -> voi
 	e["node"].scale = Vector3.ONE * su * adv * fit
 
 func _rotate_selected(delta_deg: float) -> void:
+	if selected_unit != null:
+		var key: String = UNIT_KEY.get(selected_unit.id, "")
+		selected_unit.rotation.y = wrapf(
+				selected_unit.rotation.y + deg_to_rad(delta_deg),
+				-PI, PI)
+		if key != "":
+			edits["unit_rot"][key] = rad_to_deg(selected_unit.rotation.y)
+		_set_status("Unidade %s girada (%d graus)." % [selected_unit.id,
+				int(rad_to_deg(selected_unit.rotation.y))])
+		return
 	var e = _sel_entry()
 	if e == null:
 		return
@@ -262,6 +294,10 @@ func _apply_tool(c) -> void:
 				_select_unit(u, c)
 			elif selected_unit != null and BoardGrid.is_free(c):
 				_move_unit(selected_unit, c)
+				selected_unit = null
+			elif selected_key != null and _placed.has(selected_key) \
+					and not _placed.has(c) and BoardGrid.is_free(c):
+				_move_selected_piece(c)
 			elif _placed.has(c):
 				_select(c)
 			elif BoardGrid.stair_links.has(c):
@@ -328,6 +364,41 @@ func _erase_unit_at(c) -> void:
 	selected_unit = null
 	_set_status("Inimigo %s removido do mapa." % u.id)
 	EventBus.log_msg.emit("Inimigo removido: %s" % u.id, "#ffb84d")
+
+## Exclui o que estiver selecionado (peca do editor OU unidade inimiga).
+func _delete_selected() -> void:
+	if selected_unit != null:
+		var u = selected_unit
+		var key: String = UNIT_KEY.get(u.id, "")
+		if key in ["K", "M", "W"]:
+			_set_status("Herois nao podem ser excluidos — so reposicionar.")
+			return
+		edits["unit_removed"].append(key)
+		u.die()
+		selected_unit = null
+		_set_status("Inimigo removido.")
+		return
+	if selected_key != null and _placed.has(selected_key):
+		_erase_at(selected_key)
+
+## Move a peca do editor selecionada para outra casa livre.
+func _move_selected_piece(nc: Vector3i) -> void:
+	var e = _placed[selected_key]
+	var oc: Vector3i = selected_key
+	e["node"].position = BoardGrid.world_pos(nc) \
+			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
+	if e["kind"] == "struct":
+		var meta: Dictionary = TilePiece.PROPS.get(e["data"]["id"], {})
+		BoardGrid.set_tile(oc, true, BoardGrid.tiles[oc]["losb"]
+				if BoardGrid.tiles.has(oc) else false)
+		BoardGrid.set_tile(nc, meta.get("w", true), false)
+	e["data"]["c"] = [nc.x, nc.y, nc.z]
+	_placed.erase(oc)
+	_placed[nc] = e
+	selected_key = nc
+	_refresh_transform_ui()
+	_set_status("%s movido para %s. Q/E gira; DEL apaga." %
+			[e["data"].get("id", "peca"), nc])
 
 func _floor_node(c: Vector3i) -> Node3D:
 	return env.get_node_or_null("Floor%d" % c.z)
@@ -539,6 +610,8 @@ func _update_hover(c) -> void:
 	if c == null:
 		if _cursor_quad != null:
 			_cursor_quad.visible = false
+		if _ghost != null:
+			_ghost.visible = false
 		return
 	if _cursor_quad == null:
 		_cursor_quad = MeshInstance3D.new()
@@ -557,6 +630,50 @@ func _update_hover(c) -> void:
 			else Color(1.0, 0.83, 0.2, 0.35)
 	_cursor_quad.visible = true
 	_cursor_quad.position = BoardGrid.world_pos(c) + Vector3(0, 0.14, 0)
+	_update_ghost(c)
+
+## Miniatura fantasma do asset armado: caixa translucida + nome flutuante
+## sobre a casa sob o cursor (some quando o modo nao coloca nada).
+var _ghost: Node3D = null
+var _ghost_label: Label3D = null
+
+func _armed_item_name() -> String:
+	match mode:
+		"floor", "structure", "obstacle", "prop":
+			return str(_cat_items(mode)[_active_item(mode)])
+		"glb":
+			return glb_list[_active_item("glb")].get_file() \
+					if not glb_list.is_empty() else ""
+	return ""
+
+func _update_ghost(c: Vector3i) -> void:
+	var name := _armed_item_name()
+	if name == "" or not BoardGrid.is_walkable(c):
+		if _ghost != null:
+			_ghost.visible = false
+		return
+	if _ghost == null:
+		_ghost = MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(BoardGrid.TILE * 0.9, 1.4, BoardGrid.TILE * 0.9)
+		_ghost.mesh = bm
+		var gm := StandardMaterial3D.new()
+		gm.albedo_color = Color(0.4, 0.8, 1.0, 0.28)
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_ghost.material_override = gm
+		add_child(_ghost)
+		_ghost_label = Label3D.new()
+		_ghost_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_ghost_label.no_depth_test = true
+		_ghost_label.font_size = 40
+		_ghost_label.pixel_size = 0.004
+		_ghost_label.modulate = Color(0.55, 0.9, 1.0)
+		_ghost.add_child(_ghost_label)
+		_ghost_label.position = Vector3(0, 1.05, 0)
+	_ghost.visible = true
+	_ghost.position = BoardGrid.world_pos(c) + Vector3(0, 0.7, 0)
+	_ghost_label.text = name
 
 # ------------------------------------------------------- persistencia ------
 
@@ -580,6 +697,7 @@ func save_edits() -> void:
 		out["floors"].append(_floor_overrides[c]["data"])
 	out["stairs"] = edits["stairs"]
 	out["unit_removed"] = edits["unit_removed"]
+	out["unit_rot"] = edits["unit_rot"]
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
 		EventBus.log_msg.emit("Editor: falha ao salvar!", "#ff6b6b")
@@ -608,6 +726,8 @@ func load_edits() -> void:
 		edits = parsed
 	if not edits.has("unit_removed"):
 		edits["unit_removed"] = []
+	if not edits.has("unit_rot"):
+		edits["unit_rot"] = {}
 
 ## Reaplica edicoes salvas por cima do mapa recem-gerado (instancias).
 func apply_edits_to(environment: Node) -> void:
@@ -769,14 +889,19 @@ func _build_ui() -> void:
 		_set_status("Modo APAGAR: clique num item OU num INIMIGO para remover.")
 		_refresh_ui())
 	vb.add_child(du)
+	var ds := Button.new()
+	ds.name = "del_sel"
+	ds.text = "EXCLUIR o que esta selecionado (DEL)"
+	ds.pressed.connect(_delete_selected)
+	vb.add_child(ds)
 	for m in MODES:
 		var b := Button.new()
 		b.name = "mode_" + m[0]
 		b.pressed.connect(func() -> void: mode = m[0]; _refresh_ui())
 		vb.add_child(b)
 	_add_label(vb, "lib_title", "--- Biblioteca ---")
-	for cat in [["structure", CAT_WALLS], ["obstacle", CAT_OBSTACLES],
-			["prop", CAT_PROPS], ["floor", CAT_FLOORS]]:
+	for cat in [["floor", CAT_FLOORS], ["structure", CAT_WALLS],
+			["obstacle", CAT_OBSTACLES], ["prop", CAT_PROPS]]:
 		_add_label(vb, "cat_" + cat[0], cat[0])
 		for i in cat[1].size():
 			var id: String = cat[1][i]
