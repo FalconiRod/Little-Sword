@@ -171,3 +171,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - Folha v2: usuario trocou bosque.jpg por versao com grade 50x50 impressa (5908px, ~118px/celula); cells_per_sheet 20->50; mapa 30x30 cabe em UMA folha (zero costuras)
 
+- v0.9.4: sistema tile-GLB pronto - _build_tile_multimeshes instancia UM glb de casa via MultiMesh (1 draw call), escala AABB->TILE=2.0, topo em y=0, centro na celula; ativado por 'tile_glb': pasta no map def; sem glb cai para folha. Usuario vai fornecer o modelo
+

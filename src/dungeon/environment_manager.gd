@@ -106,7 +106,10 @@ func load_map(id: String) -> bool:
 				_place_char(row[x], Vector3i(x, y, f))
 
 	if _sheet_active:
-		_build_sheet_floors(def["sheet"])
+		# Preferência: GLB de tile repetido (MultiMesh); sem modelo,
+		# cai para o piso-folha texturizado.
+		if not (def.has("tile_glb") and _build_tile_multimeshes(def["tile_glb"])):
+			_build_sheet_floors(def["sheet"])
 
 	for st in def.get("stairs", []):
 		var a := Vector3i(st[0][0], st[0][1], st[0][2])
@@ -308,6 +311,91 @@ func _door(c: Vector3i, locked: bool, key: String, disguised: bool,
 	doors.append(d)
 
 # ------------------------------------------------------------ piso-folha ----
+
+## Tabuleiro em GLB: UM modelo de UMA casa repetido via MultiMesh
+## (1 draw call por andar). O modelo é escalado uniformemente para caber
+## num pé exato de TILE × TILE, centralizado na célula, com o TOPO da
+## malha em y=0 (altura onde as peças ficam). Retorna false se não houver
+## GLB utilizável — o chamador cai para o piso-folha texturizado.
+func _build_tile_multimeshes(dir_path: String) -> bool:
+	var glb := _find_first_glb(dir_path)
+	if glb == "":
+		return false
+	var packed: PackedScene = load(glb)
+	if packed == null:
+		return false
+	var inst := packed.instantiate()
+	var meshes: Array = []
+	_collect_meshes(inst, Transform3D.IDENTITY, meshes)
+	if meshes.is_empty():
+		inst.free()
+		push_warning("[MAPA %s] GLB sem malha: %s" % [map_id, glb])
+		return false
+	if meshes.size() > 1:
+		push_warning("[MAPA %s] GLB com %d malhas; usando a primeira: %s"
+				% [map_id, meshes.size(), glb])
+	var entry: Array = meshes[0]
+	var mesh: Mesh = entry[0]
+	var xf: Transform3D = entry[1]
+	var aabb := mesh.get_aabb()
+	var span: float = maxf(aabb.size.x, aabb.size.z)
+	if span <= 0.0001:
+		inst.free()
+		return false
+	var s := BoardGrid.TILE / span
+	# base: escala uniforme + compensação do canto do AABB + topo em y=0.
+	var base := Transform3D(Basis.from_scale(Vector3(s, s, s)),
+			Vector3(-(aabb.position.x + aabb.size.x * 0.5) * s,
+					-aabb.end.y * s,
+					-(aabb.position.z + aabb.size.z * 0.5) * s))
+	for f in floors_n:
+		var cells: Array = _sheet_cells[f]
+		if cells.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = cells.size()
+		for i in cells.size():
+			var c: Vector3i = cells[i]
+			var t := Transform3D(Basis(),
+					Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+							BoardGrid.world_pos(c).y,
+							c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
+			mm.set_instance_transform(i, t * base * xf)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "BoardTiles%d" % f
+		mmi.multimesh = mm
+		_floor_nodes[f].add_child(mmi)
+	inst.free()
+	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s)."
+			% glb.get_file(), "#8a8f9c")
+	return true
+
+func _find_first_glb(dir_path: String) -> String:
+	if dir_path == "":
+		return ""
+	var d := DirAccess.open(dir_path)
+	if d == null:
+		return ""
+	d.list_dir_begin()
+	var fname := d.get_next()
+	while fname != "":
+		if not d.current_is_dir() and fname.to_lower().ends_with(".glb"):
+			d.list_dir_end()
+			return dir_path.path_join(fname)
+		fname = d.get_next()
+	d.list_dir_end()
+	return ""
+
+func _collect_meshes(n: Node, xf: Transform3D, out: Array) -> void:
+	var local := xf
+	if n is Node3D:
+		local = xf * (n as Node3D).transform
+	if n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
+		out.append([(n as MeshInstance3D).mesh, local])
+	for ch in n.get_children():
+		_collect_meshes(ch, local, out)
 
 ## Constrói, por andar, UMA malha com todos os quads de chão da mesa.
 ## UV em coordenadas de mundo divididas pelo tamanho da folha
@@ -643,5 +731,8 @@ const MAPS := {
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
 			"cells_per_sheet": 50.0, "grid": true},
+		# GLB de UMA casa: solte o arquivo nesta pasta; enquanto não houver,
+		# o piso texturizado acima é usado.
+		"tile_glb": "res://src/assets/piso bosque",
 	},
 }
