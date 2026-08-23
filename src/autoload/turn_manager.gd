@@ -74,11 +74,20 @@ func _enemy_turn(u) -> void:
 	await get_tree().create_timer(0.55).timeout
 	if game_ended:
 		return
+	await _wait_editor_unhold()
+	if game_ended:
+		return
 	await _ai.run_turn(u)
 	if game_ended:
 		return
 	await get_tree().create_timer(0.35).timeout
+	await _wait_editor_unhold()
 	_advance()
+
+## Editor de mapa aberto: turnos/IA ficam em espera sem side-effects.
+func _wait_editor_unhold() -> void:
+	while MapEditor.active and not game_ended:
+		await get_tree().process_frame
 
 ## Chamado pelo controlador do jogador ao usar ação / passar a vez.
 func end_hero_turn() -> void:
@@ -87,6 +96,7 @@ func end_hero_turn() -> void:
 	EventBus.turn_ended.emit(active)
 	_ctl.on_turn_end()
 	await get_tree().create_timer(0.3).timeout
+	await _wait_editor_unhold()
 	_advance()
 
 func _on_unit_died(u) -> void:

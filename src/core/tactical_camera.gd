@@ -187,10 +187,12 @@ func _process(raw_delta: float) -> void:
 	_validate_drag_state()
 	if _auto_orbit:
 		_yaw_target += 0.5 * delta
-	if Input.is_key_pressed(KEY_Q):
-		_yaw_target += 1.8 * delta
-	if Input.is_key_pressed(KEY_E):
-		_yaw_target -= 1.8 * delta
+	# Q/E pertencem ao editor de mapa enquanto ele estiver aberto.
+	if not MapEditor.active:
+		if Input.is_key_pressed(KEY_Q):
+			_yaw_target += 1.8 * delta
+		if Input.is_key_pressed(KEY_E):
+			_yaw_target -= 1.8 * delta
 
 	_update_follow()
 	_process_keyboard_pan_input()

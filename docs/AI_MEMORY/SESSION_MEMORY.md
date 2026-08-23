@@ -193,3 +193,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - Editor de mapa v1 criado (F1): props/GLB/spawns com save JSON em user://; skilltest OK
 
+- Editor v2 completo conforme spec do usuario (biblioteca categorizada c/ thumbnails SubViewport, transformacao rot90+escala uniforme/avancada, troca piso, escadas, save c/ validacao D14, pausa de turnos); skilltest OK
+
