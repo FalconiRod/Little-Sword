@@ -181,3 +181,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - v0.9.8: fix freeze do urso - texturas 8K/4K -> 1024px em todos os GLBs (<1MB cada); guard AABB degenerado; skilltest janela OK
 
+- doc: criado docs/PROJETO_COMPLETO.md - historia estrutural integral v0.1.0->v0.9.8 (62 commits, sistemas, pipeline de assets, decisoes, bugs, validacao, pendencias)
+
