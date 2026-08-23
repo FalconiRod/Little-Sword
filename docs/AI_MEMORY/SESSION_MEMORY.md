@@ -189,3 +189,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - FASE 3 parcial: GLBs virados 180graus (frente IA=-Z, jogo=+Z); pulo entre casas 0.17s->0.26s, arco SINE 0.22 mais organico; alinhamento e proporcao aprovados pelo usuario
 
+- FASE 3: facing corrigido de novo (removido giro 180 - modelos sao +Z nativo); BUG-025 congelamento resolvido (guardas alive + tween unico em animate_move)
+

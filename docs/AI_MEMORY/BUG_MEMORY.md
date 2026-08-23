@@ -230,3 +230,11 @@ inconsistente por design (ocupacao muda o resultado).
 - ARQUIVOS: src/assets/piso bosque/tile_bosque.glb (convertido), deq.cjs em TEMP.
 - STATUS: RESOLVIDO para o tile do bosque. PENDENTE: 6 miniaturas tripo_*_meshopt.glb tem o mesmo problema e precisam do mesmo tratamento quando forem usadas.
 - DATA: 2026-08-23
+
+### BUG-025 — Jogo congela ao transitar grids repetidamente
+- SINTOMA: jogo inteiro trava apos muitos saltos entre andares/casas.
+- CAUSA: unidade morta no meio de animate_move (ataque de oportunidade) continuava o loop e criava tweens; die() faz queue_free em 0.5s, tweens morrem com o no, await tw/th.finished nunca resolve -> chamador (player_controller/enemy_ai) pendurado -> turno nunca termina.
+- SOLUCAO: guardas if not alive: return a cada passo (antes e depois do provoke); tween UNICO com delays paralelos (x/z/y-linear + arco SINE com set_delay) = um so await.
+- ARQUIVOS: src/units/unit_base.gd
+- STATUS: RESOLVIDO (aguardando confirmacao do usuario)
+- DATA: 2026-08-23

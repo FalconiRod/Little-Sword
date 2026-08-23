@@ -256,7 +256,14 @@ func animate_move(path: Array, from_cell = null) -> void:
 	var prev: Vector3i = from_cell if from_cell != null else grid_pos
 	var reacted: Array = []
 	for c in path:
+		# Morte no meio do caminho (ataque de oportunidade): aborta já que
+		# tweens de nó liberado nunca emitem finished e pendurariam quem
+		# aguarda este coroutine (turno travado = jogo congelado).
+		if not alive:
+			return
 		await _provoke_leaving(prev, c, reacted)
+		if not alive:
+			return
 		if BoardGrid.stair_pair(prev) == c and prev != c:
 			floor_index = c.z
 			EventBus.unit_changed_floor.emit(self, floor_index)
@@ -267,8 +274,10 @@ func animate_move(path: Array, from_cell = null) -> void:
 				EventBus.log_msg.emit("%s usa a escada." % display_name, "#c9a227")
 		var wp: Vector3 = BoardGrid.world_pos(c)
 		face_towards(wp)
-		# Salto organico: mais lento, arco simetrico com easing SINE na
-		# subida/descida e deslize horizontal suavizado (acelera e freia).
+		# Salto organico: mais lento, arco simetrico SINE e deslize horizontal
+		# suavizado. Tudo num UNICO tween com delays (um so await): dois tweens
+		# separados podiam orfanar o await da altura se a peca morresse no
+		# meio do salto (turno pendurado = jogo congelado).
 		var dur := 0.26
 		var tw := create_tween()
 		tw.set_parallel(true)
@@ -277,17 +286,14 @@ func animate_move(path: Array, from_cell = null) -> void:
 		tw.tween_property(self, "position:z", wp.z, dur) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_property(self, "position:y", wp.y, dur)
-		var th := create_tween()
-		th.tween_property(self, "position:y", wp.y + 0.22, dur * 0.5) \
+		tw.tween_property(self, "position:y", wp.y + 0.22, dur * 0.5) \
 				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		th.tween_property(self, "position:y", wp.y, dur * 0.5) \
-				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tw.tween_property(self, "position:y", wp.y, dur * 0.5) \
+				.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN) \
+				.set_delay(dur * 0.5)
 		await tw.finished
-		# O arco do salto continua escrevendo position:y DEPOIS do tween
-		# principal terminar; sem aguardÃ¡-lo, ele sobrescreve um
-		# change_floor() que ocorra logo em seguida (herÃ³i "afundava"
-		# de volta para o andar antigo apÃ³s cruzar a escada).
-		await th.finished
+		if not alive:
+			return
 		prev = c
 	position = BoardGrid.world_pos(grid_pos)
 	EventBus.unit_moved.emit(self)
