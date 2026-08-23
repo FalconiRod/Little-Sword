@@ -6,3 +6,13 @@
 Thumbs.db
 
 screenshots/
+
+# Assets pesados do usuario (miniaturas/folha) - ficam locais, fora do Git
+src/assets/*.glb
+src/assets/*.glb.import
+src/assets/*.jpg
+src/assets/*.jpg.import
+src/assets/**/*.glb
+src/assets/**/*.glb.import
+src/assets/**/*.jpg
+src/assets/**/*.jpg.import

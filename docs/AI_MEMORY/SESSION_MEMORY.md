@@ -146,4 +146,20 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 - Pegadinha corrigida: attack() ignorava skill_label sem notacao de dano -
   rotulo "Oportunidade" virava "Ataque" e o teste nao contava
 - COMBATTEST novo (4 cenarios); bateria completa verde
-- Pendente: IA ainda nao dispersa/flanqueia por conta propria
+- Pendente: IA ainda nao dispersa/flanqueia por conta propria## Sessao 3j - 2026-08-23 (v0.9.0 piso-folha battle-grid - D16)
+- Usuario especificou a folha: 400 celulas (20x20), celula 2,4x2,4 cm
+- Implementado: modo sheet no environment_manager (malha unica + UV
+  mundial + shader de grade next_pass), mapa procedural bosque_50 com
+  flood-fill de conectividade, camera dinamica via map_bounds()
+- Licoes Godot 4.7 desta sessao:
+  (1) const MAPS congela dicionarios aninhados -> duplicate(true) antes
+      de mutar (erro "Dictionary is in read-only state")
+  (2) GeometryInstance3D.cast_geo/GEOMETRY_OFF nao existem mais ->
+      cast_shadow = SHADOW_CASTING_SETTING_OFF
+  (3) BaseMaterial3D sem TEXTURE_REPEAT_*: shader spatial repete
+      textura por padrao quando UV > 1
+  (4) surface winding duvidoso? cull_mode DISABLE + normal explicita
+      resolve sem depender de convencao
+  (5) JPG novo precisa de --import headless antes de usar em runtime
+- Textura importada e validada; windowed RX580 exit 0
+- Pendente: inspecionar costuras/opacidade da grade in-game; props GLB

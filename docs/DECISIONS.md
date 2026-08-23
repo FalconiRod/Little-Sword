@@ -138,3 +138,21 @@ dano; corrigido para rotulo do chamador sempre vencer ("Oportunidade").
 IMPACTO: animate_move ganhou hook _provoke_leaving (roda para herois E
 IA); IA ainda nao usa Dispersar (melhoria futura); combates ficaram mais
 mortais ao recuar sem dispersar; COMBATTEST valida as 4 regras (4/4).
+## D16 - 2026-08-23 - PISO-FOLHA BATTLE-GRID (estetica de RPG de mesa)
+DECISAO: o piso vira "folha impressa" gigante: UMA malha mesclada por
+andar (SurfaceTool, 1 draw call) com a arte do usuario repetida em UV de
+mundo dividido pelo tamanho da folha (cells_per_sheet * TILE). Folha
+confirmada pelo usuario: 20x20 celulas = 400 casas, celula de 2,4 cm na
+impressao. Grade vetorial desenhada por shader (next_pass) alinhada as
+celulas logicas; paredes/arvores/portas continuam miniaturas EM CIMA da
+folha; so o abismo '~' fica sem folha. Mapas ativam com chave "sheet"
+na definicao; sem ela, nada muda (regressao zero). Mapa bosque_50
+(50x50 procedural, seed fixa) criado para validar escala grande.
+MOTIVO: visual de tabuleiro fisico pedido pelo usuario + performance
+(2500 celulas nao podem virar 2500 MeshInstances).
+ALTERNATIVAS: (a) MultiMesh de pisos por celula - mantem custo de nodes;
+(b) textura unica gigante - memoria proibitiva; (c) manter caixinhas -
+inviavel acima de ~1000 celulas.
+IMPACTO: camera agora deriva pan/zoom de map_bounds(); assets pesados
+do usuario (GLB/JPG) excluidos do Git via .gitignore; proximo passo da
+linha visual = props GLB com AABB normalizado (~1,8 unid).

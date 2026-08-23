@@ -62,8 +62,9 @@ var _zoom_target: float = 18.3
 const PAN_LAG := 3.2
 ## Alcance horizontal máximo da câmera a partir do pivô: em ângulos baixos
 ## a distância efetiva encolhe para a câmera nunca sair de cima da mesa.
-const MAX_HORIZON := 30.0
+## Escala com o mapa em setup() (mesas grandes pedem braço maior).
 const LEN_FLOOR := 2.5
+var max_horizon := 30.0
 
 var _pan_position: Vector3 = Vector3.ZERO
 var _pan_target: Vector3 = Vector3.ZERO
@@ -83,6 +84,10 @@ var _auto_orbit := false
 func setup(bounds: Rect2) -> void:
 	_pan_limits = bounds
 	_auto_orbit = OS.get_cmdline_user_args().has("--orbit")
+	# Mesas grandes: braço máximo e zoom de visão geral crescem com o mapa.
+	var max_dim := maxf(bounds.size.x, bounds.size.y)
+	max_horizon = maxf(max_horizon, max_dim * 0.55)
+	zoom_max = maxf(zoom_max, max_dim * 0.85)
 	_pan_position = position
 	_pan_target = position
 
@@ -241,7 +246,7 @@ func _apply_zoom() -> void:
 	# Teto dinâmico: em pitch baixo, cos(pitch) cresce e a distância efetiva
 	# é limitada para o braço não estender a câmera para fora do tabuleiro.
 	var c := maxf(cos(_pitch_current), 0.25)
-	var maxlen := minf(_zoom_current, MAX_HORIZON / c)
+	var maxlen := minf(_zoom_current, max_horizon / c)
 	_spring_arm.spring_length = maxf(maxlen, LEN_FLOOR)
 
 

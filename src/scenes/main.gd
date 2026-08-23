@@ -347,9 +347,12 @@ func _make_unit(id: String, cell: Vector3i) -> BoardUnit:
 func _build_camera() -> void:
 	camera_rig = TacticalCamera.new()
 	add_child(camera_rig)
-	camera_rig.position = Vector3(BoardGrid.TILE * 6.0, 0, BoardGrid.TILE * 5.0)
-	camera_rig.setup(Rect2(-BoardGrid.TILE, -BoardGrid.TILE,
-		BoardGrid.TILE * 16.0, BoardGrid.TILE * 14.0))
+	# Limites de pan/zoom derivados do mapa (suporta mesas 50×50/70×50).
+	var b := env.map_bounds().grow(BoardGrid.TILE)
+	camera_rig.position = Vector3(
+		BoardGrid.world_pos(knight.grid_pos).x, 0,
+		BoardGrid.world_pos(knight.grid_pos).z)
+	camera_rig.setup(b)
 	EventBus.shake_requested.connect(camera_rig.shake)
 	camera_rig.set_follow(knight, true)
 	env.set_active_floor(knight.grid_pos.z)

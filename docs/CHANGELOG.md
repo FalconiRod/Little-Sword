@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0 - 2026-08-23 - Piso-folha battle-grid + mapa 50x50 (D16)
+### Adicionado
+- Modo "sheet" no EnvironmentManager: pisos deixam de nascer por celula;
+  UMA malha mesclada por andar recebe a folha do usuario (bosque.jpg)
+  repetida em UV mundial alinhada a grade - 20x20 celulas por folha
+  (400 casas, celula de 2,4 cm impressa), costuras sempre coincidem
+- Shader de grade vetorial (next_pass) com antialias fwidth; linhas
+  coincidem com as fronteiras das celulas logicas; opacity por mapa
+- Mapa procedural bosque_50 (50x50, seed deterministica + flood-fill de
+  conectividade dos spawns; arvores 'P' ~7%, rochas 'o', borda '#')
+- Camera: limites de pan e zoom derivados de env.map_bounds() (mesas
+  grandes recebem max_horizon/zoom_max escalados automaticamente)
+- .gitignore: assets pesados do usuario (*.glb, *.jpg) ficam fora do Git
+### Alterado
+- _place_char registra celulas da folha (tudo menos abismo '~'); _piece
+  suprime visuais de piso apenas quando sheet ativo (mapas antigos iguais)
+### Testes / Validacao
+- bosque_50: demo headless limpa (IA com rotas 20+ passos, reach=77);
+  windowed RX580 exit 0 sem erros de shader
+- Regressao verde: stairtest 8/8, combattest 4/4, clicktest OK,
+  skilltest OK, stone_keep demo limpa
+
 ## v0.8.0 - 2026-08-22 - Regras taticas de combate (D15)
 ### Adicionado
 - FLANQUEAR: +2 no ataque quando um aliado ocupa o lado oposto do alvo
