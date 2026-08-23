@@ -52,6 +52,67 @@ func begin_session(environment: Node) -> void:
 
 # ------------------------------------------------------------ entrada ------
 
+## Captura em fase ANTERIOR a GUI: se algum Control misterioso estiver
+## engolindo cliques, aqui ainda chegamos. Ignora eventos sobre controles
+## de UI (painel do proprio editor).
+func _input(event: InputEvent) -> void:
+	if not active or env == null:
+		return
+	if event is InputEventMouseMotion:
+		var hov := get_viewport().gui_get_hovered_control()
+		if hov != null:
+			_dbg_gui(hov)
+			return
+		_update_hover(_pick_cell(event.position))
+		_dbg_event(event)
+	elif event is InputEventMouseButton and event.pressed \
+			and (event.button_index == MOUSE_BUTTON_LEFT
+					or event.button_index == MOUSE_BUTTON_RIGHT):
+		var hov := get_viewport().gui_get_hovered_control()
+		if hov != null:
+			print("[EDITOR] clique sobre UI: ", hov.get_path())
+			return
+		var c: Variant = _pick_cell(event.position)
+		_dbg_event(event)
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_apply_tool(c)
+		else:
+			_erase_at(c)
+
+func _dbg_gui(hov: Control) -> void:
+	var l: Control = _q("dbg")
+	var path := str(hov.get_path())
+	if l is Label:
+		(l as Label).text = "DBG: mouse sobre UI: " + path
+	if _last_gui_path != path:
+		_last_gui_path = path
+		print("[EDITOR] mouse sobre UI: ", path)
+
+var _last_gui_path := ""
+
+## Acao de 1 clique que NAO depende de picking: prova visivel de que a
+## colocacao funciona (nasce ao lado do spawn do heroi).
+func _place_test_piece() -> void:
+	var base: Vector3i = env.spawns["K"][0] if env.spawns.has("K") \
+			else Vector3i(5, 5, 0)
+	var target := base
+	for off in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, -1, 0),
+			Vector3i(0, 1, 0)]:
+		if BoardGrid.is_walkable(base + off) and not _placed.has(base + off):
+			target = base + off
+			break
+	mode = "prop"
+	cat_item["prop"] = CAT_PROPS.find("rubble")
+	_place_piece("rubble", target, "prop")
+	_refresh_ui()
+
+## Status em destaque: o que o usuario acabou de causar / proximo passo.
+func _set_status(t: String) -> void:
+	var l: Control = _q("status")
+	if l is Label:
+		(l as Label).text = t
+	print("[EDITOR][STATUS] ", t)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.keycode == KEY_F1:
@@ -60,16 +121,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not active or env == null:
 		return
-	if event is InputEventMouseMotion:
-		_update_hover(_pick_cell(event.position))
-	elif event is InputEventMouseButton and event.pressed:
-		match event.button_index:
-			MOUSE_BUTTON_LEFT:
-				_apply_tool(_pick_cell(event.position))
-			MOUSE_BUTTON_RIGHT:
-				_erase_at(_pick_cell(event.position))
-		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and not event.echo:
+	# Mouse e tratado em _input (fase anterior a GUI); aqui ficam so teclas.
+	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_Q:
 				_rotate_selected(-90.0)
@@ -80,12 +133,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_ESCAPE:
 				_select(null)
 
+## Diagnostico ao vivo: mostra no painel o ultimo evento e a celula vista
+## pelo picking (remover apos estabilizar o editor).
+func _dbg_event(event: InputEvent) -> void:
+	var l: Control = _q("dbg")
+	if l == null or not (l is Label):
+		return
+	var txt := ""
+	if event is InputEventMouseMotion:
+		txt = "motion "
+	elif event is InputEventMouseButton:
+		txt = "btn%s p=%s" % [event.button_index, event.pressed]
+	elif event is InputEventKey:
+		txt = "key %s" % event.keycode
+	var c = _pick_cell(event.position) if event is InputEventMouse else null
+	var line := "DBG: %s celula=%s modo=%s pecas=%d" % [
+			txt, str(c) if c != null else "null", mode, _placed.size()]
+	(l as Label).text = line
+	print("[EDITOR] ", line)
+
 func _toggle() -> void:
 	active = not active
 	selected_key = null
 	_pending_stair = null
 	if active:
 		_build_ui()
+		_set_status("PAINEL ABERTO. 1) Escolha um item na lista. " +
+				"2) CLIQUE NUMA CASA DO TABULEIRO (area central da tela).")
 	else:
 		_teardown_ui()
 	EventBus.log_msg.emit("Editor de mapa %s." %
@@ -118,6 +192,7 @@ func _cycle_mode(d: int) -> void:
 	for m in MODES:
 		names.append(m[0])
 	mode = names[(names.find(mode) + d + names.size()) % names.size()]
+	_set_status("Modo: %s — clique numa casa do tabuleiro." % mode)
 	_refresh_ui()
 
 func _cat_items(mode_name: String) -> Array:
@@ -238,6 +313,7 @@ func _place_piece(id: String, c: Vector3i, kind: String) -> void:
 		var meta: Dictionary = TilePiece.PROPS.get(id, {})
 		BoardGrid.set_tile(c, meta.get("w", true), BoardGrid.tiles[c]["losb"])
 	_select(c)
+	_set_status("OK: %s colocado em %s. Q/E gira, roda muda escala." % [id, c])
 	EventBus.log_msg.emit("%s em %s" % [id, c], "#7fd4ff")
 
 func _place_floor(id: String, c: Vector3i) -> void:
@@ -289,7 +365,9 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
 			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
 	_select(c)
-	EventBus.log_msg.emit("GLB em %s (roda=escala, Q/E=gira)" % c, "#7fd4ff")
+	_set_status("OK: modelo %s em %s. Q/E gira; roda do mouse muda escala."
+			% [path.get_file(), c])
+	EventBus.log_msg.emit("GLB em %s" % c, "#7fd4ff")
 
 func _find_meshes(n: Node) -> Array:
 	var out: Array = []
@@ -374,6 +452,8 @@ func _erase_at(c) -> void:
 		if selected_key != null and selected_key == c:
 			_select(null)
 		_placed.erase(c)
+		_set_status("Removido: %s em %s." %
+				[e["kind"], c])
 		EventBus.log_msg.emit("Item removido em %s" % c, "#ffb84d")
 	elif _floor_overrides.has(c):
 		_floor_overrides[c]["node"].queue_free()
@@ -584,11 +664,14 @@ func _build_ui() -> void:
 	_ui.layer = 95
 	add_child(_ui)
 	var sc := ScrollContainer.new()
-	sc.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	sc.anchor_left = 1.0
+	sc.anchor_right = 1.0
+	sc.anchor_top = 0.0
+	sc.anchor_bottom = 1.0
 	sc.offset_left = -320
-	sc.offset_top = 12
-	sc.offset_right = -12
-	sc.offset_bottom = -12
+	sc.offset_top = 16
+	sc.offset_right = -14
+	sc.offset_bottom = -16
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_ui.add_child(sc)
 	var vb := VBoxContainer.new()
@@ -596,6 +679,22 @@ func _build_ui() -> void:
 	vb.custom_minimum_size = Vector2(295, 0)
 	sc.add_child(vb)
 	_add_label(vb, "title", "EDITOR DE MAPA (F1 fecha)")
+	var dbg := Label.new()
+	dbg.name = "dbg"
+	dbg.text = "DBG: aguardando eventos..."
+	dbg.add_theme_font_size_override("font_size", 12)
+	vb.add_child(dbg)
+	var status := Label.new()
+	status.name = "status"
+	status.text = ""
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", 15)
+	status.add_theme_color_override("font_color", Color.html("ffd166"))
+	vb.add_child(status)
+	var tb := Button.new()
+	tb.text = "TESTE: colocar pedra ao lado do heroi"
+	tb.pressed.connect(_place_test_piece)
+	vb.add_child(tb)
 	for m in MODES:
 		var b := Button.new()
 		b.name = "mode_" + m[0]
