@@ -195,3 +195,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - Editor v2 completo conforme spec do usuario (biblioteca categorizada c/ thumbnails SubViewport, transformacao rot90+escala uniforme/avancada, troca piso, escadas, save c/ validacao D14, pausa de turnos); skilltest OK
 
+- FIX editor sem funcionalidade: Vector3(Array) invalido abortava _register (peca nunca registrava); GLB scan apontava pasta errada (0 modelos -> 20); editortest automatizado (--editortest) valida abrir/clicar/colocar/girar/salvar/fechar
+

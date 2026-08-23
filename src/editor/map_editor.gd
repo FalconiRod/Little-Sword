@@ -151,17 +151,17 @@ func _rotate_selected(delta_deg: float) -> void:
 	var e = _sel_entry()
 	if e == null:
 		return
-	e["data"]["rot"] = fposmod(e["data"].get("rot", 0.0) + delta_deg, 360.0)
-	_apply_transform(e, e["data"]["rot"], e["data"].get("s", 1.0),
-			Vector3(e["data"].get("adv", [1, 1, 1])), e.get("fit", 1.0))
+	e["data"]["rot"] = fposmod(float(e["data"].get("rot", 0.0)) + delta_deg, 360.0)
+	_apply_transform(e, e["data"]["rot"], float(e["data"].get("s", 1.0)),
+			_adv_v(e["data"]), float(e.get("fit", 1.0)))
 
 func _set_uniform(v: float) -> void:
 	var e = _sel_entry()
 	if e == null:
 		return
 	e["data"]["s"] = v
-	_apply_transform(e, e["data"].get("rot", 0.0), v,
-			Vector3(e["data"].get("adv", [1, 1, 1])), e.get("fit", 1.0))
+	_apply_transform(e, float(e["data"].get("rot", 0.0)), v,
+			_adv_v(e["data"]), float(e.get("fit", 1.0)))
 
 func _set_axis(axis: int, v: float) -> void:
 	var e = _sel_entry()
@@ -169,8 +169,10 @@ func _set_axis(axis: int, v: float) -> void:
 		return
 	var adv: Array = e["data"].get("adv", [1, 1, 1])
 	adv[axis] = v
-	_apply_transform(e, e["data"].get("rot", 0.0), e["data"].get("s", 1.0),
-			Vector3(adv[0], adv[1], adv[2]), e.get("fit", 1.0))
+	_apply_transform(e, float(e["data"].get("rot", 0.0)),
+			float(e["data"].get("s", 1.0)),
+			Vector3(float(adv[0]), float(adv[1]), float(adv[2])),
+			float(e.get("fit", 1.0)))
 
 # ------------------------------------------------------------- ferramentas --
 
@@ -208,9 +210,9 @@ func _floor_node(c: Vector3i) -> Node3D:
 func _register(kind: String, node: Node3D, c: Vector3i, data: Dictionary,
 		fit := 1.0) -> void:
 	node.position = BoardGrid.world_pos(c)
-	node.rotation.y = deg_to_rad(data.get("rot", 0.0))
-	node.scale = Vector3.ONE * data.get("s", 1.0) \
-			* Vector3(data.get("adv", [1, 1, 1])) * fit
+	node.rotation.y = deg_to_rad(float(data.get("rot", 0.0)))
+	node.scale = Vector3.ONE * float(data.get("s", 1.0)) \
+			* _adv_v(data) * fit
 	_placed[c] = {"node": node, "kind": kind, "data": data, "fit": fit}
 
 func _place_piece(id: String, c: Vector3i, kind: String) -> void:
@@ -801,7 +803,7 @@ func _render_icon_scene(id: String) -> Texture2D:
 
 func _scan_glbs() -> void:
 	glb_list.clear()
-	var stack: Array = ["res://assets/models"]
+	var stack: Array = ["res://src/assets", "res://assets/models"]
 	while not stack.is_empty():
 		var dir_path: String = stack.pop_back()
 		var d := DirAccess.open(dir_path)
@@ -817,6 +819,11 @@ func _scan_glbs() -> void:
 				glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
+
+## adv chega como Array (JSON); Vector3 nao tem construtor de Array.
+func _adv_v(d: Dictionary) -> Vector3:
+	var a: Array = d.get("adv", [1, 1, 1])
+	return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
 func _teardown_ui() -> void:
 	if _ui != null:

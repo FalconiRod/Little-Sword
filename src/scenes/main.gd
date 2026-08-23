@@ -41,6 +41,8 @@ func _ready() -> void:
 		_clicktest()
 	if args.has("--skilltest"):
 		_skilltest()
+	if args.has("--editortest"):
+		_editortest()
 	if args.has("--stairtest"):
 		_stairtest()
 	if args.has("--combattest"):
@@ -298,6 +300,89 @@ func _combattest() -> void:
 	print("COMBATTEST RESULT ",
 			"OK" if f0 == 0 and f2 == 2 and c_diag == 2 and c_diag_free == 0 \
 					and n_ao >= 1 and n_dis == 0 else "FALHOU")
+
+## Teste do editor de mapa: abre F1, clica celula vazia, coloca prop,
+## fecha F1 e deixa turnos fluirem (detecta congelamento ao sair).
+func _editortest() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var vp := get_viewport()
+	print("ET1 toggle ON")
+	_push_key(KEY_F1)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("ET2 active=", MapEditor.active, " ui=", MapEditor._ui != null,
+			" glbs=", MapEditor.glb_list.size())
+	MapEditor.mode = "select"
+	var empty := knight.grid_pos + Vector3i(0, 1, 0)
+	if not BoardGrid.is_walkable(empty):
+		empty = knight.grid_pos + Vector3i(1, 0, 0)
+	print("ET3 clique celula VAZIA modo select ", empty)
+	_click_cell(empty)
+	await _et_wait(0.3)
+	print("ET4 placed=", MapEditor._placed.size(),
+			" selected=", MapEditor.selected_key)
+	MapEditor.mode = "prop"
+	MapEditor.cat_item["prop"] = CAT_PROPS_IDX_RUBBLE()
+	var target := knight.grid_pos + Vector3i(1, 0, 0)
+	if not BoardGrid.is_walkable(target) or target == empty:
+		for off in [Vector3i(-1, 0, 0), Vector3i(0, -1, 0), Vector3i(0, 1, 0)]:
+			if BoardGrid.is_walkable(knight.grid_pos + off):
+				target = knight.grid_pos + off
+				break
+	print("ET5 colocar rubble em ", target)
+	_click_cell(target)
+	await _et_wait(0.3)
+	MapEditor._rotate_selected(90.0)
+	MapEditor._set_uniform(1.5)
+	await get_tree().process_frame
+	print("ET6 placed=", MapEditor._placed.size(), " em_target=",
+			MapEditor._placed.has(target),
+			" selected=", MapEditor.selected_key,
+			" rot=", MapEditor._placed[target]["data"]["rot"],
+			" s=", MapEditor._placed[target]["data"]["s"])
+	print("ET7 salvar")
+	MapEditor.save_edits()
+	await _et_wait(0.2)
+	print("ET8 toggle OFF")
+	_push_key(KEY_F1)
+	await get_tree().process_frame
+	print("ET9 active=", MapEditor.active)
+	for i in 10:
+		await get_tree().create_timer(1.0).timeout
+		print("ET10 vivo t=%d turnos_ok" % (i + 1))
+	print("EDITORTEST RESULT OK")
+
+func CAT_PROPS_IDX_RUBBLE() -> int:
+	return MapEditor.CAT_PROPS.find("rubble")
+
+func _push_key(keycode: Key) -> void:
+	var ev := InputEventKey.new()
+	ev.keycode = keycode
+	ev.pressed = true
+	get_viewport().push_input(ev)
+	var ev2 := InputEventKey.new()
+	ev2.keycode = keycode
+	ev2.pressed = false
+	get_viewport().push_input(ev2)
+
+func _click_cell(cell: Vector3i) -> void:
+	var wp := BoardGrid.world_pos(cell) + Vector3(0, 0.15, 0)
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or cam.is_position_behind(wp):
+		print("ET: camera nao ve a celula ", cell)
+		return
+	var sp: Vector2 = get_viewport().get_final_transform() \
+			* cam.unproject_position(wp)
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.pressed = pressed
+		ev.position = sp
+		ev.global_position = sp
+		get_viewport().push_input(ev)
+
+func _et_wait(sec: float) -> void:
+	await get_tree().create_timer(sec).timeout
 
 func _ct_pose(u, c: Vector3i) -> void:
 	BoardGrid.move_unit(u, c)
