@@ -21,3 +21,11 @@
 - RESULTADO: 5 tripo OK (~57-59k tris cada, texturas <=1024, <1.8MB).
 - OBS: roteiro falava em 6 tripos; o 54a0992b nao existe mais (removido pelo usuario).
 - DATA: 2026-08-23
+
+### SOL-015 — Camera girando descontrolada (drag orfao)
+- PROBLEMA: as vezes a camera gira sem controle com qualquer movimento do mouse.
+- CAUSA RAIZ: _is_orbiting/_is_orbiting_yaw ligados no PRESS mas so desligados se o RELEASE chegar ao _unhandled_input; release sobre Control do HUD ou fora da janela era consumido/perdido -> flag presa true para sempre.
+- SOLUCAO (defesa em profundidade): 1) watchdog por frame valida botao FISICO (Input.is_mouse_button_pressed) e derruba modo orfao; 2) qualquer RELEASE de mouse limpa os dois modos; 3) motion so gira com botao fisico confirmado; 4) clamp delta<=0.05; 5) clamp relative do mouse +-200; 6) teto de velocidade angular yaw 8 rad/s / pitch 6 rad/s por frame.
+- ARQUIVOS: src/core/tactical_camera.gd
+- SENSIBILIDADE (-/=): ja era clampeada (SENS_MIN/MAX), verificada OK. Follow/zoom-max: nao interferem em rotacao, verificado.
+- DATA: 2026-08-23

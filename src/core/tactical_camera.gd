@@ -80,6 +80,13 @@ var _is_orbiting_yaw: bool = false
 var _shake := 0.0
 var _auto_orbit := false
 
+## Redes de segurança anti-giro-descontrolado: delta máximo por frame,
+## pico de movimento do mouse por evento e teto de velocidade angular.
+const MAX_FRAME_DELTA := 0.05
+const MAX_MOUSE_STEP := 200.0
+const MAX_YAW_RATE := 8.0
+const MAX_PITCH_RATE := 6.0
+
 
 func setup(bounds: Rect2) -> void:
 	_pan_limits = bounds
@@ -130,6 +137,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			var step := zoom_step * clampf(_zoom_current / 12.0, 1.0, 3.0)
 			_zoom_target = clamp(_zoom_target + step, zoom_min, zoom_max)
+		# Qualquer RELEASE de botão de mouse limpa os dois modos de arrasto:
+		# protege contra release consumido por um Control do HUD (drag órfão
+		# deixava a câmera girando com qualquer movimento do mouse).
+		if not event.pressed:
+			_is_orbiting = false
+			_is_orbiting_yaw = false
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_MINUS:
@@ -141,17 +154,37 @@ func _unhandled_input(event: InputEvent) -> void:
 					set_follow(_follow_target, true)
 					EventBus.log_msg.emit("Câmera recentrada no herói.", "8fd3ff")
 	elif event is InputEventMouseMotion:
-		if _is_orbiting:
-			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
-			_pitch_target -= event.relative.y * rotation_sensitivity * 0.01
+		# Só gira se o botão correspondente estiver FISICAMENTE pressionado.
+		if _is_orbiting and Input.is_mouse_button_pressed(orbit_mouse_button):
+			var rel := _clamped_relative(event.relative)
+			_yaw_target -= rel.x * rotation_sensitivity * 0.01
+			_pitch_target -= rel.y * rotation_sensitivity * 0.01
 			_pitch_target = clamp(
 				_pitch_target, deg_to_rad(pitch_min_deg), deg_to_rad(pitch_max_deg)
 			)
-		elif _is_orbiting_yaw:
-			_yaw_target -= event.relative.x * rotation_sensitivity * 0.01
+		elif _is_orbiting_yaw and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			var rel := _clamped_relative(event.relative)
+			_yaw_target -= rel.x * rotation_sensitivity * 0.01
+
+## Mouse pode reportar picos enormes após engasgo/alt-tab; satura o passo.
+func _clamped_relative(rel: Vector2) -> Vector2:
+	return Vector2(clampf(rel.x, -MAX_MOUSE_STEP, MAX_MOUSE_STEP),
+			clampf(rel.y, -MAX_MOUSE_STEP, MAX_MOUSE_STEP))
+
+## Watchdog: se o arrasto ficou órfão (release perdido fora da janela ou
+## sobre o HUD), derruba o modo no primeiro frame sem o botão físico.
+func _validate_drag_state() -> void:
+	if _is_orbiting and not Input.is_mouse_button_pressed(orbit_mouse_button) \
+			and not Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		_is_orbiting = false
+	if _is_orbiting_yaw and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		_is_orbiting_yaw = false
 
 
-func _process(delta: float) -> void:
+func _process(raw_delta: float) -> void:
+	# Engasgo (alt-tab, upload de asset, pausa) não pode virar salto de câmera.
+	var delta := minf(raw_delta, MAX_FRAME_DELTA)
+	_validate_drag_state()
 	if _auto_orbit:
 		_yaw_target += 0.5 * delta
 	if Input.is_key_pressed(KEY_Q):
@@ -216,6 +249,16 @@ func set_sensitivity(v: float) -> void:
 
 func _apply_rotation_smoothing(delta: float) -> void:
 	var t: float = 1.0 - exp(-rotation_smoothing * delta)
+	# Teto de velocidade angular por frame: nem um alvo absurdo gira a
+	# câmera mais rápido que isto (regra da rede de segurança do roadmap).
+	var max_yaw_step := MAX_YAW_RATE * delta
+	var yaw_diff := wrapf(_yaw_target - _yaw_current, -PI, PI)
+	if absf(yaw_diff) > max_yaw_step:
+		_yaw_target = _yaw_current + signf(yaw_diff) * max_yaw_step
+	var max_pitch_step := MAX_PITCH_RATE * delta
+	var pitch_diff := _pitch_target - _pitch_current
+	if absf(pitch_diff) > max_pitch_step:
+		_pitch_target = _pitch_current + signf(pitch_diff) * max_pitch_step
 	_yaw_current = lerp_angle(_yaw_current, _yaw_target, t)
 	_pitch_current = lerp(_pitch_current, _pitch_target, t)
 	_apply_rotation()

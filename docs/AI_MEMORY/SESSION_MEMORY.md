@@ -185,3 +185,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - FASE 1 do ROADMAP: checklist aplicada nos 5 tripo existentes (copy->deq->weld->simplify->resize + lods/shadow/tangentes off no .import, SOL-014); todos importam OK ~58k tris; docs/ROADMAP.md criado
 
+- FASE 2: fix camera girando (SOL-015) - watchdog de drag orfao + clamps de delta/motion/velocidade angular; sensibilidade ja clampada
+
