@@ -8,3 +8,17 @@
 - Ghost preview: caixa translucida + Label3D com nome do asset na celula alvo.
 - Biblioteca: piso (tileset) primeiro na lista; so existe 1 tile GLB
   (tile_bosque) — variantes de tileset GLB dependem de novos assets.
+
+## RESET (2026-08-23) — HEAD = 77866aa
+Usuario pediu voltar para ANTES da mensagem "quero abrir no editor igual
+Unity". Descartado: commit 022f523 (GERAR CENA P/ GODOT / decor.tscn /
+secao Modo 2 do GUIA_EDITOR.md) + experimento sandbox nao-commitado
+(sandbox_map.gd, tools/gen_sandbox.gd, src/maps/sandbox.tscn, branch no
+main.gd). GUIA_EDITOR.md voltou a ter so o fluxo F1.
+
+Estado atual do editor (funcional): F1 painel, biblioteca c/ GLBs de
+src/assets/editor + botao RECARREGAR ASSETS, edicao universal (mover/
+girar/escalar/excluir pecas e unidades nativas), HUD oculto no editor,
+ghost preview, troca de piso esconde tile base, spawns/escadas, save JSON.
+
+Nao retomar sandbox/decor-export sem pedido explicito.
