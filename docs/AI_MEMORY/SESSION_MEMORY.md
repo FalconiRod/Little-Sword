@@ -183,3 +183,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - doc: criado docs/PROJETO_COMPLETO.md - historia estrutural integral v0.1.0->v0.9.8 (62 commits, sistemas, pipeline de assets, decisoes, bugs, validacao, pendencias)
 
+- FASE 1 do ROADMAP: checklist aplicada nos 5 tripo existentes (copy->deq->weld->simplify->resize + lods/shadow/tangentes off no .import, SOL-014); todos importam OK ~58k tris; docs/ROADMAP.md criado
+

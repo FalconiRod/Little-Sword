@@ -13,3 +13,11 @@
 - SOLUCAO: resize.cjs (sharp via gltf-transform core) reduz TODAS as texturas dos 8 GLBs para <=1024px; arquivos ficaram <1MB cada. CLI resize tem bug de colourspace — usar script programatico em %TEMP%\opencode\gtt.
 - ARQUIVOS: src/assets/**/*.glb; guard anti-AABB-degenerado em _glb_piece.
 - DATA: 2026-08-23
+
+### SOL-014 — Tripo meshopt: import falha mesmo apos desquantizar (sub-passos de malha)
+- PROBLEMA: GLBs tripo convertidos p/ float32 limpo (sem extensionsRequired) AINDA ficavam valid=false no import de cena, sem erro no log; parse runtime (GLTFDocument) dava ERR=0.
+- CAUSA: sub-passos do ResourceImporterScene — geracao de LODs/shadow-meshes/tangentes trava na geometria desses modelos.
+- SOLUCAO: editar o .import ANTES/depois do primeiro scan: meshes/generate_lods=false, meshes/create_shadow_meshes=false, meshes/ensure_tangents=false; deletar .import antigo e reimportar.
+- RESULTADO: 5 tripo OK (~57-59k tris cada, texturas <=1024, <1.8MB).
+- OBS: roteiro falava em 6 tripos; o 54a0992b nao existe mais (removido pelo usuario).
+- DATA: 2026-08-23
