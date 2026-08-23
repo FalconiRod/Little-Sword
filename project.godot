@@ -22,6 +22,7 @@ DiceManager="*res://src/autoload/dice_manager.gd"
 TurnManager="*res://src/autoload/turn_manager.gd"
 CombatSystem="*res://src/autoload/combat_system.gd"
 InventorySystem="*res://src/autoload/inventory_system.gd"
+MapEditor="*res://src/editor/map_editor.gd"
 
 [display]
 

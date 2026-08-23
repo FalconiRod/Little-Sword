@@ -29,6 +29,7 @@ func _ready() -> void:
 	if not env.load_map(map_id):
 		push_error("Mapa nao encontrado: " + map_id)
 		env.load_map("stone_keep")
+	MapEditor.begin_session(env)
 	_spawn_units()
 	_build_camera()
 	_build_ui()

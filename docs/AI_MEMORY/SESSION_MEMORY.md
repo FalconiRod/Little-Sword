@@ -191,3 +191,5 @@ Pendente: camera p/ 3 andares; assets GLB; audio/save.
 
 - FASE 3: facing corrigido de novo (removido giro 180 - modelos sao +Z nativo); BUG-025 congelamento resolvido (guardas alive + tween unico em animate_move)
 
+- Editor de mapa v1 criado (F1): props/GLB/spawns com save JSON em user://; skilltest OK
+

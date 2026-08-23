@@ -241,6 +241,9 @@ func _compute_reachable() -> void:
 # ------------------------------------------------------------------ input --
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Editor de mapa aberto: o mouse pertence ao editor, nao ao jogo.
+	if MapEditor.active:
+		return
 	# Botões do mouse vs. câmera: arrastar gira/move (tratado pelo CameraRig);
 	# clicar sem arrastar age no jogo. Limiar de 6 px separa os dois gestos.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
