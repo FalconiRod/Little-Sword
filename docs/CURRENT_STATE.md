@@ -11,7 +11,8 @@
   * cobertura +2 CA (obstaculo na direcao do golpe)
   * acao Dispersar [6] imune a oportunidade ate proximo turno
 - TILE=2,4cm fixo em `src/core/board_grid.gd:6` (D17): célula = `[col*2.4, col*2.4+2.4]` centro `col*2.4+1.2`, shader e MultiMesh alinhados via `BoardGrid.TILE`
-- TILESETS UNIFICADOS: `src/assets/tilesets/` contém `tile_bosque.glb` + `agua*.glb` (e futuros `tile_*.glb`); **Battlemat (mapa inteiro)** e **Tiles de rio (por célula)** compartilham a MESMA biblioteca (`src/editor/map_editor.gd:258` `_glb_tiles` / `src/editor/map_editor.gd:1562` `_mat_candidates`) — troque bosque↔água a hora que quiser, F1 → RECARREGAR ASSETS
+- TILESETS UNIFICADOS: `src/assets/tilesets/` contém `tile_bosque.glb` (0,71 MB) + `agua*.glb` otimizados **0,52/0,73/0,74 MB** (antes 48 MB cada) — **Battlemat (mapa inteiro)** e **Tiles de rio (por célula)** compartilham a MESMA biblioteca (`src/editor/map_editor.gd:258` `_glb_tiles` / `src/editor/map_editor.gd:1562` `_mat_candidates()`) — troque bosque↔água a hora que quiser, F1 → RECARREGAR ASSETS
+- OTIMIZAÇÃO 2026-08-24: `agua*.glb` 1,89M tris → `simplify --error 0,01` + texturas `4096→1024` JPEG85 → `48 MB → 0,5-0,7 MB`, VRAM `89→5,5 MB` por textura (`tools/resize_manual.py`); pipeline agora é **REGRA 01** em `docs/RULES.md`
 - PISO-FOLHA (D16): `bosque_30.tile_glb` agora aponta para `src/assets/tilesets/` (qualquer GLB lá serve; sem GLB cai na folha `piso bosque/bosque.jpg` 50×50 células)
 - GRID AUTOMÁTICO 2,4×2,4 sobre estruturas: modo `SOBE` (`colina/eleva/lateral` auto) calcula `AABB` global + `elev = round(h/0.55)` por casa coberta (`src/editor/map_editor.gd:405` `_top_fill` com raycast + fallback `hh*fit*s`); `neighbors()` só permite degrau ≤1 — personagem procura melhor caminho e sobe degrau a degrau
 - 4 mapas modulares + bosque_30 (30×30 seed 20260823) ok; STAIRTEST 8/8; COMBATTEST 4/4 (validar após TILE 2,4)
