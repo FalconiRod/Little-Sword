@@ -19,7 +19,7 @@ const CAT_PROPS := ["chest_prop", "torch", "lever_base"]
 const MODES := [["select", "Selecionar/Mover"], ["floor", "Trocar piso (tileset)"],
 	["structure", "Paredes/Colunas"], ["obstacle", "Obstaculos"],
 	["prop", "Props"], ["glb", "Modelos GLB"],
-	["gtile", "Tiles de rio (GLB)"], ["stairs", "Escada"],
+	["gtile", "Tileset por celula (rio/terreno - arraste p/ pintar)"], ["stairs", "Escada"],
 	["erase", "Apagar"]]
 const SPAWN_KEYS := [["K", "Heroi"], ["M", "Maga"], ["W", "Druida"],
 	["g", "Goblin"], ["a", "Arqueiro"], ["B", "Chefe"]]
@@ -65,8 +65,13 @@ func _input(event: InputEvent) -> void:
 		if hov != null:
 			_dbg_gui(hov)
 			return
-		_update_hover(_pick_cell(event.position))
+		var c2: Variant = _pick_cell(event.position)
+		_update_hover(c2)
 		_dbg_event(event)
+		# Arraste para pintar rio/tileset 1 a 1 (segure LMB e arraste)
+		if (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
+				and mode in ["gtile", "floor", "structure", "obstacle", "prop", "glb"]:
+			_apply_tool(c2)
 	elif event is InputEventMouseButton and event.pressed \
 			and (event.button_index == MOUSE_BUTTON_LEFT
 					or event.button_index == MOUSE_BUTTON_RIGHT):
@@ -886,12 +891,25 @@ func _model_aabb(inst: Node3D) -> AABB:
 			st[1] = true
 	return st[0] if st[1] else AABB(Vector3.ZERO, Vector3.ONE)
 
-## Tile GLB (agua/rio): cobre a casa INTEIRA e esconde o gramado por baixo.
+## Tile GLB (agua/rio/terreno): cobre a casa INTEIRA e esconde o gramado por baixo.
+## Troca 1 a 1: se a casa já tem um tile, sobrescreve (para desenhar rio arrastando).
 func _place_gtile(path: String, c: Vector3i) -> void:
-	if _placed.has(c):
-		EventBus.log_msg.emit("Celula ja ocupada pelo editor.", "#ff6b6b")
+	if c == null or not BoardGrid.tiles.has(c):
 		return
+	# Se já tem tile/peca, permite sobrescrever tile por tile (fluxo de rio)
+	if _placed.has(c):
+		var ex = _placed[c]
+		if ex["kind"] == "gtile":
+			# Mesmo tile já está lá → nada a fazer (evita spam ao arrastar)
+			if str(ex["data"].get("p","")) == path:
+				return
+			# Troca: apaga o antigo sem registrar undo extra, depois cai no place
+			_erase_at(c, false)
+		else:
+			EventBus.log_msg.emit("Celula ocupada por outra peca.", "#ff6b6b")
+			return
 	if not BoardGrid.is_walkable(c):
+		# Após apagar gtile antigo, walkable volta a true; se ainda false é parede/buraco
 		EventBus.log_msg.emit("So sobre casas andaveis.", "#ff6b6b")
 		return
 	var ps: PackedScene = load(path)
@@ -1438,7 +1456,7 @@ func _build_ui() -> void:
 	_add_label(vb, "cat_glb", "modelos GLB")
 	var hint := Label.new()
 	hint.name = "glb_hint"
-	hint.text = "Coloque .glb em src/assets/editor e clique RECARREGAR"
+	hint.text = "Tilesets: .glb em src/assets/tilesets/ | Modelos: src/assets/editor/ → RECARREGAR"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", Color.html("8a8f9c"))
@@ -1617,7 +1635,7 @@ func _refresh_ui() -> void:
 					% glb_list[_active_item("glb")].get_file()
 		elif mode == "gtile":
 			var gt: Array = _glb_tiles()
-			t = "VAI COLOCAR: %s (tile de rio — grama some)" % (
+			t = "VAI COLOCAR: %s (tileset por celula — troca 1 a 1, arraste p/ pintar rio)" % (
 					gt[_active_item("gtile")].get_file()
 					if not gt.is_empty() else "nenhum tile encontrado")
 		elif mode == "stairs":

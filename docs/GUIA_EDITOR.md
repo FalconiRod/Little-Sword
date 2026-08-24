@@ -15,7 +15,7 @@ reaparece sempre que o mapa abrir.
    props ou modelos GLB).
 2. Passe o mouse pelo tabuleiro: aparece uma **caixa azul fantasma com o
    nome do asset** na casa onde vai cair.
-3. **Clique na casa** para colocar.
+3. **Clique na casa** para colocar — **segure e arraste** para pintar várias casas seguidas (ideal para rio com tileset por célula).
 
 ## Editar o que já existe (peças SUAS ou do mapa: heróis, goblins…)
 - Modo **Selecionar/Mover** → clique na peça ou unidade:
@@ -25,9 +25,10 @@ reaparece sempre que o mapa abrir.
 - Inimigos podem ser excluídos de vez; heróis só movem/giram.
 - Modo **Apagar**: clique no que quer remover (restaura piso original).
 
-## Trocar piso/tileset de uma casa
-- Modo **Trocar piso (tileset)** → escolha um piso → clique na casa.
+## Trocar piso/tileset de uma casa (1 a 1, arraste para pintar rio)
+- Modo **Trocar piso (tileset)** → escolha um piso → **clique ou arraste** nas casas.
   O tile original some e entra o novo. Para desfazer: modo Apagar na casa.
+- Modo **Tileset por celula (rio/terreno)** → escolha `tile_bosque` ou `agua*` em `src/assets/tilesets/` → **clique ou arraste** para desenhar rio/terreno trocando 1 tile por vez. Se a casa já tem um tileset, ele é **sobrescrevido** (ideal para corrigir o rio). Cursor verde = pode, vermelho = ocupada por outra peça.
 
 ## Usar seus próprios modelos (.glb)
 1. Copie seus arquivos `.glb` para a pasta:
@@ -55,16 +56,12 @@ Qualquer comportamento estranho: anote o que fez e me diga — tem log de
 diagnóstico embutido que eu consigo ler.
 
 ## Battlemat (trocar o chao base inteiro)
-- Secao **Battlemat (chao base)** no fim do painel lista todo 	ile_*.glb
-  encontrado nos assets.
-- Clique num deles: o chao inteiro e reconstruido com esse modelo na hora.
-- Para usar um tile novo: solte o arquivo 	ile_NOME.glb em
-  `src/assets/editor/` e clique **RECARREGAR ASSETS**.
+- Secao **Battlemat (chao base)** no fim do painel lista todo `tile_*.glb` / `agua*.glb` de `src/assets/tilesets/`.
+- Clique num deles: o chao inteiro e reconstruido com esse modelo na hora (2,4cm por casa).
+- Para usar um tile novo: solte o arquivo `tile_NOME.glb` ou `agua_*.glb` em `src/assets/tilesets/` e clique **RECARREGAR ASSETS**.
 - A escolha so fica permanente depois de **SALVAR MAPA**.
 
 ## Pisos por casa (rio, terra, pedra)
-- Modo **Trocar piso (tileset)**: os dois primeiros sao
-  loor_water (agua translucida) e loor_dirt (terra).
-- Pinte as casas clicando nelas (cursor verde = pode, vermelho = nao).
+- Modo **Trocar piso (tileset)**: `floor_water` (agua translucida) e `floor_dirt` (terra) — **arraste** para pintar várias casas.
 - Para voltar ao grama original numa casa: modo **Apagar** nela.
 - A linha azul "VAI COLOCAR" no topo do painel mostra o nome do item armado.
