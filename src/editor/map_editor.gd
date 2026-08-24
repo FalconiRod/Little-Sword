@@ -247,7 +247,8 @@ func _cat_items(mode_name: String) -> Array:
 		"structure": return CAT_WALLS
 		"obstacle": return CAT_OBSTACLES
 		"prop": return CAT_PROPS
-		"glb": return glb_list
+		"glb": return glb_list.filter(func(p) -> bool:
+			return not _glb_tiles().has(p))
 		"gtile": return _glb_tiles()
 	return []
 
@@ -385,7 +386,7 @@ func _apply_bhv(e) -> void:
 		_top_fill(e)
 
 ## SOBE: amostra a altura real do modelo em cada casa coberta (raycast
-## contra o trimesh) — encostas ficam andaveis na altura certa.
+## contra o trimesh); se o raio falhar, usa fallback analitico do topo.
 func _top_fill(e) -> void:
 	for d in e["data"].get("cells", []):
 		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
@@ -393,25 +394,29 @@ func _top_fill(e) -> void:
 	if not is_inside_tree():
 		return
 	await get_tree().physics_frame
+	await get_tree().physics_frame
 	if not is_instance_valid(e["node"]):
 		return
-	var space: PhysicsDirectSpaceState3D = e["node"].get_world_3d() \
+	var space: PhysicsDirectSpaceState3D = get_viewport().get_world_3d() \
 			.direct_space_state
 	for d in e["data"].get("cells", []):
 		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
 		var wp := BoardGrid.world_pos(Vector3i(c.x, 0, c.z))
 		var q := PhysicsRayQueryParameters3D.create(
-				Vector3(wp.x, wp.y + 60, wp.z),
-				Vector3(wp.x, wp.y - 20, wp.z), 4)
+				Vector3(wp.x, wp.y + 80, wp.z),
+				Vector3(wp.x, wp.y - 30, wp.z), 4)
+		var h := -1.0
 		var hit = space.intersect_ray(q)
 		if not hit.is_empty():
-			# Altura vira DEGRAUS no campo elev do grid (mesma regra do
-			# BFS: sobe/desce 1 degrau automaticamente; mais que isso
-			# exige escada/StairsLink) + residuo visual suave.
-			var h := float(hit["position"].y) - wp.y
-			var steps := clampi(int(round(h / BoardGrid.ELEV_H)), 0, 8)
-			BoardGrid.set_tile(c, true, bool(d["l"]), steps)
-			BoardGrid.set_surface(c, h - steps * BoardGrid.ELEV_H)
+			h = float(hit["position"].y) - wp.y
+		if h <= 0.02:
+			# Fallback: topo analitico do AABB escalado.
+			h = float(e["data"].get("hh", 0.0)) * float(e.get("fit", 1.0)) \
+					* float(e["data"].get("s", 1.0))
+		var steps := clampi(int(round(h / BoardGrid.ELEV_H)), 0, 8)
+		d["e"] = steps
+		BoardGrid.set_tile(c, true, bool(d["l"]), steps)
+		BoardGrid.set_surface(c, h - steps * BoardGrid.ELEV_H)
 
 func _cycle_bhv() -> void:
 	var e = _sel_entry()

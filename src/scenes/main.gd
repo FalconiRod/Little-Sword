@@ -47,6 +47,8 @@ func _ready() -> void:
 		_stairtest()
 	if args.has("--combattest"):
 		_combattest()
+	if args.has("--editprobe"):
+		_editprobe()
 
 # ------------------------------------------------------------------ testes --
 
@@ -612,3 +614,51 @@ func _on_unit_damaged_vitals(u, _amt) -> void:
 func _on_unit_healed_vitals(u, _amt) -> void:
 	if u.team == "hero":
 		hud.update_vitals(ctl.knight)
+
+## Probe de colisao/agua do editor (rodar: --editprobe --map=bosque_30).
+func _editprobe() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var gt: Array = MapEditor._glb_tiles()
+	print("PROBE gtile_count=", gt.size(),
+			" ex=", gt[0] if gt.size() > 0 else "-")
+	var c := Vector3i(5, 5, 0)
+	while not BoardGrid.is_free(c):
+		c.x += 1
+	MapEditor._place_gtile(gt[0], c)
+	await get_tree().process_frame
+	print("PROBE agua_ok=", MapEditor._placed.has(c),
+			" walkable=", BoardGrid.is_walkable(c))
+	MapEditor._erase_at(c)
+	await get_tree().process_frame
+	var c2 := Vector3i(10, 5, 0)
+	while not BoardGrid.is_free(c2):
+		c2.x += 1
+	MapEditor._place_glb("res://src/assets/goblins/goblin guerreiro.glb", c2)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var e2 = MapEditor._placed.get(c2)
+	var blocked := 0
+	if e2 != null:
+		for d in e2["data"].get("cells", []):
+			if not BoardGrid.is_walkable(Vector3i(
+					d["c"][0], d["c"][1], d["c"][2])):
+				blocked += 1
+		print("PROBE glb bhv=", e2["data"].get("bhv", "-"),
+				" cells=", e2["data"].get("cells", []).size(),
+				" bloqueadas=", blocked)
+	var c3 := Vector3i(15, 8, 0)
+	while not BoardGrid.is_free(c3):
+		c3.x += 1
+	MapEditor._place_glb("res://src/assets/terrenos/colina com musgo.glb", c3)
+	for i in 5:
+		await get_tree().physics_frame
+	var e3 = MapEditor._placed.get(c3)
+	var mx := 0
+	if e3 != null:
+		for d in e3["data"].get("cells", []):
+			mx = maxi(mx, int(d.get("e", 0)))
+		print("PROBE colina cells=", e3["data"].get("cells", []).size(),
+				" max_degraus=", mx)
+	var ok: bool = gt.size() > 0 and MapEditor._placed.has(c) == false \
+			and blocked > 0 and mx > 0
+	print("PROBE RESULT ", "OK" if ok else "CHECK")
