@@ -1427,7 +1427,12 @@ func _build_ui() -> void:
 				_set_spawn(sk[0], _hover_cell)
 			_refresh_ui())
 		vb.add_child(b)
-	_add_label(vb, "cat_mat", "--- Battlemat (chao base) ---")
+	_add_label(vb, "cat_mat", "--- Battlemat (TROCA O MAPA INTEIRO) ---")
+	var rb := Button.new()
+	rb.name = "mat_reset"
+	rb.text = "RESTAURAR chao padrao do mapa"
+	rb.pressed.connect(func() -> void: _reset_battle_mat())
+	vb.add_child(rb)
 	var mats: Array = _mat_candidates()
 	for i in mats.size():
 		var mb := Button.new()
@@ -1517,13 +1522,27 @@ func _q(n: String) -> Control:
 ## src/assets/editor e clique RECARREGAR ASSETS para lista-los aqui.
 
 func _mat_candidates() -> Array:
+	# APENAS mats de mapa inteiro (convencao tile_*.glb). Tiles por casa
+	# (agua/rio) ficam no modo "Tiles de rio (GLB)", nao aqui!
 	var out: Array = []
 	for p in glb_list:
-		var n: String = p.get_file().to_lower()
-		if n.begins_with("tile_") or n.find("agua") != -1 \
-				or n.find("tile") != -1 or p.find("/tileset") != -1:
+		if p.get_file().begins_with("tile_"):
 			out.append(p)
 	return out
+
+func _reset_battle_mat() -> void:
+	if env == null or not env.has_method("set_battle_mat"):
+		return
+	var dflt: String = env.get_default_mat()
+	if dflt == "" or not env.set_battle_mat(dflt):
+		_set_status("Falha ao restaurar o battlemat padrao.")
+		return
+	edits["mat_glb"] = ""
+	for c in _floor_overrides:
+		env.set_sheet_cell_hidden(c, true)
+	_refresh_ui()
+	_set_status("Battlemat padrao restaurado (%s). Salve para manter."
+			% dflt.get_file())
 
 func _apply_battle_mat(path: String) -> void:
 	if env == null or not env.has_method("set_battle_mat"):

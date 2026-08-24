@@ -355,7 +355,13 @@ func _build_tile_multimeshes(dir_path: String) -> bool:
 	var glb := _find_first_glb(dir_path)
 	if glb == "":
 		return false
+	_mat_glb_default = glb
 	return _build_tile_multimeshes_glb(glb)
+
+var _mat_glb_default := ""
+
+func get_default_mat() -> String:
+	return _mat_glb_default
 
 func _build_tile_multimeshes_glb(glb: String) -> bool:
 	var packed: PackedScene = load(glb)
