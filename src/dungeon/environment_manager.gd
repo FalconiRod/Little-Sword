@@ -190,24 +190,24 @@ func _setup_atmosphere(outdoor := false) -> void:
 	if outdoor:
 		env.background_mode = Environment.BG_SKY
 		var sm := ProceduralSkyMaterial.new()
-		sm.sky_top_color = Color.html("3f6fb5")
-		sm.sky_horizon_color = Color.html("a8c4de")
-		sm.ground_bottom_color = Color.html("27301f")
-		sm.ground_horizon_color = Color.html("8fa98c")
-		sm.sun_angle_max = 30.0
+		sm.sky_top_color = Color.html("2e5c9e")
+		sm.sky_horizon_color = Color.html("9db8cf")
+		sm.ground_bottom_color = Color.html("22291d")
+		sm.ground_horizon_color = Color.html("7f977c")
+		sm.sun_angle_max = 20.0
 		var sky := Sky.new()
 		sky.sky_material = sm
 		env.sky = sky
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		env.ambient_light_color = Color.html("b9c7d8")
-		env.ambient_light_energy = 1.1
+		env.ambient_light_color = Color.html("93a3b4")
+		env.ambient_light_energy = 0.75
 		env.fog_enabled = true
-		env.fog_light_color = Color.html("cfe0ee")
-		env.fog_density = 0.002
+		env.fog_light_color = Color.html("b9cbd9")
+		env.fog_density = 0.0012
 		sun.name = "SunLight"
-		sun.rotation_degrees = Vector3(-46, -34, 0)
-		sun.light_color = Color.html("fff2cf")
-		sun.light_energy = 1.25
+		sun.rotation_degrees = Vector3(-38, -32, 0)
+		sun.light_color = Color.html("ffe9bd")
+		sun.light_energy = 0.62
 	else:
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color.html("0a0c14")
@@ -600,14 +600,11 @@ func _forest_rows_try(w: int, h: int, s: int) -> Array:
 	for y in h:
 		var row: Array = []
 		for x in w:
-			# Borda ABERTA (sem muro): o jogador decora com arvores/pedras
-			# pelo editor. O rng sorteia MESMO ASSIM para nao deslocar o
-			# interior do mapa gerado com o mesmo seed.
-			var r := rng.randf()
-			if x == 0 or y == 0 or x == w - 1 or y == h - 1:
-				row.append(".")
-			else:
-				row.append("P" if r < 0.07 else ("o" if r < 0.09 else "."))
+			# Borda ABERTA e interior LIMPO: sem muros/colunas/pedras —
+			# o jogador decora com arvores/pedras pelo editor. O rng sorteia
+			# mesmo assim para nao deslocar o layout de spawns do seed.
+			rng.randf()
+			row.append(".")
 		grid.append(row)
 	# Spawns proporcionais ao tamanho da mesa (funciona de 20x20 a 70x50).
 	var marks := {
