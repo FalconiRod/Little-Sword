@@ -442,18 +442,32 @@ func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
 func _find_first_glb(dir_path: String) -> String:
 	if dir_path == "":
 		return ""
+	# Prioridade: tile_bosque.glb é o padrão leve (711KB); agua*.glb tem 48MB
+	# e trava se for usado como battlemat repetido 900×. Só use agua se
+	# o usuário trocar manualmente pelo editor.
+	if dir_path == "res://src/assets/tilesets":
+		var pref := dir_path.path_join("tile_bosque.glb")
+		if FileAccess.file_exists(pref):
+			return pref
 	var d := DirAccess.open(dir_path)
 	if d == null:
 		return ""
 	d.list_dir_begin()
 	var fname := d.get_next()
+	var fallback := ""
 	while fname != "":
 		if not d.current_is_dir() and fname.to_lower().ends_with(".glb"):
-			d.list_dir_end()
-			return dir_path.path_join(fname)
+			var p := dir_path.path_join(fname)
+			# Evita agua gigante como padrão automático
+			if fname.to_lower().begins_with("agua"):
+				if fallback == "":
+					fallback = p
+			else:
+				d.list_dir_end()
+				return p
 		fname = d.get_next()
 	d.list_dir_end()
-	return ""
+	return fallback
 
 func _collect_meshes(n: Node, xf: Transform3D, out: Array) -> void:
 	var local := xf
