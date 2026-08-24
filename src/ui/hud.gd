@@ -231,10 +231,9 @@ func _build_order_panel() -> void:
 	var p := PanelContainer.new()
 	p.name = "OrderPanel"
 	p.add_theme_stylebox_override("panel", _sb())
-	p.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	p.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	p.offset_right = -14
-	p.offset_left = -240
+	# Ordem de turno CENTRALIZADA no topo da tela.
+	p.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	p.offset_top = 14
 	add_child(p)
 	var v := VBoxContainer.new()

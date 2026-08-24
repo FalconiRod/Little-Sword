@@ -77,6 +77,15 @@ func _input(event: InputEvent) -> void:
 		var c: Variant = _pick_cell(event.position)
 		_dbg_event(event)
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			if mode == "select":
+				# Modelo alto na frente do plano? Clique nele direto.
+				var pc: Variant = _pick_piece(event.position)
+				if pc != null:
+					selected_unit = null
+					_select(pc)
+					_refresh_transform_ui()
+					_set_status("Peca reselecionada em %s." % str(pc))
+					return
 			_apply_tool(c)
 		else:
 			if _dup_src != null:
@@ -292,6 +301,27 @@ func _make_trimesh(e) -> void:
 	for sb in _find_bodies(e["node"]):
 		sb.collision_layer = 4
 		sb.collision_mask = 0
+		sb.set_meta("ed_data", e["data"])
+
+## Clique em modelo ALTO: raycast fisico acha a peca certa (o plano do
+## chao erraria para uma celula distante atras dela).
+func _pick_piece(screen_pos: Vector2):
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var space: PhysicsDirectSpaceState3D = get_viewport().get_world_3d() \
+			.direct_space_state
+	var from := cam.project_ray_origin(screen_pos)
+	var q := PhysicsRayQueryParameters3D.create(from,
+			from + cam.project_ray_normal(screen_pos) * 300.0, 4)
+	var hit = space.intersect_ray(q)
+	if hit.is_empty():
+		return null
+	var col = hit.get("collider")
+	if col is Node and (col as Node).has_meta("ed_data"):
+		var d: Dictionary = (col as Node).get_meta("ed_data")
+		return Vector3i(d["c"][0], d["c"][1], d["c"][2])
+	return null
 
 func _find_bodies(n: Node) -> Array:
 	var out: Array = []
@@ -326,7 +356,8 @@ func _covered_cells(e) -> Array:
 func _clear_cells(e) -> void:
 	for d in e["data"].get("cells", []):
 		var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
-		BoardGrid.set_tile(cc, bool(d["w"]), bool(d["l"]))
+		BoardGrid.set_tile(cc, bool(d["w"]), bool(d["l"]),
+				int(d.get("e", 0)))
 		BoardGrid.set_surface(cc, 0.0)
 	e["data"]["cells"] = []
 
@@ -343,7 +374,8 @@ func _apply_bhv(e) -> void:
 			continue
 		recs.append({"c": [c.x, c.y, c.z],
 				"w": BoardGrid.tiles[c]["w"],
-				"l": BoardGrid.tiles[c]["losb"]})
+				"l": BoardGrid.tiles[c]["losb"],
+				"e": BoardGrid.tiles[c].get("elev", 0)})
 	e["data"]["cells"] = recs
 	if bhv == "block":
 		for c in cells:
@@ -373,7 +405,13 @@ func _top_fill(e) -> void:
 				Vector3(wp.x, wp.y - 20, wp.z), 4)
 		var hit = space.intersect_ray(q)
 		if not hit.is_empty():
-			BoardGrid.set_surface(c, float(hit["position"].y) - wp.y)
+			# Altura vira DEGRAUS no campo elev do grid (mesma regra do
+			# BFS: sobe/desce 1 degrau automaticamente; mais que isso
+			# exige escada/StairsLink) + residuo visual suave.
+			var h := float(hit["position"].y) - wp.y
+			var steps := clampi(int(round(h / BoardGrid.ELEV_H)), 0, 8)
+			BoardGrid.set_tile(c, true, bool(d["l"]), steps)
+			BoardGrid.set_surface(c, h - steps * BoardGrid.ELEV_H)
 
 func _cycle_bhv() -> void:
 	var e = _sel_entry()
@@ -411,6 +449,16 @@ func _rotate_selected(delta_deg: float) -> void:
 			_adv_v(e["data"]), float(e.get("fit", 1.0)))
 
 func _set_uniform(v: float) -> void:
+	if selected_unit != null:
+		# Escala de personagem nativo (persistida por chave do heroi/inimigo).
+		selected_unit.scale = Vector3.ONE * v
+		var key: String = UNIT_KEY.get(selected_unit.id, "")
+		if key != "":
+			if not edits.has("unit_scl"):
+				edits["unit_scl"] = {}
+			edits["unit_scl"][key] = v
+		_set_status("Escala de %s: %.2fx" % [selected_unit.id, v])
+		return
 	var e = _sel_entry()
 	if e == null:
 		return
@@ -918,6 +966,14 @@ func _draw_spawn_mark(key: String, c: Vector3i) -> void:
 		return
 	fl.add_child(m)
 	m.position = BoardGrid.world_pos(c) + Vector3(0, 0.16, 0)
+	var lab := Label3D.new()
+	lab.text = key
+	lab.font_size = 220
+	lab.pixel_size = 0.004
+	lab.modulate = col
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.position = Vector3(0, 0.35, 0)
+	m.add_child(lab)
 	_spawn_marks[c] = m
 
 func _erase_at(c, record := true) -> void:
@@ -1087,6 +1143,7 @@ func save_edits() -> void:
 	out["stairs"] = edits["stairs"]
 	out["unit_removed"] = edits["unit_removed"]
 	out["unit_rot"] = edits["unit_rot"]
+	out["unit_scl"] = edits.get("unit_scl", {})
 	out["mat_glb"] = edits.get("mat_glb", "")
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
@@ -1118,6 +1175,8 @@ func load_edits() -> void:
 		edits["unit_removed"] = []
 	if not edits.has("unit_rot"):
 		edits["unit_rot"] = {}
+	if not edits.has("unit_scl"):
+		edits["unit_scl"] = {}
 	if not edits.has("mat_glb"):
 		edits["mat_glb"] = ""
 
@@ -1375,8 +1434,17 @@ func _build_ui() -> void:
 		mb.name = "mat_%d" % i
 		mb.pressed.connect(func() -> void: _apply_battle_mat(mats[i]))
 		vb.add_child(mb)
+	_add_label(vb, "cat_units", "--- Personagens no mapa ---")
+	var ub := VBoxContainer.new()
+	ub.name = "units_box"
+	vb.add_child(ub)
+	_add_label(vb, "cat_placed", "--- Pecas colocadas (clique p/ editar) ---")
+	var pb2 := VBoxContainer.new()
+	pb2.name = "placed_box"
+	vb.add_child(pb2)
 	_add_label(vb, "tf_title", "--- Transformacao ---")
 	_add_label(vb, "tf_sel", "nenhuma peca selecionada")
+	_add_label(vb, "tf_h", "")
 	var rot_row := HBoxContainer.new()
 	rot_row.name = "tf_rot"
 	vb.add_child(rot_row)
@@ -1451,7 +1519,9 @@ func _q(n: String) -> Control:
 func _mat_candidates() -> Array:
 	var out: Array = []
 	for p in glb_list:
-		if p.get_file().begins_with("tile_"):
+		var n: String = p.get_file().to_lower()
+		if n.begins_with("tile_") or n.find("agua") != -1 \
+				or n.find("tile") != -1 or p.find("/tileset") != -1:
 			out.append(p)
 	return out
 
@@ -1499,6 +1569,59 @@ func _refresh_ui() -> void:
 		else:
 			t = "MODO SELECIONAR/MOVER"
 		(armed as Label).text = t
+	_rebuild_units_box()
+	_rebuild_placed_box()
+
+## Lista clicavel de TODAS as unidades nativas do mapa (herois e inimigos).
+func _rebuild_units_box() -> void:
+	var box: Control = _q("units_box")
+	if box == null:
+		return
+	for ch in box.get_children():
+		ch.free()
+	if BoardGrid.occupied.is_empty():
+		var l := Label.new()
+		l.text = "(nenhuma)"
+		box.add_child(l)
+		return
+	for c in BoardGrid.occupied.keys():
+		var u = BoardGrid.occupied[c]
+		var b := Button.new()
+		b.text = "[%s] %s @ %s" % [UNIT_KEY.get(u.id, "?"), u.id, str(c)]
+		b.pressed.connect(func() -> void:
+			selected_unit = u
+			selected_key = null
+			_select(null)
+			_refresh_transform_ui()
+			_set_status("Personagem %s selecionado. Q/E gira; " +
+					"escala no slider." % u.id))
+		box.add_child(b)
+
+## Lista clicavel de todas as pecas colocadas — reselecao garantida.
+func _rebuild_placed_box() -> void:
+	var box: Control = _q("placed_box")
+	if box == null:
+		return
+	for ch in box.get_children():
+		ch.free()
+	if _placed.is_empty():
+		var l := Label.new()
+		l.text = "(nenhuma ainda)"
+		box.add_child(l)
+		return
+	for k in _placed.keys():
+		var e = _placed[k]
+		var nm: String = str(e["data"].get("id",
+				e["data"].get("p", "?"))).get_file()
+		var b := Button.new()
+		b.text = "%s @ %s" % [nm, str(k)]
+		b.pressed.connect(func() -> void:
+			selected_unit = null
+			selected_key = k
+			_select(k)
+			_refresh_transform_ui()
+			_set_status("Peca %s reselecionada." % nm))
+		box.add_child(b)
 	for m in MODES:
 		var b: Control = _q("mode_" + m[0])
 		if b is Button:
@@ -1534,16 +1657,31 @@ func _refresh_ui() -> void:
 func _refresh_transform_ui() -> void:
 	var l: Control = _q("tf_sel")
 	var e = _sel_entry()
-	var has := e != null
+	var has := e != null or selected_unit != null
+	var hl: Control = _q("tf_h")
+	if l is Label:
+		if selected_unit != null:
+			l.text = "personagem: %s @ %s" % [selected_unit.id,
+					str(selected_unit.grid_pos)]
+		else:
+			l.text = "selecionado: %s em %s" % [
+					e["data"].get("id", e["data"].get("p", "?")).get_file()
+					if has else "-", str(selected_key) if has else "-"]
+	if hl is Label:
+		var t2 := ""
+		if has and e != null and e["kind"] == "glb" \
+				and str(e["data"].get("bhv", "")) == "top":
+			var mx := 0
+			for d in e["data"].get("cells", []):
+				mx = maxi(mx, int(d.get("e", 0)))
+			t2 = ("Altura no grid: %d degrau(s) — ate 1 degrau as " +
+					"unidades sobem sozinhas") % mx
+		(hl as Label).text = t2
 	var bb: Control = _q("tf_bhv")
 	if bb is Button:
 		(bb as Button).text = "Andar: %s" % (_bhv_label(
-				str(e["data"].get("bhv", "block"))) if has
+				str(e["data"].get("bhv", "block"))) if e != null
 				and e["kind"] == "glb" else "(selecione um MODELO GLB)")
-	if l is Label:
-		l.text = "selecionado: %s em %s" % [
-				e["data"].get("id", e["data"].get("p", "?")).get_file()
-				if has else "-", str(selected_key) if has else "-"]
 	var adv: Control = _q("tf_adv")
 	var show_ax: bool = adv != null and adv is CheckBox \
 			and adv.button_pressed and has

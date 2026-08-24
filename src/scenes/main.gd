@@ -494,10 +494,13 @@ func _spawn_units() -> void:
 		units.append(boss)
 	# Rotacoes definidas no editor (Q/E sobre unidade selecionada).
 	var rots: Dictionary = MapEditor.edits.get("unit_rot", {})
+	var scls: Dictionary = MapEditor.edits.get("unit_scl", {})
 	for u in units:
 		var key: String = MapEditor.UNIT_KEY.get(u.id, "")
 		if key != "" and rots.has(key):
 			u.rotation.y = deg_to_rad(float(rots[key]))
+		if key != "" and scls.has(key):
+			u.scale = Vector3.ONE * float(scls[key])
 	InventorySystem.apply_to_unit(knight)
 
 func _make_unit(id: String, cell: Vector3i) -> BoardUnit:
