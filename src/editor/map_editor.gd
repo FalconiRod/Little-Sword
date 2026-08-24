@@ -284,16 +284,11 @@ func _cat_items(mode_name: String) -> Array:
 ## QUALQUER tile em src/assets/tilesets/ (tile_*.glb, agua*.glb, etc.)
 ## — troque a hora que quiser, todos aparecem aqui e no Battlemat.
 func _glb_tiles() -> Array:
-	var seen := {}
 	var out: Array = []
 	for p in glb_list:
-		var fname: String = str(p).get_file().to_lower()
-		if seen.has(fname):
-			continue
-		var f: String = fname
+		var f: String = str(p).get_file().to_lower()
 		if str(p).find("assets/tilesets/") != -1 \
 				or f.begins_with("tile_") or f.begins_with("agua"):
-			seen[fname] = true
 			out.append(p)
 	return out
 
@@ -1565,10 +1560,18 @@ func _build_ui() -> void:
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
 		vb.add_child(b)
-	_add_label(vb, "cat_gtile", "Tileset por celula (clique ou arraste)")
-	for i in _glb_tiles().size():
+	_add_label(vb, "cat_gtile", ">>> TILESET POR CELULA - CLIQUE OU ARRASTE <<<")
+	var _gtile_list := _glb_tiles()
+	print("[EDITOR] _build_ui gtile list: ", _gtile_list.size(), " ", _gtile_list)
+	for i in _gtile_list.size():
 		var b := Button.new()
 		b.name = "item_gtile_%d" % i
+		# Força texto visível (branco sobre fundo escuro) e altura mínima
+		b.custom_minimum_size = Vector2(280, 28)
+		b.add_theme_color_override("font_color", Color.WHITE)
+		b.add_theme_color_override("font_hover_color", Color.YELLOW)
+		b.add_theme_font_size_override("font_size", 13)
+		b.text = _gtile_list[i].get_file()
 		b.pressed.connect(func() -> void:
 			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
 			# Se um tile base já está selecionado, troca na hora
@@ -1583,6 +1586,11 @@ func _build_ui() -> void:
 					edits["base_tiles"][bk]["glb"] = gpath
 					_set_status("Tile %s → %s" % [selected_tile, gpath.get_file()]))
 		vb.add_child(b)
+	if _gtile_list.is_empty():
+		var empty := Label.new()
+		empty.text = "NENHUM TILESET ENCONTRADO em src/assets/tilesets/ — verifique .glb"
+		empty.add_theme_color_override("font_color", Color.RED)
+		vb.add_child(empty)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
 		var b := Button.new()
@@ -1954,7 +1962,6 @@ func _render_icon_scene(id: String) -> Texture2D:
 
 func _scan_glbs() -> void:
 	glb_list.clear()
-	var seen := {}
 	var stack: Array = ["res://src/assets", "res://assets/models"]
 	while not stack.is_empty():
 		var dir_path: String = stack.pop_back()
@@ -1968,13 +1975,9 @@ func _scan_glbs() -> void:
 			if d.current_is_dir():
 				stack.append(full)
 			elif fn.get_extension() == "glb":
-				var key: String = fn.to_lower()
-				if not seen.has(key):
-					seen[key] = true
-					glb_list.append(full)
+				glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
-	print("[EDITOR] scan GLB: ", glb_list.size(), " únicos")
 
 ## Reescaneia os .glb sem reiniciar o jogo (fluxo do game designer:
 ## solta arquivos novos em src/assets/editor e clica aqui).
