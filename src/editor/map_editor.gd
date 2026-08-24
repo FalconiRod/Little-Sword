@@ -333,16 +333,32 @@ func _find_bodies(n: Node) -> Array:
 	return out
 
 ## Todas as casas do tabuleiro sob o PE do modelo (AABB global XZ).
+## NOTA: AABB() comeca como PONTO na origem — nunca usar como semente
+## de merge (esticava a caixa ate (0,0,0) e cobria meio mapa!).
+func _merge_seed() -> Array:
+	return [AABB(), false]
+
+func _mesh_aabb_world(e) -> AABB:
+	var st := _merge_seed()
+	for m in _find_meshes(e["node"]):
+		if m is VisualInstance3D:
+			var b: AABB = m.global_transform * m.get_aabb()
+			st[0] = b if not st[1] else st[0].merge(b)
+			st[1] = true
+	return st[0] if st[1] else AABB()
+
 func _covered_cells(e) -> Array:
-	var box := AABB()
+	var st := _merge_seed()
 	var any := false
 	for m in _find_meshes(e["node"]):
 		if m is VisualInstance3D:
-			box = box.merge(m.global_transform * m.get_aabb())
-			any = true
+			var b: AABB = m.global_transform * m.get_aabb()
+			st[0] = b if not st[1] else st[0].merge(b)
+			st[1] = true
 	var out: Array = []
-	if not any:
+	if not st[1]:
 		return out
+	var box: AABB = st[0]
 	var z: int = int(e["data"]["c"][2])
 	var x0 := int(floor(box.position.x / BoardGrid.TILE))
 	var x1 := int(floor((box.position.x + box.size.x) / BoardGrid.TILE))
@@ -401,7 +417,7 @@ func _top_fill(e) -> void:
 			.direct_space_state
 	for d in e["data"].get("cells", []):
 		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
-		var wp := BoardGrid.world_pos(Vector3i(c.x, 0, c.z))
+		var wp := BoardGrid.world_pos(c)
 		var q := PhysicsRayQueryParameters3D.create(
 				Vector3(wp.x, wp.y + 80, wp.z),
 				Vector3(wp.x, wp.y - 30, wp.z), 4)
@@ -808,9 +824,7 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	if ps == null:
 		return
 	var inst: Node3D = ps.instantiate()
-	var box := AABB()
-	for m in _find_meshes(inst):
-		box = box.merge(m.get_aabb())
+	var box := _model_aabb(inst)
 	var holder := Node3D.new()
 	holder.add_child(inst)
 	var fl := _floor_node(c)
@@ -848,6 +862,28 @@ func _find_meshes(n: Node) -> Array:
 		out.append_array(_find_meshes(ch))
 	return out
 
+## AABB do modelo INTEIRO no espaco da raiz (cada malha transformada pelo
+## proprio transform relativo — GLBs exportados com geometria deslocada
+## da origem quebravam cobertura/colisao/altura).
+func _aabb_rel(root: Node, n: Node) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var cur: Node = n
+	while cur != null and cur != root:
+		if cur is Node3D:
+			t = (cur as Node3D).transform * t
+		cur = cur.get_parent()
+	return t
+
+func _model_aabb(inst: Node3D) -> AABB:
+	var st := _merge_seed()
+	for m in _find_meshes(inst):
+		if m is VisualInstance3D:
+			var b: AABB = _aabb_rel(inst, m) \
+					* (m as VisualInstance3D).get_aabb()
+			st[0] = b if not st[1] else st[0].merge(b)
+			st[1] = true
+	return st[0] if st[1] else AABB(Vector3.ZERO, Vector3.ONE)
+
 ## Tile GLB (agua/rio): cobre a casa INTEIRA e esconde o gramado por baixo.
 func _place_gtile(path: String, c: Vector3i) -> void:
 	if _placed.has(c):
@@ -860,9 +896,7 @@ func _place_gtile(path: String, c: Vector3i) -> void:
 	if ps == null:
 		return
 	var inst: Node3D = ps.instantiate()
-	var box := AABB()
-	for m in _find_meshes(inst):
-		box = box.merge(m.get_aabb())
+	var box := _model_aabb(inst)
 	var holder := Node3D.new()
 	holder.add_child(inst)
 	var fl := _floor_node(c)
@@ -896,9 +930,7 @@ func _silent_gtile(path: String, c: Vector3i, data: Dictionary) -> void:
 	if ps == null:
 		return
 	var inst: Node3D = ps.instantiate()
-	var box := AABB()
-	for m in _find_meshes(inst):
-		box = box.merge(m.get_aabb())
+	var box := _model_aabb(inst)
 	var holder := Node3D.new()
 	holder.add_child(inst)
 	var fl := _floor_node(c)
@@ -1278,9 +1310,7 @@ func _silent_glb(path: String, c: Vector3i, data: Dictionary) -> void:
 	if ps == null:
 		return
 	var inst: Node3D = ps.instantiate()
-	var box := AABB()
-	for m in _find_meshes(inst):
-		box = box.merge(m.get_aabb())
+	var box := _model_aabb(inst)
 	var holder := Node3D.new()
 	holder.add_child(inst)
 	var fl := _floor_node(c)
@@ -1755,9 +1785,14 @@ func _render_icon_scene(id: String) -> Texture2D:
 	var root := Node3D.new()
 	vp.add_child(root)
 	root.add_child(piece)
-	var aabb := AABB()
+	var st := _merge_seed()
 	for m in _find_meshes(piece):
-		aabb = aabb.merge(m.get_aabb())
+		if m is VisualInstance3D:
+			var b: AABB = m.get_aabb()
+			st[0] = b if not st[1] else st[0].merge(b)
+			st[1] = true
+	var aabb: AABB = st[0] if st[1] \
+			else AABB(Vector3(-0.5, 0, -0.5), Vector3.ONE)
 	if aabb.size.length() < 0.001:
 		aabb = AABB(Vector3(-0.5, 0, -0.5), Vector3.ONE)
 	var cam := Camera3D.new()

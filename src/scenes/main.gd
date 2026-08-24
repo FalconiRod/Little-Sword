@@ -615,50 +615,91 @@ func _on_unit_healed_vitals(u, _amt) -> void:
 	if u.team == "hero":
 		hud.update_vitals(ctl.knight)
 
-## Probe de colisao/agua do editor (rodar: --editprobe --map=bosque_30).
+## Probe ponta-a-ponta de colisao/altura do editor no grid REAL
+## (rodar: --editprobe --map=bosque_30).
 func _editprobe() -> void:
 	await get_tree().create_timer(1.0).timeout
-	var gt: Array = MapEditor._glb_tiles()
-	print("PROBE gtile_count=", gt.size(),
-			" ex=", gt[0] if gt.size() > 0 else "-")
-	var c := Vector3i(5, 5, 0)
-	while not BoardGrid.is_free(c):
-		c.x += 1
-	MapEditor._place_gtile(gt[0], c)
-	await get_tree().process_frame
-	print("PROBE agua_ok=", MapEditor._placed.has(c),
-			" walkable=", BoardGrid.is_walkable(c))
-	MapEditor._erase_at(c)
-	await get_tree().process_frame
-	var c2 := Vector3i(10, 5, 0)
-	while not BoardGrid.is_free(c2):
-		c2.x += 1
-	MapEditor._place_glb("res://src/assets/goblins/goblin guerreiro.glb", c2)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-	var e2 = MapEditor._placed.get(c2)
-	var blocked := 0
-	if e2 != null:
-		for d in e2["data"].get("cells", []):
-			if not BoardGrid.is_walkable(Vector3i(
-					d["c"][0], d["c"][1], d["c"][2])):
-				blocked += 1
-		print("PROBE glb bhv=", e2["data"].get("bhv", "-"),
-				" cells=", e2["data"].get("cells", []).size(),
-				" bloqueadas=", blocked)
-	var c3 := Vector3i(15, 8, 0)
-	while not BoardGrid.is_free(c3):
-		c3.x += 1
-	MapEditor._place_glb("res://src/assets/terrenos/colina com musgo.glb", c3)
-	for i in 5:
+	var me := MapEditor
+	print("PROBE preexistentes=", me._placed.size())
+	for pc in me._placed:
+		var pe = me._placed[pc]
+		print("PROBE pre ", pc, " ", pe["kind"],
+				" cells=", pe["data"].get("cells", []).size(),
+				" pos=", pe["node"].position,
+				" p=", str(pe["data"].get("p", pe["data"].get("id", "?")) \
+				.get_file()))
+	var k0: Vector3i = knight.grid_pos
+	# ---- 1) BLOQUEIO: unidade NAO alcanca celulas da peca --------------
+	var cb := k0 + Vector3i(3, 0, 0)
+	if not BoardGrid.is_free(cb):
+		cb = k0 + Vector3i(-3, 0, 0)
+	me._place_glb("res://src/assets/goblins/goblin guerreiro.glb", cb)
+	for i in 3:
 		await get_tree().physics_frame
-	var e3 = MapEditor._placed.get(c3)
-	var mx := 0
+	var e2 = me._placed.get(cb)
+	var nb := 0
+	var invadidas := 0
+	if e2 != null:
+		nb = e2["data"].get("cells", []).size()
+		var reach: Dictionary = BoardGrid.compute_reachable(k0, 8, true)
+		for d in e2["data"].get("cells", []):
+			var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+			if reach.has(cc):
+				invadidas += 1
+	print("PROBE bloco cells=", nb, " bloqueadas=",
+			nb - invadidas, " alcancadas=", invadidas)
+	# ---- 2) SOBE: elevacao registrada + subida + vantagem a distancia --
+	var ch := k0 + Vector3i(5, 2, 0)
+	if not BoardGrid.is_free(ch):
+		ch = k0 + Vector3i(-5, 2, 0)
+	me._place_glb("res://src/assets/terrenos/colina com musgo.glb", ch)
+	for i in 6:
+		await get_tree().physics_frame
+	var e3 = me._placed.get(ch)
+	var mx := -1
+	var elev_registrada := true
+	var sobevel := false
 	if e3 != null:
 		for d in e3["data"].get("cells", []):
+			var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
 			mx = maxi(mx, int(d.get("e", 0)))
-		print("PROBE colina cells=", e3["data"].get("cells", []).size(),
-				" max_degraus=", mx)
-	var ok: bool = gt.size() > 0 and MapEditor._placed.has(c) == false \
-			and blocked > 0 and mx > 0
+			if BoardGrid.elev_at(cc) != int(d.get("e", 0)):
+				elev_registrada = false
+			if int(d.get("e", 0)) >= 1 and int(d.get("e", 0)) <= 2 \
+					and BoardGrid.is_walkable(cc):
+				sobevel = true
+	var vant := false
+	if mx >= 1:
+		var topo := Vector3i.ZERO
+		var chao := Vector3i.ZERO
+		for d in e3["data"].get("cells", []):
+			var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+			if int(d.get("e", 0)) == mx:
+				topo = cc
+			elif BoardGrid.is_walkable(cc) and int(d.get("e", 0)) == 0:
+				chao = cc
+		vant = BoardGrid.elev_at(topo) > BoardGrid.elev_at(chao)
+	print("PROBE colina max_degraus=", mx, " elev_no_grid=",
+			elev_registrada, " sobevel(1-2)= ", sobevel,
+			" vantagem_distancia=", vant)
+	# ---- 3) DECOR: nao mexe no grid ------------------------------------
+	var cd := k0 + Vector3i(0, 4, 0)
+	while not BoardGrid.is_free(cd):
+		cd.x += 1
+	me._place_glb("res://src/assets/goblins/goblin arqueiro.glb", cd)
+	await get_tree().physics_frame
+	var e4 = me._placed.get(cd)
+	var decor_ok := false
+	if e4 != null:
+		e4["data"]["bhv"] = "decor"
+		me._apply_bhv(e4)
+		decor_ok = true
+		for d in e4["data"].get("cells", []):
+			var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+			if not BoardGrid.is_walkable(cc) \
+					or BoardGrid.elev_at(cc) != 0:
+				decor_ok = false
+	print("PROBE decor_andavel=", decor_ok)
+	var ok: bool = e2 != null and invadidas == 0 and mx >= 1 \
+			and elev_registrada and vant and decor_ok
 	print("PROBE RESULT ", "OK" if ok else "CHECK")
