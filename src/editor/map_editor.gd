@@ -283,12 +283,18 @@ func _cat_items(mode_name: String) -> Array:
 ## GLBs que sao tiles de chao (substituem o gramado da casa):
 ## QUALQUER tile em src/assets/tilesets/ (tile_*.glb, agua*.glb, etc.)
 ## — troque a hora que quiser, todos aparecem aqui e no Battlemat.
+## Deduplica por nome de arquivo (evita 2× quando está em tilesets/ e terrenos/tileset/).
 func _glb_tiles() -> Array:
+	var seen := {}
 	var out: Array = []
 	for p in glb_list:
-		var f: String = str(p).get_file().to_lower()
+		var fname: String = str(p).get_file().to_lower()
+		if seen.has(fname):
+			continue
+		var f: String = fname
 		if str(p).find("assets/tilesets/") != -1 \
 				or f.begins_with("tile_") or f.begins_with("agua"):
+			seen[fname] = true
 			out.append(p)
 	return out
 
@@ -352,9 +358,6 @@ func _pick_piece(screen_pos: Vector2):
 	if col is Node and (col as Node).has_meta("ed_data"):
 		var d: Dictionary = (col as Node).get_meta("ed_data")
 		return Vector3i(d["c"][0], d["c"][1], d["c"][2])
-	if col is Node and (col as Node).has_meta("tile_cell"):
-		var c: Vector3i = (col as Node).get_meta("tile_cell")
-		return c
 	return null
 
 ## Pick só para tiles base (para rotação/troca individual)
@@ -1557,6 +1560,9 @@ func _build_ui() -> void:
 	for i in glb_list.size():
 		var b := Button.new()
 		b.name = "item_glb_%d" % i
+		b.custom_minimum_size = Vector2(280, 28)
+		b.add_theme_color_override("font_color", Color.WHITE)
+		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
 		vb.add_child(b)
@@ -1697,12 +1703,17 @@ func _q(n: String) -> Control:
 ## (por célula). É a mesma biblioteca, troque a hora que quiser.
 
 func _mat_candidates() -> Array:
-	# Mesma biblioteca de _glb_tiles(): battlemat e por-célula compartilham
+	# Mesma biblioteca de _glb_tiles(): battlemat e por-célula compartilham (deduplicado)
+	var seen := {}
 	var out: Array = []
 	for p in glb_list:
-		var f: String = str(p).get_file().to_lower()
+		var fname: String = str(p).get_file().to_lower()
+		if seen.has(fname):
+			continue
+		var f: String = fname
 		if str(p).find("assets/tilesets/") != -1 \
 				or f.begins_with("tile_") or f.begins_with("agua"):
+			seen[fname] = true
 			out.append(p)
 	return out
 
@@ -1962,6 +1973,7 @@ func _render_icon_scene(id: String) -> Texture2D:
 
 func _scan_glbs() -> void:
 	glb_list.clear()
+	var seen := {}
 	var stack: Array = ["res://src/assets", "res://assets/models"]
 	while not stack.is_empty():
 		var dir_path: String = stack.pop_back()
@@ -1975,9 +1987,13 @@ func _scan_glbs() -> void:
 			if d.current_is_dir():
 				stack.append(full)
 			elif fn.get_extension() == "glb":
-				glb_list.append(full)
+				var key: String = fn.to_lower()
+				if not seen.has(key):
+					seen[key] = true
+					glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
+	print("[EDITOR] scan GLB: ", glb_list.size(), " únicos (dedupe por nome) | ", glb_list)
 
 ## Reescaneia os .glb sem reiniciar o jogo (fluxo do game designer:
 ## solta arquivos novos em src/assets/editor e clica aqui).

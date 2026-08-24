@@ -508,8 +508,19 @@ func swap_base_tile(c: Vector3i, new_glb: String) -> bool:
 	holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
 			BoardGrid.world_pos(c).y,
 			c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
-	# Atualiza walkable: agua/buraco bloqueia, grama libera
+	# Corrige inclinação da água: azulejos de água com borda têm mesh inclinado — achata
 	var is_water := new_glb.to_lower().contains("agua") or new_glb.to_lower().contains("water")
+	if is_water:
+		# Achata levemente o mesh para ficar plano no grid (evita rampa para baixo)
+		for ch in holder.get_children():
+			if ch is MeshInstance3D:
+				var mi: MeshInstance3D = ch as MeshInstance3D
+				# Mantém escala XZ de base, mas achata Y do mesh se for rampa
+				var tr: Transform3D = mi.transform
+				tr.basis.y *= 0.15
+				mi.transform = tr
+				break
+	# Atualiza walkable: agua/buraco bloqueia, grama libera
 	BoardGrid.set_tile(c, not is_water, false, BoardGrid.elev_at(c))
 	inst.free()
 	return true
