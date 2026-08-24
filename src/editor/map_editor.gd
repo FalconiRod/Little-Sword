@@ -18,7 +18,8 @@ const CAT_OBSTACLES := ["rubble"]
 const CAT_PROPS := ["chest_prop", "torch", "lever_base"]
 const MODES := [["select", "Selecionar/Mover"], ["floor", "Trocar piso (tileset)"],
 	["structure", "Paredes/Colunas"], ["obstacle", "Obstaculos"],
-	["prop", "Props"], ["glb", "Modelos GLB"], ["stairs", "Escada"],
+	["prop", "Props"], ["glb", "Modelos GLB"],
+	["gtile", "Tiles de rio (GLB)"], ["stairs", "Escada"],
 	["erase", "Apagar"]]
 const SPAWN_KEYS := [["K", "Heroi"], ["M", "Maga"], ["W", "Druida"],
 	["g", "Goblin"], ["a", "Arqueiro"], ["B", "Chefe"]]
@@ -238,7 +239,18 @@ func _cat_items(mode_name: String) -> Array:
 		"obstacle": return CAT_OBSTACLES
 		"prop": return CAT_PROPS
 		"glb": return glb_list
+		"gtile": return _glb_tiles()
 	return []
+
+## GLBs que sao tiles de chao (substituem o gramado da casa):
+## pasta terrenos/tileset ou arquivos começando com "agua".
+func _glb_tiles() -> Array:
+	var out: Array = []
+	for p in glb_list:
+		if p.find("terrenos/tileset") != -1 \
+				or p.get_file().to_lower().begins_with("agua"):
+			out.append(p)
+	return out
 
 func _active_item(mode_name: String) -> int:
 	return cat_item.get(mode_name, 0)
@@ -332,6 +344,9 @@ func _apply_tool(c) -> void:
 		"glb":
 			if not glb_list.is_empty():
 				_place_glb(glb_list[_active_item("glb")], c)
+		"gtile":
+			if not _glb_tiles().is_empty():
+				_place_gtile(_cat_items("gtile")[_active_item("gtile")], c)
 		"stairs":
 			_stairs_click(c)
 		"erase":
@@ -443,6 +458,8 @@ func _restore_entry(c: Vector3i, a: Dictionary) -> void:
 	var data: Dictionary = a["data"].duplicate()
 	if kind == "glb":
 		_silent_glb(data.get("p", ""), c, data)
+	elif kind == "gtile":
+		_silent_gtile(data.get("p", ""), c, data)
 	else:
 		_silent_place(data.get("id", "rubble"), c, data)
 		if kind == "struct":
@@ -486,6 +503,9 @@ func _stamp_duplicate(c: Vector3i) -> void:
 		"glb":
 			_silent_glb(_dup_src["data"].get("p", ""), c,
 					_dup_src["data"].duplicate())
+		"gtile":
+			_silent_gtile(_dup_src["data"].get("p", ""), c,
+					_dup_src["data"].duplicate())
 		_:
 			_silent_place(_dup_src["data"].get("id", "rubble"), c,
 					_dup_src["data"].duplicate())
@@ -508,6 +528,9 @@ func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void
 	if not _placed.has(oc):
 		return
 	var e = _placed[oc]
+	if e["kind"] == "gtile":
+		env.set_sheet_cell_hidden(oc, false)
+		env.set_sheet_cell_hidden(nc, true)
 	e["node"].position = BoardGrid.world_pos(nc) \
 			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
 	if e["kind"] == "struct":
@@ -633,6 +656,70 @@ func _find_meshes(n: Node) -> Array:
 		out.append_array(_find_meshes(ch))
 	return out
 
+## Tile GLB (agua/rio): cobre a casa INTEIRA e esconde o gramado por baixo.
+func _place_gtile(path: String, c: Vector3i) -> void:
+	if _placed.has(c):
+		EventBus.log_msg.emit("Celula ja ocupada pelo editor.", "#ff6b6b")
+		return
+	if not BoardGrid.is_walkable(c):
+		EventBus.log_msg.emit("So sobre casas andaveis.", "#ff6b6b")
+		return
+	var ps: PackedScene = load(path)
+	if ps == null:
+		return
+	var inst: Node3D = ps.instantiate()
+	var box := AABB()
+	for m in _find_meshes(inst):
+		box = box.merge(m.get_aabb())
+	var holder := Node3D.new()
+	holder.add_child(inst)
+	var fl := _floor_node(c)
+	if fl == null:
+		holder.free()
+		return
+	fl.add_child(holder)
+	var span: float = maxf(box.size.x, box.size.z)
+	var fit := 1.0
+	if span > 0.001:
+		fit = BoardGrid.TILE / span
+	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
+			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	env.set_sheet_cell_hidden(c, true)
+	_register("gtile", holder, c, {"p": path, "c": [c.x, c.y, c.z],
+			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
+	_select(c)
+	_push_undo({"op": "place", "c": c})
+	_set_status("OK: tile %s em %s (grama escondida). Q/E gira." %
+			[path.get_file(), c])
+	EventBus.log_msg.emit("Tile GLB em %s" % c, "#7fd4ff")
+
+func _silent_gtile(path: String, c: Vector3i, data: Dictionary) -> void:
+	if path == "" or _placed.has(c) or not BoardGrid.is_walkable(c):
+		return
+	var ps: PackedScene = load(path)
+	if ps == null:
+		return
+	var inst: Node3D = ps.instantiate()
+	var box := AABB()
+	for m in _find_meshes(inst):
+		box = box.merge(m.get_aabb())
+	var holder := Node3D.new()
+	holder.add_child(inst)
+	var fl := _floor_node(c)
+	if fl == null:
+		holder.free()
+		return
+	fl.add_child(holder)
+	var span: float = maxf(box.size.x, box.size.z)
+	var fit := 1.0
+	if span > 0.001:
+		fit = BoardGrid.TILE / span
+	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
+			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	env.set_sheet_cell_hidden(c, true)
+	data["c"] = [c.x, c.y, c.z]
+	_register("gtile", holder, c, data, fit)
+
 func _stairs_click(c: Vector3i) -> void:
 	if _pending_stair == null:
 		_pending_stair = c
@@ -697,6 +784,8 @@ func _erase_at(c, record := true) -> void:
 		if e["kind"] == "struct":
 			BoardGrid.set_tile(c, true,
 					BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false)
+		if e["kind"] == "gtile":
+			env.set_sheet_cell_hidden(c, false)
 		if e["kind"] == "stair":
 			var other = BoardGrid.stair_pair(c)
 			BoardGrid.stair_links.erase(c)
@@ -762,7 +851,7 @@ func _update_hover(c) -> void:
 	var sel: bool = _hover_cell == selected_key
 	var mat: StandardMaterial3D = _cursor_quad.material_override
 	var armed: bool = mode in ["floor", "structure", "obstacle", "prop",
-			"glb", "stairs"] or _dup_src != null
+			"glb", "gtile", "stairs"] or _dup_src != null
 	if armed:
 		# Verde = pode colocar aqui; vermelho = ocupada/invalida.
 		var ok: bool = BoardGrid.is_walkable(c) and not _placed.has(c) \
@@ -788,6 +877,9 @@ func _armed_item_name() -> String:
 		"glb":
 			return glb_list[_active_item("glb")].get_file() \
 					if not glb_list.is_empty() else ""
+		"gtile":
+			return _cat_items("gtile")[_active_item("gtile")].get_file() \
+					if not _glb_tiles().is_empty() else ""
 	return ""
 
 func _update_ghost(c: Vector3i) -> void:
@@ -825,8 +917,8 @@ func _save_path() -> String:
 	return SAVE_NAME % (env.map_id if env != null else "default")
 
 func save_edits() -> void:
-	var out := {"props": [], "glbs": [], "floors": [], "stairs": [],
-			"spawns": edits["spawns"]}
+	var out := {"props": [], "glbs": [], "gtiles": [], "floors": [],
+			"stairs": [], "spawns": edits["spawns"]}
 	for c in _placed:
 		var e = _placed[c]
 		match e["kind"]:
@@ -837,6 +929,8 @@ func save_edits() -> void:
 				out["props"].append(e["data"])
 			"glb":
 				out["glbs"].append(e["data"])
+			"gtile":
+				out["gtiles"].append(e["data"])
 	for c in _floor_overrides:
 		out["floors"].append(_floor_overrides[c]["data"])
 	out["stairs"] = edits["stairs"]
@@ -885,6 +979,9 @@ func apply_edits_to(environment: Node) -> void:
 	for d in edits.get("glbs", []):
 		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
 		_silent_glb(d.get("p", ""), c, _norm_item(d))
+	for d in edits.get("gtiles", []):
+		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+		_silent_gtile(d.get("p", ""), c, _norm_item(d))
 	for d in edits.get("floors", []):
 		_silent_floor(_item_id(d), Vector3i(d["c"][0], d["c"][1], d["c"][2]))
 	for pr in edits.get("stairs", []):
@@ -915,6 +1012,7 @@ func apply_edits_to(environment: Node) -> void:
 		environment.set_battle_mat.call_deferred(mat)
 	var total: int = int(edits.get("props", []).size()) \
 			+ int(edits.get("glbs", []).size()) \
+			+ int(edits.get("gtiles", []).size()) \
 			+ int(edits.get("floors", []).size()) \
 			+ int(edits.get("stairs", []).size()) \
 			+ int(edits["spawns"].size())
@@ -1223,6 +1321,11 @@ func _refresh_ui() -> void:
 		elif mode == "glb" and not glb_list.is_empty():
 			t = "VAI COLOCAR: %s (modelo GLB)" \
 					% glb_list[_active_item("glb")].get_file()
+		elif mode == "gtile":
+			var gt: Array = _glb_tiles()
+			t = "VAI COLOCAR: %s (tile de rio — grama some)" % (
+					gt[_active_item("gtile")].get_file()
+					if not gt.is_empty() else "nenhum tile encontrado")
 		elif mode == "stairs":
 			t = "MODO ESCADA: clique casa baixa e depois a alta"
 		elif mode == "erase":
