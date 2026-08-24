@@ -1560,10 +1560,18 @@ func _build_ui() -> void:
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
 		vb.add_child(b)
-	_add_label(vb, "cat_gtile", "Tileset por celula (clique ou arraste)")
-	for i in _glb_tiles().size():
+	_add_label(vb, "cat_gtile", ">>> TILESET POR CELULA - CLIQUE OU ARRASTE <<<")
+	var _gtile_list := _glb_tiles()
+	print("[EDITOR] _build_ui gtile list: ", _gtile_list.size(), " ", _gtile_list)
+	for i in _gtile_list.size():
 		var b := Button.new()
 		b.name = "item_gtile_%d" % i
+		# Força texto visível (branco sobre fundo escuro) e altura mínima
+		b.custom_minimum_size = Vector2(280, 28)
+		b.add_theme_color_override("font_color", Color.WHITE)
+		b.add_theme_color_override("font_hover_color", Color.YELLOW)
+		b.add_theme_font_size_override("font_size", 13)
+		b.text = _gtile_list[i].get_file()
 		b.pressed.connect(func() -> void:
 			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
 			# Se um tile base já está selecionado, troca na hora
@@ -1578,6 +1586,11 @@ func _build_ui() -> void:
 					edits["base_tiles"][bk]["glb"] = gpath
 					_set_status("Tile %s → %s" % [selected_tile, gpath.get_file()]))
 		vb.add_child(b)
+	if _gtile_list.is_empty():
+		var empty := Label.new()
+		empty.text = "NENHUM TILESET ENCONTRADO em src/assets/tilesets/ — verifique .glb"
+		empty.add_theme_color_override("font_color", Color.RED)
+		vb.add_child(empty)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
 		var b := Button.new()
