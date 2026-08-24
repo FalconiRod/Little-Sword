@@ -81,8 +81,21 @@ func elev_at(c: Vector3i) -> int:
 func world_pos(c: Vector3i) -> Vector3:
 	var e: int = elev_at(c)
 	return Vector3(c.x * TILE + TILE * 0.5,
-			c.z * FLOOR_H + e * ELEV_H,
+			c.z * FLOOR_H + e * ELEV_H + surface_h(c),
 			c.y * TILE + TILE * 0.5)
+
+## Altura EXTRA de superficie por celula (editor: subir em cima de
+## elevacoes/colinas — o personagem fica no topo do modelo, mesma casa).
+var _surface := {}   # Vector3i -> float
+
+func set_surface(c: Vector3i, h: float) -> void:
+	if h <= 0.001:
+		_surface.erase(c)
+	else:
+		_surface[c] = h
+
+func surface_h(c: Vector3i) -> float:
+	return _surface.get(c, 0.0)
 
 ## CONVENÇÃO ÚNICA DE COORDENADAS (v0.9.2): a célula (col, row) ocupa o
 ## quadrado [col*TILE, col*TILE+TILE] × [row*TILE, row*TILE+TILE]; seu

@@ -269,6 +269,56 @@ func _sel_entry() -> Variant:
 func _apply_transform(e, rot: float, su: float, adv: Vector3, fit: float) -> void:
 	e["node"].rotation.y = deg_to_rad(rot)
 	e["node"].scale = Vector3.ONE * su * adv * fit
+	if e.get("kind") == "glb":
+		_apply_bhv(e)
+
+## ------------------------------------------------- COMPORTAMENTO DA Peca ---
+## bhv: "block" (parede: nao passa), "top" (sobe: fica EM CIMA do modelo,
+## mesma casa do grid), "decor" (atravessa). Auto por nome do arquivo.
+
+const TOP_HINTS := ["eleva", "colina", "rampa", "ladeira", "subida"]
+
+func _auto_bhv(path: String) -> String:
+	var n := path.get_file().to_lower()
+	for h in TOP_HINTS:
+		if n.find(h) != -1:
+			return "top"
+	return "block"
+
+func _apply_bhv(e) -> void:
+	var c: Vector3i = Vector3i(e["data"]["c"][0], e["data"]["c"][1],
+			e["data"]["c"][2])
+	var orig_w: bool = bool(e["data"].get("pw", true))
+	var orig_l: bool = bool(e["data"].get("pl", false))
+	match str(e["data"].get("bhv", "block")):
+		"top":
+			BoardGrid.set_tile(c, true, orig_l)
+			BoardGrid.set_surface(c,
+					float(e["data"].get("hh", 0.0)) * float(e.get("fit", 1.0))
+					* float(e["data"].get("s", 1.0)))
+		"decor":
+			BoardGrid.set_tile(c, true, false)
+			BoardGrid.set_surface(c, 0.0)
+		_:
+			BoardGrid.set_tile(c, false, true)
+			BoardGrid.set_surface(c, 0.0)
+
+func _cycle_bhv() -> void:
+	var e = _sel_entry()
+	if e == null or e["kind"] != "glb":
+		_set_status("Selecione um MODELO GLB para mudar o comportamento.")
+		return
+	var order := ["block", "top", "decor"]
+	var i := order.find(str(e["data"].get("bhv", "block")))
+	e["data"]["bhv"] = order[(i + 1) % order.size()]
+	_apply_bhv(e)
+	_refresh_transform_ui()
+	_set_status("Comportamento: %s" % _bhv_label(
+			str(e["data"]["bhv"])))
+
+func _bhv_label(bhv: String) -> String:
+	return {"block": "BLOQUEIA (parede)", "top": "SOBE (fica em cima)",
+			"decor": "ATRAVESSA (decoracao)"}.get(bhv, bhv)
 
 func _rotate_selected(delta_deg: float) -> void:
 	if selected_unit != null:
@@ -534,7 +584,7 @@ func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void
 	if e["kind"] == "glb" or e["kind"] == "gtile":
 		BoardGrid.set_tile(oc, bool(e["data"].get("pw", true)),
 				bool(e["data"].get("pl", false)))
-		BoardGrid.set_tile(nc, false, e["kind"] == "glb")
+		BoardGrid.set_surface(oc, 0.0)
 	e["node"].position = BoardGrid.world_pos(nc) \
 			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
 	if e["kind"] == "struct":
@@ -545,6 +595,11 @@ func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void
 	e["data"]["c"] = [nc.x, nc.y, nc.z]
 	_placed.erase(oc)
 	_placed[nc] = e
+	if e["kind"] == "glb":
+		_apply_bhv(e)
+	elif e["kind"] == "gtile":
+		# Agua rasa: bloqueia andar, NAO bloqueia visao.
+		BoardGrid.set_tile(nc, false, false)
 	selected_key = nc
 	_refresh_transform_ui()
 	if record:
@@ -644,18 +699,18 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	# centrado em XZ. holder escala depois; offset fica em unidades do GLB.
 	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
 			-box.position.y, -(box.position.z + box.size.z * 0.5))
-	# Ocupa a casa: unidades NAO atravessam o modelo (pega o estado antigo
-	# para restaurar ao apagar/mover).
+	# Comportamento da peca: sobe/bloqueia/atravessa + estado antigo p/
+	# restaurar ao apagar/mover.
 	var pw: bool = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
 	var pl: bool = BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false
-	BoardGrid.set_tile(c, false, true)
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
 			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1], "pw": pw,
-			"pl": pl}, fit)
+			"pl": pl, "bhv": _auto_bhv(path), "hh": box.size.y}, fit)
+	_apply_bhv(_placed[c])
 	_select(c)
 	_push_undo({"op": "place", "c": c})
-	_set_status("OK: modelo %s em %s (casa bloqueada). Q/E gira." %
-			[path.get_file(), c])
+	_set_status("OK: %s em %s (%s)." % [path.get_file(), c,
+			_bhv_label(str(_placed[c]["data"]["bhv"]))])
 	EventBus.log_msg.emit("GLB em %s" % c, "#7fd4ff")
 
 func _find_meshes(n: Node) -> Array:
@@ -806,6 +861,7 @@ func _erase_at(c, record := true) -> void:
 		if e["kind"] == "glb" or e["kind"] == "gtile":
 			BoardGrid.set_tile(c, bool(e["data"].get("pw", true)),
 					bool(e["data"].get("pl", false)))
+			BoardGrid.set_surface(c, 0.0)
 		if e["kind"] == "stair":
 			var other = BoardGrid.stair_pair(c)
 			BoardGrid.stair_links.erase(c)
@@ -1102,9 +1158,13 @@ func _silent_glb(path: String, c: Vector3i, data: Dictionary) -> void:
 		data["pw"] = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
 		data["pl"] = BoardGrid.tiles[c]["losb"] \
 				if BoardGrid.tiles.has(c) else false
-	BoardGrid.set_tile(c, false, true)
+	if not data.has("bhv"):
+		data["bhv"] = _auto_bhv(path)
+	if not data.has("hh"):
+		data["hh"] = box.size.y
 	data["c"] = [c.x, c.y, c.z]
 	_register("glb", holder, c, data, fit)
+	_apply_bhv(_placed[c])
 
 func _silent_floor(id: String, c: Vector3i) -> void:
 	var piece := TilePiece.build(id)
@@ -1281,6 +1341,11 @@ func _build_ui() -> void:
 	del.text = "EXCLUIR peca selecionada"
 	del.pressed.connect(func() -> void: _erase_at(selected_key))
 	vb.add_child(del)
+	var bb := Button.new()
+	bb.name = "tf_bhv"
+	bb.text = "Andar: (selecione uma peca)"
+	bb.pressed.connect(func() -> void: _cycle_bhv())
+	vb.add_child(bb)
 	_add_label(vb, "hint", "Clique: usar ferramenta | Direito: apagar\n" +
 			"Q/E gira | G troca modo | Esc: desselecionar")
 	var save_b := Button.new()
@@ -1394,6 +1459,11 @@ func _refresh_transform_ui() -> void:
 	var l: Control = _q("tf_sel")
 	var e = _sel_entry()
 	var has := e != null
+	var bb: Control = _q("tf_bhv")
+	if bb is Button:
+		(bb as Button).text = "Andar: %s" % (_bhv_label(
+				str(e["data"].get("bhv", "block"))) if has
+				and e["kind"] == "glb" else "(selecione um MODELO GLB)")
 	if l is Label:
 		l.text = "selecionado: %s em %s" % [
 				e["data"].get("id", e["data"].get("p", "?")).get_file()
