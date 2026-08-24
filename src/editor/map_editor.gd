@@ -41,6 +41,7 @@ var _spawn_marks := {}
 var _ui: CanvasLayer = null
 var _cursor_quad: MeshInstance3D = null
 var _hover_cell = null
+var _last_drag_cell = null   # evita repintar mesma casa 60×/s ao arrastar
 var _icon_cache := {}       # id -> ImageTexture
 var _icon_queue: Array = []
 
@@ -68,10 +69,17 @@ func _input(event: InputEvent) -> void:
 		var c2: Variant = _pick_cell(event.position)
 		_update_hover(c2)
 		_dbg_event(event)
-		# Arraste para pintar rio/tileset 1 a 1 (segure LMB e arraste)
+		# Arraste para pintar rio/tileset 1 a 1 (segure LMB e arraste) — só troca se mudar de casa
 		if (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
-				and mode in ["gtile", "floor", "structure", "obstacle", "prop", "glb"]:
+				and mode in ["gtile", "floor"] \
+				and c2 != null and c2 != _last_drag_cell:
+			_last_drag_cell = c2
 			_apply_tool(c2)
+		elif (event.button_mask & MOUSE_BUTTON_MASK_LEFT) == 0:
+			_last_drag_cell = null
+	elif event is InputEventMouseButton and not event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT:
+		_last_drag_cell = null
 	elif event is InputEventMouseButton and event.pressed \
 			and (event.button_index == MOUSE_BUTTON_LEFT
 					or event.button_index == MOUSE_BUTTON_RIGHT):
