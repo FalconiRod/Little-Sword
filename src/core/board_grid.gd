@@ -3,7 +3,7 @@ extends Node
 ## Cada casa guarda walkable/bloqueio-de-visão/elevação; escadas ligam
 ## andares diferentes. Peças ocupam exatamente uma casa (regra de mesa).
 
-const TILE := 2.0
+const TILE := 2.4   ## 2,4 cm impressos por casa (D17 / folha bosque)
 const FLOOR_H := 7.0   ## separação vertical entre andares (visual de mesa)
 const ELEV_H := 0.55   ## altura por nível de elevação (plataformas)
 

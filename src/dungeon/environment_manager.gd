@@ -792,15 +792,16 @@ const MAPS := {
 	# impressa do usuário com grade de 50×50 células (v2 da arte,
 	# 5908²px ≈ 118px/célula); o mapa 30×30 cabe inteiro numa folha só
 	# (sem costuras). Árvores/rochas são miniaturas EM CIMA da folha.
-	"bosque_30": {
+		"bosque_30": {
 		"name": "Bosque das Sombras — 30×30",
 		"outdoor": true,
 		"proc": {"w": 30, "h": 30, "seed": 20260823},
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
 			"cells_per_sheet": 50.0, "grid": true},
-		# GLB de UMA casa: solte o arquivo nesta pasta; enquanto não houver,
-		# o piso texturizado acima é usado.
-		"tile_glb": "res://src/assets/piso bosque",
+		# Battlemat: qualquer tile_*.glb / agua*.glb em src/assets/tilesets/.
+		# Troque a hora que quiser pelo editor (Battlemat) ou por célula
+		# (Tiles de rio). Enquanto não houver GLB, usa a folha texturizada.
+		"tile_glb": "res://src/assets/tilesets",
 	},
 }

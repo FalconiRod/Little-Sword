@@ -16,7 +16,8 @@ tudo procedural em GDScript; não "consertar" falta de assets, é intencional.
 - Autoloads conectam sinais do EventBus: se conectar em setup(), desconectar
   antes de reconectar (TurnManager já faz) — senão duplica handlers após restart.
 - `Engine.time_scale=3` só no modo demo.
-- Coordenadas: célula Vector2i(x,z); mundo = célula * BoardGrid.TILE (2.0).
+- Coordenadas: célula Vector3i(x,y,z); mundo = célula * BoardGrid.TILE (2.4). Grid automático 2,4×2,4 sobre estruturas via SOBE (raycast + elev).
+- Tilesets unificados em `src/assets/tilesets/` — battlemat e por-célula compartilham lista (`_glb_tiles`/`_mat_candidates`).
 - Frente das miniaturas = +Z (atan2 em face_towards).
 
 ## Roadmap curto

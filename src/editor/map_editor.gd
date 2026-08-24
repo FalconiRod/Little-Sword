@@ -253,12 +253,14 @@ func _cat_items(mode_name: String) -> Array:
 	return []
 
 ## GLBs que sao tiles de chao (substituem o gramado da casa):
-## pasta terrenos/tileset ou arquivos começando com "agua".
+## QUALQUER tile em src/assets/tilesets/ (tile_*.glb, agua*.glb, etc.)
+## — troque a hora que quiser, todos aparecem aqui e no Battlemat.
 func _glb_tiles() -> Array:
 	var out: Array = []
 	for p in glb_list:
-		if p.find("terrenos/tileset") != -1 \
-				or p.get_file().to_lower().begins_with("agua"):
+		var f: String = str(p).get_file().to_lower()
+		if str(p).find("assets/tilesets/") != -1 \
+				or f.begins_with("tile_") or f.begins_with("agua"):
 			out.append(p)
 	return out
 
@@ -1552,16 +1554,18 @@ func _q(n: String) -> Control:
 	return _ui.get_node_or_null(NodePath("ScrollContainer/VB/" + n))
 
 ## ------------------------------------------------------- BATTLEMAT GLB ---
-## Candidatos = qualquer .glb na pasta de assets cujo arquivo comece com
-## "tile_" (ex.: tile_bosque.glb). Solte novos tiles_*.glb em
-## src/assets/editor e clique RECARREGAR ASSETS para lista-los aqui.
+## Candidatos = QUALQUER tile em src/assets/tilesets/ (tile_*.glb,
+## agua*.glb, etc.). Solte novos .glb em tilesets/ e clique
+## RECARREGAR ASSETS — aparecem AQUI (mapa inteiro) e em Tiles de rio
+## (por célula). É a mesma biblioteca, troque a hora que quiser.
 
 func _mat_candidates() -> Array:
-	# APENAS mats de mapa inteiro (convencao tile_*.glb). Tiles por casa
-	# (agua/rio) ficam no modo "Tiles de rio (GLB)", nao aqui!
+	# Mesma biblioteca de _glb_tiles(): battlemat e por-célula compartilham
 	var out: Array = []
 	for p in glb_list:
-		if p.get_file().begins_with("tile_"):
+		var f: String = str(p).get_file().to_lower()
+		if str(p).find("assets/tilesets/") != -1 \
+				or f.begins_with("tile_") or f.begins_with("agua"):
 			out.append(p)
 	return out
 

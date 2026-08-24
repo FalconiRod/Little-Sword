@@ -1,6 +1,6 @@
-# Estado Atual - 2026-08-23 - v0.9.2
+# Estado Atual - 2026-08-24 - v0.9.3
 
-## Status: GRID SINCRONIZADO (célula = casa impressa; convenção D17)
+## Status: TILE=2,4cm FIXO + TILESETS UNIFICADOS (troca a hora que quiser)
 
 ## O que funciona (validado headless + windowed RX580)
 - 4 mapas modulares carregam sem warnings (portas/escadas validadas)
@@ -10,16 +10,11 @@
   * ataque de oportunidade ao sair da adjacencia (1x/inimigo/movimento)
   * cobertura +2 CA (obstaculo na direcao do golpe)
   * acao Dispersar [6] imune a oportunidade ate proximo turno
-- PISO-FOLHA (D16): mapas com chave "sheet" trocam os pisos por celula
-  por UMA malha mesclada com a folha do usuario repetida (20x20
-  celulas/folha = 400 casas, celula de 2,4 cm impressa), alinhada a
-  origem; grade vetorial via shader next_pass; paredes/arvores ficam EM
-  CIMA da folha ('~' fica sem)
-- MAPA bosque_30: procedural 30x30 deterministico (seed 20260823,
-  flood-fill de conectividade; spawns PROPORCIONAIS ao w/h - o mesmo
-  gerador serve de 20x20 a 70x50); combate inicia ja na rodada 1
-- Camera: pan/zoom derivados do tamanho real do mapa (map_bounds)
-- COMBATTEST 4/4; STAIRTEST 8/8; CLICKTEST OK; SKILLTEST OK
+- TILE=2,4cm fixo em `src/core/board_grid.gd:6` (D17): célula = `[col*2.4, col*2.4+2.4]` centro `col*2.4+1.2`, shader e MultiMesh alinhados via `BoardGrid.TILE`
+- TILESETS UNIFICADOS: `src/assets/tilesets/` contém `tile_bosque.glb` + `agua*.glb` (e futuros `tile_*.glb`); **Battlemat (mapa inteiro)** e **Tiles de rio (por célula)** compartilham a MESMA biblioteca (`src/editor/map_editor.gd:258` `_glb_tiles` / `src/editor/map_editor.gd:1562` `_mat_candidates`) — troque bosque↔água a hora que quiser, F1 → RECARREGAR ASSETS
+- PISO-FOLHA (D16): `bosque_30.tile_glb` agora aponta para `src/assets/tilesets/` (qualquer GLB lá serve; sem GLB cai na folha `piso bosque/bosque.jpg` 50×50 células)
+- GRID AUTOMÁTICO 2,4×2,4 sobre estruturas: modo `SOBE` (`colina/eleva/lateral` auto) calcula `AABB` global + `elev = round(h/0.55)` por casa coberta (`src/editor/map_editor.gd:405` `_top_fill` com raycast + fallback `hh*fit*s`); `neighbors()` só permite degrau ≤1 — personagem procura melhor caminho e sobe degrau a degrau
+- 4 mapas modulares + bosque_30 (30×30 seed 20260823) ok; STAIRTEST 8/8; COMBATTEST 4/4 (validar após TILE 2,4)
 
 ## Como jogar / validar
 JOGAR_bosque.bat                                        # duplo clique!
