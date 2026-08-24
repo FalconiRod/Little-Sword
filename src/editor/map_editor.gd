@@ -531,6 +531,10 @@ func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void
 	if e["kind"] == "gtile":
 		env.set_sheet_cell_hidden(oc, false)
 		env.set_sheet_cell_hidden(nc, true)
+	if e["kind"] == "glb" or e["kind"] == "gtile":
+		BoardGrid.set_tile(oc, bool(e["data"].get("pw", true)),
+				bool(e["data"].get("pl", false)))
+		BoardGrid.set_tile(nc, false, e["kind"] == "glb")
 	e["node"].position = BoardGrid.world_pos(nc) \
 			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
 	if e["kind"] == "struct":
@@ -640,12 +644,18 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	# centrado em XZ. holder escala depois; offset fica em unidades do GLB.
 	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
 			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	# Ocupa a casa: unidades NAO atravessam o modelo (pega o estado antigo
+	# para restaurar ao apagar/mover).
+	var pw: bool = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
+	var pl: bool = BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false
+	BoardGrid.set_tile(c, false, true)
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
-			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
+			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1], "pw": pw,
+			"pl": pl}, fit)
 	_select(c)
 	_push_undo({"op": "place", "c": c})
-	_set_status("OK: modelo %s em %s. Q/E gira; roda do mouse muda escala."
-			% [path.get_file(), c])
+	_set_status("OK: modelo %s em %s (casa bloqueada). Q/E gira." %
+			[path.get_file(), c])
 	EventBus.log_msg.emit("GLB em %s" % c, "#7fd4ff")
 
 func _find_meshes(n: Node) -> Array:
@@ -684,12 +694,16 @@ func _place_gtile(path: String, c: Vector3i) -> void:
 		fit = BoardGrid.TILE / span
 	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
 			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	var pw: bool = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
+	var pl: bool = BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false
 	env.set_sheet_cell_hidden(c, true)
+	# Agua rasa: bloqueia andar, mas NAO bloqueia visao.
+	BoardGrid.set_tile(c, false, false)
 	_register("gtile", holder, c, {"p": path, "c": [c.x, c.y, c.z],
-			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1]}, fit)
+			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1], "pw": pw, "pl": pl}, fit)
 	_select(c)
 	_push_undo({"op": "place", "c": c})
-	_set_status("OK: tile %s em %s (grama escondida). Q/E gira." %
+	_set_status("OK: tile %s em %s (grama escondida, casa bloqueada)." %
 			[path.get_file(), c])
 	EventBus.log_msg.emit("Tile GLB em %s" % c, "#7fd4ff")
 
@@ -716,7 +730,10 @@ func _silent_gtile(path: String, c: Vector3i, data: Dictionary) -> void:
 		fit = BoardGrid.TILE / span
 	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
 			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	data["pw"] = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
+	data["pl"] = BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false
 	env.set_sheet_cell_hidden(c, true)
+	BoardGrid.set_tile(c, false, false)
 	data["c"] = [c.x, c.y, c.z]
 	_register("gtile", holder, c, data, fit)
 
@@ -786,6 +803,9 @@ func _erase_at(c, record := true) -> void:
 					BoardGrid.tiles[c]["losb"] if BoardGrid.tiles.has(c) else false)
 		if e["kind"] == "gtile":
 			env.set_sheet_cell_hidden(c, false)
+		if e["kind"] == "glb" or e["kind"] == "gtile":
+			BoardGrid.set_tile(c, bool(e["data"].get("pw", true)),
+					bool(e["data"].get("pl", false)))
 		if e["kind"] == "stair":
 			var other = BoardGrid.stair_pair(c)
 			BoardGrid.stair_links.erase(c)
@@ -1078,6 +1098,11 @@ func _silent_glb(path: String, c: Vector3i, data: Dictionary) -> void:
 		fit = 1.4 / box.size.y
 	inst.position = Vector3(-(box.position.x + box.size.x * 0.5),
 			-box.position.y, -(box.position.z + box.size.z * 0.5))
+	if not data.has("pw"):
+		data["pw"] = BoardGrid.tiles[c]["w"] if BoardGrid.tiles.has(c) else true
+		data["pl"] = BoardGrid.tiles[c]["losb"] \
+				if BoardGrid.tiles.has(c) else false
+	BoardGrid.set_tile(c, false, true)
 	data["c"] = [c.x, c.y, c.z]
 	_register("glb", holder, c, data, fit)
 
