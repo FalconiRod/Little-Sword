@@ -36,3 +36,10 @@ CAUSA: inst.position = -box.get_center()*fit centraliza o AABB verticalmente →
 metade do corpo abaixo de y=0. SOLUCAO: posicionar por PES:
 inst.position = (-(x+sx/2), -min.y, -(z+sz/2)) em unidades do GLB (sem fit;
 holder escala depois). ARQUIVOS: map_editor.gd (_place_glb/_silent_glb).
+
+### SOL-017 - GLBs novos do usuario (meshopt) falham ao importar/carregar
+- PROBLEMA: GLBs soltos pelo usuario (terrenos, tileset agua, rei/shaman goblin) nao apareciam no editor e tiles de rio "nao colocavam" — load() retorna null SEM erro claro.
+- CAUSA: EXT_meshopt_compression required; apos desquantizar, sub-passos do ResourceImporterScene (LODs/shadow/tangentes) ainda quebravam (padrao SOL-014).
+- SOLUCAO: 1) deq2.cjs (%TEMP%\opencode\gtt) com MeshoptDecoder do pacote 'meshoptimizer' (npm install meshoptimizer) — o deq.cjs antigo NAO le meshopt. 2) Patch no .import: meshes/ensure_tangents=false, generate_lods=false, create_shadow_meshes=false. 3) godot --headless --import. Probe: %TEMP%\opencode\probe_glb.gd lista OK/FAIL por glb.
+- ARQUIVOS: src/assets/terrenos/**, src/assets/goblins/{rei,shaman}*.glb
+- DATA: 2026-08-23
