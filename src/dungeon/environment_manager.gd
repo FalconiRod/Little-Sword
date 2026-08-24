@@ -504,6 +504,13 @@ func swap_base_tile(c: Vector3i, new_glb: String) -> bool:
 			(ch as MeshInstance3D).transform = base * xf
 			break
 	holder.set_meta("tile_glb", new_glb)
+	# Garante alinhamento ao grid 2,4 (recentraliza e mantém topo em y=0)
+	holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+			BoardGrid.world_pos(c).y,
+			c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
+	# Atualiza walkable: agua/buraco bloqueia, grama libera
+	var is_water := new_glb.to_lower().contains("agua") or new_glb.to_lower().contains("water")
+	BoardGrid.set_tile(c, not is_water, false, BoardGrid.elev_at(c))
 	inst.free()
 	return true
 
