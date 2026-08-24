@@ -397,35 +397,56 @@ func _build_tile_multimeshes_glb(glb: String) -> bool:
 		var cells: Array = _sheet_cells[f]
 		if cells.is_empty():
 			continue
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = mesh
-		mm.instance_count = cells.size()
-		for i in cells.size():
-			var c: Vector3i = cells[i]
-			var t := Transform3D(Basis(),
-					Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
-							BoardGrid.world_pos(c).y,
-							c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
-			mm.set_instance_transform(i, t * base * xf)
-		var mmi := MultiMeshInstance3D.new()
-		mmi.name = "BoardTiles%d" % f
-		mmi.multimesh = mm
-		_floor_nodes[f].add_child(mmi)
+		# NOVO: cada casa é um Node3D individual editável (rotação/troca por celula)
+		# Mantém performance: 900 tiles × ~2 tris = 1.8k tris, leve. Cada tile pode ser
+		# selecionado no editor (Q/E gira) e trocado por outro .glb de tilesets/.
+		for c in cells:
+			var holder := Node3D.new()
+			holder.name = "Tile_%d_%d_%d" % [c.x, c.y, c.z]
+			holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+					BoardGrid.world_pos(c).y,
+					c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
+			holder.set_meta("tile_cell", c)
+			holder.set_meta("tile_glb", glb)
+			var mi := MeshInstance3D.new()
+			mi.mesh = mesh
+			mi.transform = base * xf
+			holder.add_child(mi)
+			# Colisão para picking do editor (raycast layer 4)
+			var body := StaticBody3D.new()
+			body.collision_layer = 4
+			body.collision_mask = 0
+			body.set_meta("tile_cell", c)
+			var shape := BoxShape3D.new()
+			shape.size = Vector3(BoardGrid.TILE * 0.92, 0.3, BoardGrid.TILE * 0.92)
+			var cs := CollisionShape3D.new()
+			cs.shape = shape
+			body.add_child(cs)
+			holder.add_child(body)
+			_floor_nodes[f].add_child(holder)
+			_base_tiles[c] = holder
 	inst.free()
-	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s)."
-			% glb.get_file(), "#8a8f9c")
+	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s) — %d tiles editáveis."
+			% [glb.get_file(), _base_tiles.size()], "#8a8f9c")
 	return true
 
 ## Base do tile GLB guardada p/ manipulacao por celula (editor de mapa).
 var _tile_base := Transform3D.IDENTITY
 var _tile_xf := Transform3D.IDENTITY
+var _base_tiles := {}  # Vector3i -> Node3D (tile base editável por celula)
 
-## Esconde/restaura o tile base de UMA celula (MultiMesh): escondida,
-## a instancia desce -999 (fora da vista); restaurada, volta ao padrao.
+## Esconde/restaura o tile base de UMA celula: suporta tanto MultiMesh antigo
+## quanto tiles individuais novos (editáveis).
 func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
 	if c.z >= _floor_nodes.size():
 		return
+	# Novo: tiles individuais
+	if _base_tiles.has(c):
+		var holder: Node3D = _base_tiles[c]
+		if is_instance_valid(holder):
+			holder.visible = not hidden
+		return
+	# Legado: MultiMesh (saves antigos)
 	var mmi := _floor_nodes[c.z].get_node_or_null("BoardTiles%d" % c.z)
 	if mmi == null:
 		return
@@ -438,6 +459,66 @@ func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
 					BoardGrid.world_pos(c).y + (-999.0 if hidden else 0.0),
 					c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
 	mm.set_instance_transform(idx, t * _tile_base * _tile_xf)
+
+## Gira um tile base individual (Q/E no editor)
+func rotate_base_tile(c: Vector3i, deg: float) -> void:
+	if not _base_tiles.has(c):
+		return
+	var holder: Node3D = _base_tiles[c]
+	if is_instance_valid(holder):
+		holder.rotation.y = deg_to_rad(deg)
+
+## Troca o tileset de UMA casa (pasta raiz tilesets/)
+func swap_base_tile(c: Vector3i, new_glb: String) -> bool:
+	if not _base_tiles.has(c):
+		return false
+	var holder: Node3D = _base_tiles[c]
+	if not is_instance_valid(holder):
+		return false
+	var packed: PackedScene = load(new_glb)
+	if packed == null:
+		return false
+	var inst := packed.instantiate()
+	var meshes: Array = []
+	_collect_meshes(inst, Transform3D.IDENTITY, meshes)
+	if meshes.is_empty():
+		inst.free()
+		return false
+	var entry: Array = meshes[0]
+	var mesh: Mesh = entry[0]
+	var xf: Transform3D = entry[1]
+	var aabb := mesh.get_aabb()
+	var span: float = maxf(aabb.size.x, aabb.size.z)
+	if span <= 0.0001:
+		inst.free()
+		return false
+	var s := BoardGrid.TILE / span
+	var base := Transform3D(Basis.from_scale(Vector3(s, s, s)),
+			Vector3(-(aabb.position.x + aabb.size.x * 0.5) * s,
+					-aabb.end.y * s,
+					-(aabb.position.z + aabb.size.z * 0.5) * s))
+	# Troca o MeshInstance
+	for ch in holder.get_children():
+		if ch is MeshInstance3D:
+			(ch as MeshInstance3D).mesh = mesh
+			(ch as MeshInstance3D).transform = base * xf
+			break
+	holder.set_meta("tile_glb", new_glb)
+	holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+			BoardGrid.world_pos(c).y,
+			c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
+	var is_water := new_glb.to_lower().contains("agua") or new_glb.to_lower().contains("water")
+	if is_water:
+		for ch in holder.get_children():
+			if ch is MeshInstance3D:
+				var mi: MeshInstance3D = ch as MeshInstance3D
+				var tr: Transform3D = mi.transform
+				tr.basis.y *= 0.15
+				mi.transform = tr
+				break
+	BoardGrid.set_tile(c, not is_water, false, BoardGrid.elev_at(c))
+	inst.free()
+	return true
 
 func _find_first_glb(dir_path: String) -> String:
 	if dir_path == "":

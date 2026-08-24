@@ -31,10 +31,11 @@ var cat_item := {}          # modo -> indice do item ativo na categoria
 var spawn_key := "K"
 var glb_list: Array = []
 var selected_key = null     # Vector3i da peca selecionada (instancia)
+var selected_tile = null    # Vector3i do tile base selecionado (editável por casa)
 var _pending_stair = null   # primeira celula do par de escada
 
 var edits := {"props": [], "glbs": [], "floors": [], "stairs": [],
-	"spawns": {}, "unit_removed": [], "unit_rot": {}}
+	"spawns": {}, "unit_removed": [], "unit_rot": {}, "base_tiles": {}}
 var _placed := {}           # Vector3i -> {node, kind, data, fit}
 var _floor_overrides := {}  # Vector3i -> {node, data} (troca de piso)
 var _spawn_marks := {}
@@ -95,10 +96,24 @@ func _input(event: InputEvent) -> void:
 				var pc: Variant = _pick_piece(event.position)
 				if pc != null:
 					selected_unit = null
+					selected_tile = null
 					_select(pc)
 					_refresh_transform_ui()
 					_set_status("Peca reselecionada em %s." % str(pc))
 					return
+				# Tentar selecionar tile base editável
+				var tc: Variant = _pick_base_tile(event.position)
+				if tc != null:
+					selected_unit = null
+					_select(null)
+					selected_tile = tc
+					_refresh_transform_ui()
+					_set_status("Tile base selecionado em %s — Q/E gira, escolha outro tileset para trocar." % str(tc))
+					return
+				# Clicou no chão vazio → desseleciona
+				if selected_tile != null:
+					selected_tile = null
+					_refresh_transform_ui()
 			_apply_tool(c)
 		else:
 			if _dup_src != null:
@@ -342,6 +357,25 @@ func _pick_piece(screen_pos: Vector2):
 	if col is Node and (col as Node).has_meta("ed_data"):
 		var d: Dictionary = (col as Node).get_meta("ed_data")
 		return Vector3i(d["c"][0], d["c"][1], d["c"][2])
+	if col is Node and (col as Node).has_meta("tile_cell"):
+		var c: Vector3i = (col as Node).get_meta("tile_cell")
+		return c
+	return null
+
+## Pick só para tiles base (para rotação/troca individual)
+func _pick_base_tile(screen_pos: Vector2):
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var space: PhysicsDirectSpaceState3D = get_viewport().get_world_3d().direct_space_state
+	var from := cam.project_ray_origin(screen_pos)
+	var q := PhysicsRayQueryParameters3D.create(from, from + cam.project_ray_normal(screen_pos) * 300.0, 4)
+	var hit = space.intersect_ray(q)
+	if hit.is_empty():
+		return null
+	var col = hit.get("collider")
+	if col is Node and (col as Node).has_meta("tile_cell"):
+		return (col as Node).get_meta("tile_cell")
 	return null
 
 func _find_bodies(n: Node) -> Array:
@@ -482,6 +516,22 @@ func _rotate_selected(delta_deg: float) -> void:
 		_set_status("Unidade %s girada (%d graus)." % [selected_unit.id,
 				int(rad_to_deg(selected_unit.rotation.y))])
 		return
+	if selected_tile != null and env != null and env.has_method("rotate_base_tile"):
+		var cur := 0.0
+		if env._base_tiles.has(selected_tile):
+			var holder: Node3D = env._base_tiles[selected_tile]
+			if is_instance_valid(holder):
+				cur = rad_to_deg(holder.rotation.y)
+		var nxt := fposmod(cur + delta_deg, 360.0)
+		env.rotate_base_tile(selected_tile, nxt)
+		if not edits.has("base_tiles"):
+			edits["base_tiles"] = {}
+		var bkey := "%d,%d,%d" % [selected_tile.x, selected_tile.y, selected_tile.z]
+		if not edits["base_tiles"].has(bkey):
+			edits["base_tiles"][bkey] = {}
+		edits["base_tiles"][bkey]["rot"] = nxt
+		_set_status("Tile base %s girado para %d° (Q/E)." % [selected_tile, int(nxt)])
+		return
 	var e = _sel_entry()
 	if e == null:
 		return
@@ -557,7 +607,22 @@ func _apply_tool(c) -> void:
 				_place_glb(glb_list[_active_item("glb")], c)
 		"gtile":
 			if not _glb_tiles().is_empty():
-				_place_gtile(_cat_items("gtile")[_active_item("gtile")], c)
+				var gpath: String = _cat_items("gtile")[_active_item("gtile")]
+				# Novo tilemap editável: troca o tile base da casa (1 a 1, rotacionável)
+				if env != null and env.has_method("swap_base_tile") and env._base_tiles.has(c):
+					var cur_glb: String = str(env._base_tiles[c].get_meta("tile_glb", ""))
+					if cur_glb == gpath:
+						return # já é esse tileset, evita spam ao arrastar
+					if env.swap_base_tile(c, gpath):
+						if not edits.has("base_tiles"):
+							edits["base_tiles"] = {}
+						var bk := "%d,%d,%d" % [c.x, c.y, c.z]
+						if not edits["base_tiles"].has(bk):
+							edits["base_tiles"][bk] = {}
+						edits["base_tiles"][bk]["glb"] = gpath
+						_set_status("Tile %s → %s (arraste p/ pintar rio)" % [c, gpath.get_file()])
+					return
+				_place_gtile(gpath, c)
 		"stairs":
 			_stairs_click(c)
 		"erase":
@@ -1215,6 +1280,7 @@ func save_edits() -> void:
 	out["unit_rot"] = edits["unit_rot"]
 	out["unit_scl"] = edits.get("unit_scl", {})
 	out["mat_glb"] = edits.get("mat_glb", "")
+	out["base_tiles"] = edits.get("base_tiles", {})
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
 		EventBus.log_msg.emit("Editor: falha ao salvar!", "#ff6b6b")
@@ -1249,6 +1315,8 @@ func load_edits() -> void:
 		edits["unit_scl"] = {}
 	if not edits.has("mat_glb"):
 		edits["mat_glb"] = ""
+	if not edits.has("base_tiles"):
+		edits["base_tiles"] = {}
 
 ## Reaplica edicoes salvas por cima do mapa recem-gerado (instancias).
 func apply_edits_to(environment: Node) -> void:
@@ -1290,12 +1358,24 @@ func apply_edits_to(environment: Node) -> void:
 	if mat != "" and ResourceLoader.exists(mat) \
 			and environment.has_method("set_battle_mat"):
 		environment.set_battle_mat.call_deferred(mat)
+	# Tiles base editáveis por casa (rotação/troca via tilesets/)
+	for k in edits.get("base_tiles", {}).keys():
+		var v: Dictionary = edits["base_tiles"][k]
+		var parts := str(k).split(",")
+		if parts.size() != 3:
+			continue
+		var c := Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))
+		if v.has("glb") and environment.has_method("swap_base_tile"):
+			environment.swap_base_tile(c, str(v["glb"]))
+		if v.has("rot") and environment.has_method("rotate_base_tile"):
+			environment.rotate_base_tile(c, float(v["rot"]))
 	var total: int = int(edits.get("props", []).size()) \
 			+ int(edits.get("glbs", []).size()) \
 			+ int(edits.get("gtiles", []).size()) \
 			+ int(edits.get("floors", []).size()) \
 			+ int(edits.get("stairs", []).size()) \
-			+ int(edits["spawns"].size())
+			+ int(edits["spawns"].size()) \
+			+ int(edits.get("base_tiles", {}).size())
 	if total > 0:
 		EventBus.log_msg.emit("Edicoes de mapa carregadas (%d)." % total, "#7fd4ff")
 
@@ -1484,6 +1564,24 @@ func _build_ui() -> void:
 		b.name = "item_glb_%d" % i
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
+		vb.add_child(b)
+	_add_label(vb, "cat_gtile", "Tileset por celula (clique ou arraste)")
+	for i in _glb_tiles().size():
+		var b := Button.new()
+		b.name = "item_gtile_%d" % i
+		b.pressed.connect(func() -> void:
+			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
+			# Se um tile base já está selecionado, troca na hora
+			if selected_tile != null and env != null and env.has_method("swap_base_tile"):
+				var gpath: String = _glb_tiles()[i]
+				if env.swap_base_tile(selected_tile, gpath):
+					if not edits.has("base_tiles"):
+						edits["base_tiles"] = {}
+					var bk := "%d,%d,%d" % [selected_tile.x, selected_tile.y, selected_tile.z]
+					if not edits["base_tiles"].has(bk):
+						edits["base_tiles"][bk] = {}
+					edits["base_tiles"][bk]["glb"] = gpath
+					_set_status("Tile %s → %s" % [selected_tile, gpath.get_file()]))
 		vb.add_child(b)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
@@ -1716,12 +1814,12 @@ func _rebuild_placed_box() -> void:
 		if b is Button:
 			b.text = ("[x] " if mode == m[0] else "[  ] ") + m[1]
 	for cat in [["structure", CAT_WALLS], ["obstacle", CAT_OBSTACLES],
-			["prop", CAT_PROPS], ["floor", CAT_FLOORS], ["glb", glb_list]]:
+			["prop", CAT_PROPS], ["floor", CAT_FLOORS], ["glb", glb_list], ["gtile", _glb_tiles()]]:
 		for i in cat[1].size():
 			var b: Control = _q("item_%s_%d" % [cat[0], i])
 			if b is Button:
 				var id = cat[1][i]
-				var label: String = id.get_file() if cat[0] == "glb" else str(id)
+				var label: String = id.get_file() if cat[0] in ["glb", "gtile"] else str(id)
 				var mark: bool = mode == cat[0] and _active_item(cat[0]) == i
 				b.text = ("[x] " if mark else "[  ] ") + label
 				if _icon_cache.has(label):
@@ -1746,12 +1844,18 @@ func _rebuild_placed_box() -> void:
 func _refresh_transform_ui() -> void:
 	var l: Control = _q("tf_sel")
 	var e = _sel_entry()
-	var has := e != null or selected_unit != null
+	var has_tile := selected_tile != null
+	var has := e != null or selected_unit != null or has_tile
 	var hl: Control = _q("tf_h")
 	if l is Label:
 		if selected_unit != null:
 			l.text = "personagem: %s @ %s" % [selected_unit.id,
 					str(selected_unit.grid_pos)]
+		elif has_tile:
+			var glb: String = ""
+			if env != null and env._base_tiles.has(selected_tile):
+				glb = str(env._base_tiles[selected_tile].get_meta("tile_glb", "")).get_file()
+			l.text = "tile base: %s @ %s" % [glb if glb != "" else "?", str(selected_tile)]
 		else:
 			l.text = "selecionado: %s em %s" % [
 					e["data"].get("id", e["data"].get("p", "?")).get_file()
@@ -1784,7 +1888,7 @@ func _refresh_transform_ui() -> void:
 			sld.visible = show_ax
 			if has and sld is HSlider:
 				sld.set_value_no_signal(e["data"].get("adv", [1, 1, 1])[ax])
-	if has:
+	if has and e != null:
 		var sld: Control = _q("tf_s")
 		if sld is HSlider:
 			sld.set_value_no_signal(e["data"].get("s", 1.0))
@@ -1870,7 +1974,7 @@ func _scan_glbs() -> void:
 					glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
-	print("[EDITOR] scan GLB: ", glb_list.size(), " únicos | ", glb_list)
+	print("[EDITOR] scan GLB: ", glb_list.size(), " únicos")
 
 ## Reescaneia os .glb sem reiniciar o jogo (fluxo do game designer:
 ## solta arquivos novos em src/assets/editor e clica aqui).
