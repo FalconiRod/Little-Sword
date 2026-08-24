@@ -285,23 +285,95 @@ func _auto_bhv(path: String) -> String:
 			return "top"
 	return "block"
 
+## Corpo de colisao (trimesh) para raycast de altura das casas cobertas.
+func _make_trimesh(e) -> void:
+	for mi in _find_meshes(e["node"]):
+		mi.create_trimesh_collision()
+	for sb in _find_bodies(e["node"]):
+		sb.collision_layer = 4
+		sb.collision_mask = 0
+
+func _find_bodies(n: Node) -> Array:
+	var out: Array = []
+	if n is StaticBody3D:
+		out.append(n)
+	for ch in n.get_children():
+		out.append_array(_find_bodies(ch))
+	return out
+
+## Todas as casas do tabuleiro sob o PE do modelo (AABB global XZ).
+func _covered_cells(e) -> Array:
+	var box := AABB()
+	var any := false
+	for m in _find_meshes(e["node"]):
+		if m is VisualInstance3D:
+			box = box.merge(m.global_transform * m.get_aabb())
+			any = true
+	var out: Array = []
+	if not any:
+		return out
+	var z: int = int(e["data"]["c"][2])
+	var x0 := int(floor(box.position.x / BoardGrid.TILE))
+	var x1 := int(floor((box.position.x + box.size.x) / BoardGrid.TILE))
+	var y0 := int(floor(box.position.z / BoardGrid.TILE))
+	var y1 := int(floor((box.position.z + box.size.z) / BoardGrid.TILE))
+	for cy in range(y0, y1 + 1):
+		for cx in range(x0, x1 + 1):
+			out.append(Vector3i(cx, cy, z))
+	return out
+
+## Devolve as casas cobertas ao estado original (grid limpo p/ recalcular).
+func _clear_cells(e) -> void:
+	for d in e["data"].get("cells", []):
+		var cc := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+		BoardGrid.set_tile(cc, bool(d["w"]), bool(d["l"]))
+		BoardGrid.set_surface(cc, 0.0)
+	e["data"]["cells"] = []
+
+## Aplica comportamento em TODAS as casas cobertas pelo modelo.
 func _apply_bhv(e) -> void:
-	var c: Vector3i = Vector3i(e["data"]["c"][0], e["data"]["c"][1],
-			e["data"]["c"][2])
-	var orig_w: bool = bool(e["data"].get("pw", true))
-	var orig_l: bool = bool(e["data"].get("pl", false))
-	match str(e["data"].get("bhv", "block")):
-		"top":
-			BoardGrid.set_tile(c, true, orig_l)
-			BoardGrid.set_surface(c,
-					float(e["data"].get("hh", 0.0)) * float(e.get("fit", 1.0))
-					* float(e["data"].get("s", 1.0)))
-		"decor":
-			BoardGrid.set_tile(c, true, false)
-			BoardGrid.set_surface(c, 0.0)
-		_:
-			BoardGrid.set_tile(c, false, true)
-			BoardGrid.set_surface(c, 0.0)
+	_clear_cells(e)
+	var bhv := str(e["data"].get("bhv", "block"))
+	if bhv == "decor":
+		return
+	var cells := _covered_cells(e)
+	var recs: Array = []
+	for c in cells:
+		if not BoardGrid.tiles.has(c):
+			continue
+		recs.append({"c": [c.x, c.y, c.z],
+				"w": BoardGrid.tiles[c]["w"],
+				"l": BoardGrid.tiles[c]["losb"]})
+	e["data"]["cells"] = recs
+	if bhv == "block":
+		for c in cells:
+			if BoardGrid.tiles.has(c):
+				BoardGrid.set_tile(c, false, true)
+	else:
+		_top_fill(e)
+
+## SOBE: amostra a altura real do modelo em cada casa coberta (raycast
+## contra o trimesh) — encostas ficam andaveis na altura certa.
+func _top_fill(e) -> void:
+	for d in e["data"].get("cells", []):
+		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+		BoardGrid.set_tile(c, true, bool(d["l"]))
+	if not is_inside_tree():
+		return
+	await get_tree().physics_frame
+	if not is_instance_valid(e["node"]):
+		return
+	var space: PhysicsDirectSpaceState3D = e["node"].get_world_3d() \
+			.direct_space_state
+	for d in e["data"].get("cells", []):
+		var c := Vector3i(d["c"][0], d["c"][1], d["c"][2])
+		var wp := BoardGrid.world_pos(Vector3i(c.x, 0, c.z))
+		var q := PhysicsRayQueryParameters3D.create(
+				Vector3(wp.x, wp.y + 60, wp.z),
+				Vector3(wp.x, wp.y - 20, wp.z), 4)
+		var hit = space.intersect_ray(q)
+		if not hit.is_empty():
+			BoardGrid.set_surface(c, float(hit["position"].y) - wp.y)
 
 func _cycle_bhv() -> void:
 	var e = _sel_entry()
@@ -584,7 +656,8 @@ func _move_selected_piece_impl(nc: Vector3i, oc: Vector3i, record: bool) -> void
 	if e["kind"] == "glb" or e["kind"] == "gtile":
 		BoardGrid.set_tile(oc, bool(e["data"].get("pw", true)),
 				bool(e["data"].get("pl", false)))
-		BoardGrid.set_surface(oc, 0.0)
+	if e["kind"] == "glb":
+		_clear_cells(e)
 	e["node"].position = BoardGrid.world_pos(nc) \
 			+ (Vector3(0, 0.02, 0) if e["kind"] == "floor" else Vector3.ZERO)
 	if e["kind"] == "struct":
@@ -706,6 +779,7 @@ func _place_glb(path: String, c: Vector3i) -> void:
 	_register("glb", holder, c, {"p": path, "c": [c.x, c.y, c.z],
 			"rot": 0.0, "s": 1.0, "adv": [1, 1, 1], "pw": pw,
 			"pl": pl, "bhv": _auto_bhv(path), "hh": box.size.y}, fit)
+	_make_trimesh(_placed[c])
 	_apply_bhv(_placed[c])
 	_select(c)
 	_push_undo({"op": "place", "c": c})
@@ -861,7 +935,8 @@ func _erase_at(c, record := true) -> void:
 		if e["kind"] == "glb" or e["kind"] == "gtile":
 			BoardGrid.set_tile(c, bool(e["data"].get("pw", true)),
 					bool(e["data"].get("pl", false)))
-			BoardGrid.set_surface(c, 0.0)
+		if e["kind"] == "glb":
+			_clear_cells(e)
 		if e["kind"] == "stair":
 			var other = BoardGrid.stair_pair(c)
 			BoardGrid.stair_links.erase(c)
@@ -1164,6 +1239,7 @@ func _silent_glb(path: String, c: Vector3i, data: Dictionary) -> void:
 		data["hh"] = box.size.y
 	data["c"] = [c.x, c.y, c.z]
 	_register("glb", holder, c, data, fit)
+	_make_trimesh(_placed[c])
 	_apply_bhv(_placed[c])
 
 func _silent_floor(id: String, c: Vector3i) -> void:
