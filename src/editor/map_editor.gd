@@ -31,6 +31,7 @@ var _placed: Array = [] # Array[Dictionary {node:Node, entry:Dictionary, cell:Ve
 var _selected_catalog: int = -1
 var _selected_placed: int = -1
 
+const CD = preload("res://src/resources/character_definition.gd")
 const TYPES: Array[String] = ["Todos", "Chão", "Parede", "Porta", "Coluna", "Obstáculo", "Personagem", "Prop decorativo"]
 const FUNCS: Array[String] = ["Todas", "Bloqueia movimento", "Bloqueia visão", "Elevação", "Decorativo", "Spawn de personagem"]
 
@@ -114,7 +115,8 @@ func _build_ui() -> void:
 	# — Modo edição toggle
 	_chk_edit_mode = CheckButton.new()
 	_chk_edit_mode.text = "Modo Edição (clique no tabuleiro coloca peça)"
-	_chk_edit_mode.button_pressed = false
+	_chk_edit_mode.button_pressed = true
+	_chk_edit_mode.toggled.connect(func(pressed: bool) -> void: print("[MapEditor] modo edicao ", pressed))
 	vbox.add_child(_chk_edit_mode)
 	# — Filtros
 	var lbl_f: Label = Label.new()
@@ -250,6 +252,9 @@ func _refresh_results_list() -> void:
 		var col: Color = e["color"] as Color
 		_list_results.set_item_custom_bg_color(idx, Color(col.r, col.g, col.b, 0.25))
 		_list_results.set_item_tooltip(idx, "%s | %s | %s" % [e["name"], e["type"], ", ".join(e["funcs"])])
+	if _filtered.size() > 0 and _selected_catalog == -1:
+		_list_results.select(0)
+		_on_result_selected(0)
 
 func _refresh_placed_list() -> void:
 	if _list_placed == null:
@@ -374,6 +379,7 @@ func _on_remove() -> void:
 
 # — API para Main chamar ao clicar no tabuleiro
 func handle_board_click(cell: Vector3i) -> bool:
+	print("[MapEditor] handle_board_click ", cell, " modo=", _chk_edit_mode.button_pressed if _chk_edit_mode else false, " catalog=", _selected_catalog)
 	if _chk_edit_mode == null or not _chk_edit_mode.button_pressed:
 		return false
 	# se tem peça selecionada na lista de colocadas e clicou em outro lugar? Não move, só coloca nova ou seleciona
@@ -440,17 +446,16 @@ func _place_entry(entry: Dictionary, cell: Vector3i) -> void:
 			node.set("definition", def)
 			node.set("cell", cell)
 		"Personagem":
-			var CD: GDScript = load("res://src/resources/character_definition.gd") as GDScript
 			var char_key: String = entry.get("char", "cavaleiro") as String
 			var def2: Resource = null
 			match char_key:
-				"cavaleiro": def2 = CD.call("create_cavaleiro") as Resource
-				"maga": def2 = CD.call("create_maga") as Resource
-				"druida": def2 = CD.call("create_druida") as Resource
-				"goblin_guerreiro": def2 = CD.call("create_goblin_guerreiro") as Resource
-				"goblin_arqueiro": def2 = CD.call("create_goblin_arqueiro") as Resource
-				"boss": def2 = CD.call("create_boss") as Resource
-				_: def2 = CD.call("create_cavaleiro") as Resource
+				"cavaleiro": def2 = CD.create_cavaleiro()
+				"maga": def2 = CD.create_maga()
+				"druida": def2 = CD.create_druida()
+				"goblin_guerreiro": def2 = CD.create_goblin_guerreiro()
+				"goblin_arqueiro": def2 = CD.create_goblin_arqueiro()
+				"boss": def2 = CD.create_boss()
+				_: def2 = CD.create_cavaleiro()
 			node.set("definition", def2)
 			node.set("grid_pos", cell)
 		_:
