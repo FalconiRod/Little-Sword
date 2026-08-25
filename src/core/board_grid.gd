@@ -17,6 +17,8 @@ const RAY_TO_OFFSET: float = 4.0
 
 ## Dados por célula: Vector3i(col, row, floor) -> CellData
 var _cells: Dictionary = {}  # Vector3i -> Dictionary
+var _walls: Dictionary = {} # String key "x,y,z:dir" -> true
+var _doors: Array = [] # Array[Dictionary {edge:Vector3i, dir:String, state:int, behind:Vector3i}]
 var _bounds: Rect2 = Rect2(0, 0, 10, 10)
 var _floors_n: int = 1
 
@@ -31,8 +33,80 @@ var _floors_n: int = 1
 
 func reset() -> void:
 	_cells.clear()
+	_walls.clear()
+	_doors.clear()
 	_bounds = Rect2(0, 0, 10, 10)
 	_floors_n = 1
+
+func clear_walls_doors() -> void:
+	_walls.clear()
+	_doors.clear()
+
+func _wall_key(cell: Vector3i, dir: String) -> String:
+	return "%d,%d,%d:%s" % [cell.x, cell.y, cell.z, dir]
+
+func register_wall(cell: Vector3i, dir: String) -> void:
+	_walls[_wall_key(cell, dir)] = true
+	# também registra inversa na célula vizinha
+	var n: Vector3i = _neighbor_in_dir(cell, dir)
+	if n != cell:
+		var inv: String = _opposite_dir(dir)
+		_walls[_wall_key(n, inv)] = true
+
+func register_door(edge_cell: Vector3i, dir: String, state: int) -> void:
+	var behind: Vector3i = _neighbor_in_dir(edge_cell, dir)
+	_doors.append({"edge": edge_cell, "dir": dir, "state": state, "behind": behind})
+	# porta fechada/trancada conta como parede
+	if state != 0: # 0 = OPEN (DoorPiece.State.OPEN)
+		register_wall(edge_cell, dir)
+
+func _neighbor_in_dir(cell: Vector3i, dir: String) -> Vector3i:
+	match dir:
+		"north": return cell + Vector3i(0, -1, 0)
+		"south": return cell + Vector3i(0, 1, 0)
+		"west": return cell + Vector3i(-1, 0, 0)
+		"east": return cell + Vector3i(1, 0, 0)
+		_: return cell
+
+func _opposite_dir(dir: String) -> String:
+	match dir:
+		"north": return "south"
+		"south": return "north"
+		"west": return "east"
+		"east": return "west"
+		_: return dir
+
+func has_wall_between(a: Vector3i, b: Vector3i) -> bool:
+	if a.z != b.z:
+		return false
+	var dx: int = b.x - a.x
+	var dy: int = b.y - a.y
+	if abs(dx) + abs(dy) != 1:
+		return false
+	if dx == 1:
+		return _walls.has(_wall_key(a, "east")) or _walls.has(_wall_key(b, "west"))
+	if dx == -1:
+		return _walls.has(_wall_key(a, "west")) or _walls.has(_wall_key(b, "east"))
+	if dy == 1:
+		return _walls.has(_wall_key(a, "south")) or _walls.has(_wall_key(b, "north"))
+	if dy == -1:
+		return _walls.has(_wall_key(a, "north")) or _walls.has(_wall_key(b, "south"))
+	return false
+
+func is_wall_blocking(cell: Vector3i, dir: String) -> bool:
+	return _walls.has(_wall_key(cell, dir))
+
+func validate_door_rule() -> Array[String]:
+	var warnings: Array[String] = []
+	for d: Dictionary in _doors:
+		var behind: Vector3i = d["behind"] as Vector3i
+		if _cells.has(behind):
+			var data: Dictionary = _cells[behind] as Dictionary
+			if not bool(data.get("walkable", false)):
+				var msg: String = "[BoardGrid] REGRA VIOLADA: porta em %s %s tem celula atras %s bloqueada (walkable=false) — remover obstaculo" % [str(d["edge"]), d["dir"], str(behind)]
+				warnings.append(msg)
+				push_warning(msg)
+	return warnings
 
 func get_bounds() -> Rect2:
 	return _bounds
@@ -142,6 +216,7 @@ func set_tile(cell: Vector3i, walkable: bool, blocks_los_flag: bool = false, ele
 func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 	_cells.clear()
 	_surface.clear()
+	# NÃO limpa _walls/_doors aqui — Board registra manualmente após gerar peças
 	_bounds = map_bounds
 	_floors_n = floors_n
 
@@ -205,7 +280,7 @@ func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 				var rel_h: float = h - base_y
 				var elev: int = clampi(int(round(rel_h / ELEV_H)), 0, 8)
 
-				# Checa espaço livre acima (margem andável)
+				# Checa espaço livre acima (margem andável) — também captura blocks_los de obstáculo
 				var clearance_from: Vector3 = pos + Vector3(0, 0.1, 0)
 				var clearance_to: Vector3 = pos + Vector3(0, WALKABLE_CLEARANCE, 0)
 				var q2: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(clearance_from, clearance_to, 1)
@@ -214,6 +289,11 @@ func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 				var hit2: Dictionary = space.intersect_ray(q2)
 				if not hit2.is_empty():
 					walkable = false
+					var col2: Object = hit2["collider"] as Object
+					if col2 is Node and (col2 as Node).has_meta("blocks_los"):
+						if bool((col2 as Node).get_meta("blocks_los")):
+							blocks_los_flag = true
+					# se obstáculo tem cover_bonus, já está em blocks_los
 
 				_cells[cell] = {
 					"walkable": walkable,
@@ -283,9 +363,24 @@ func has_line_of_sight(a: Vector3i, b: Vector3i) -> bool:
 	if dist_f < 0.01:
 		return true
 	var steps: int = int(ceil(dist_f / (TILE * 0.25)))
+	var prev: Vector3i = a
 	for i: int in range(1, steps):
 		var p: Vector3 = wa.lerp(wb, float(i) / float(steps))
 		var cc: Vector3i = world_to_cell(p, a.z)
 		if blocks_los(cc):
 			return false
+		if i > 1 and has_wall_between(prev, cc):
+			return false
+		prev = cc
+	# também verifica parede entre a e primeiro sample, e último sample e b
+	if has_wall_between(a, world_to_cell(wa.lerp(wb, 1.0/float(steps)), a.z)):
+		return false
+	if has_wall_between(world_to_cell(wa.lerp(wb, float(steps-1)/float(steps)), a.z), b):
+		return false
 	return true
+
+func wall_count() -> int:
+	return _walls.size()
+
+func door_count() -> int:
+	return _doors.size()

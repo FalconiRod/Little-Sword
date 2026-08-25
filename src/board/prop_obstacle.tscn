@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://prop_fase2"]
+
+[ext_resource type="Script" path="res://src/board/prop_obstacle.gd" id="1"]
+[sub_resource type="BoxShape3D" id="Box_prop"]
+size = Vector3(1.4, 1.6, 1.4)
+
+[node name="PropObstacle" type="StaticBody3D"]
+script = ExtResource("1")
+collision_layer = 2
+collision_mask = 0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("Box_prop")

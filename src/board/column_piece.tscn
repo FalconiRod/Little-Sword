@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://col_fase2"]
+
+[ext_resource type="Script" path="res://src/board/column_piece.gd" id="1"]
+[sub_resource type="CylinderShape3D" id="Cyl_col"]
+radius = 0.22
+height = 3.5
+
+[node name="ColumnPiece" type="StaticBody3D"]
+script = ExtResource("1")
+collision_layer = 2
+collision_mask = 0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 0)
+shape = SubResource("Cyl_col")
