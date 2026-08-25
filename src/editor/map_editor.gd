@@ -286,14 +286,9 @@ func _cat_items(mode_name: String) -> Array:
 func _glb_tiles() -> Array:
 	var out: Array = []
 	for p in glb_list:
-		# Só os 4 da raiz tilesets/ (sem subpastas) — os 4 que funcionam
-		if str(p).begins_with("res://src/assets/tilesets/") and str(p).find("original/") == -1:
-			var depth: int = str(p).trim_prefix("res://src/assets/tilesets/").count("/") 
-			if depth == 0:
-				out.append(p)
-				continue
 		var f: String = str(p).get_file().to_lower()
-		if f.begins_with("tile_") and str(p).find("tilesets/") != -1 and str(p).find("original/") == -1:
+		if str(p).find("assets/tilesets/") != -1 \
+				or f.begins_with("tile_") or f.begins_with("agua"):
 			out.append(p)
 	return out
 
@@ -1565,12 +1560,21 @@ func _build_ui() -> void:
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
 		vb.add_child(b)
-	_add_label(vb, "cat_gtile", "Tileset por celula (clique ou arraste)")
-	for i in _glb_tiles().size():
+	_add_label(vb, "cat_gtile", ">>> TILESET POR CELULA - CLIQUE OU ARRASTE <<<")
+	var _gtile_list := _glb_tiles()
+	print("[EDITOR] _build_ui gtile list: ", _gtile_list.size(), " ", _gtile_list)
+	for i in _gtile_list.size():
 		var b := Button.new()
 		b.name = "item_gtile_%d" % i
+		# Força texto visível (branco sobre fundo escuro) e altura mínima
+		b.custom_minimum_size = Vector2(280, 28)
+		b.add_theme_color_override("font_color", Color.WHITE)
+		b.add_theme_color_override("font_hover_color", Color.YELLOW)
+		b.add_theme_font_size_override("font_size", 13)
+		b.text = _gtile_list[i].get_file()
 		b.pressed.connect(func() -> void:
 			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
+			# Se um tile base já está selecionado, troca na hora
 			if selected_tile != null and env != null and env.has_method("swap_base_tile"):
 				var gpath: String = _glb_tiles()[i]
 				if env.swap_base_tile(selected_tile, gpath):
@@ -1582,34 +1586,11 @@ func _build_ui() -> void:
 					edits["base_tiles"][bk]["glb"] = gpath
 					_set_status("Tile %s → %s" % [selected_tile, gpath.get_file()]))
 		vb.add_child(b)
-	# Renomear tileset dentro do jogo (nome custom)
-	_add_label(vb, "tileset_rename_title", "Renomear tileset selecionado:")
-	var rename_row := HBoxContainer.new()
-	vb.add_child(rename_row)
-	var rename_edit := LineEdit.new()
-	rename_edit.name = "tileset_rename"
-	rename_edit.placeholder_text = "Novo nome (ex: Água Clara)"
-	rename_edit.custom_minimum_size = Vector2(180, 24)
-	rename_row.add_child(rename_edit)
-	var rename_btn := Button.new()
-	rename_btn.text = "RENOMEAR"
-	rename_btn.pressed.connect(func() -> void:
-		var idx: int = cat_item.get("gtile", 0)
-		var list: Array = _glb_tiles()
-		if idx < 0 or idx >= list.size():
-			_set_status("Selecione um tileset primeiro.")
-			return
-		var path: String = list[idx]
-		var new_name: String = rename_edit.text.strip_edges()
-		if new_name == "":
-			_set_status("Digite um nome.")
-			return
-		if not edits.has("tileset_names"):
-			edits["tileset_names"] = {}
-		edits["tileset_names"][path] = new_name
-		_refresh_ui()
-		_set_status("Tileset renomeado: %s → %s" % [path.get_file(), new_name]))
-	rename_row.add_child(rename_btn)
+	if _gtile_list.is_empty():
+		var empty := Label.new()
+		empty.text = "NENHUM TILESET ENCONTRADO em src/assets/tilesets/ — verifique .glb"
+		empty.add_theme_color_override("font_color", Color.RED)
+		vb.add_child(empty)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
 		var b := Button.new()
