@@ -12,6 +12,7 @@ const TILE_F: float = 2.0
 const FLOOR_H_F: float = 7.0
 
 var _pieces: Array = []
+var _regen_count: int = 0
 
 func _get_board_grid() -> Node:
 	if has_node("/root/BoardGrid"):
@@ -77,7 +78,8 @@ func generate_board() -> void:
 				var cell: Vector3i = Vector3i(x, y, f)
 				var th: Resource = theme_grass
 				if use_checker_pattern:
-					th = theme_grass if (x + y) % 2 == 0 else theme_stone
+					# alterna a cada Gerar Grid para feedback visual
+					th = theme_grass if (x + y + _regen_count) % 2 == 0 else theme_stone
 				piece.set("theme", th)
 				piece.set("cell", cell)
 				add_child(piece)
@@ -117,10 +119,13 @@ func bake_grid() -> void:
 		push_warning("[Board] BoardGrid nao encontrado para bake")
 
 func regenerate_and_bake() -> void:
+	_regen_count += 1
+	print("[Board] regenerate_and_bake #", _regen_count)
 	generate_board()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	bake_grid()
+	print("[Board] regen #", _regen_count, " concluido - xadrez invertido")
 
 func get_pieces() -> Array:
 	return _pieces
