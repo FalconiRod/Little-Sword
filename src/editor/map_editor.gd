@@ -19,7 +19,7 @@ const CAT_PROPS := ["chest_prop", "torch", "lever_base"]
 const MODES := [["select", "Selecionar/Mover"], ["floor", "Trocar piso (tileset)"],
 	["structure", "Paredes/Colunas"], ["obstacle", "Obstaculos"],
 	["prop", "Props"], ["glb", "Modelos GLB"],
-	["gtile", "Tileset por celula (rio/terreno - arraste p/ pintar)"], ["stairs", "Escada"],
+	["gtile", "Tiles de rio (GLB)"], ["stairs", "Escada"],
 	["erase", "Apagar"]]
 const SPAWN_KEYS := [["K", "Heroi"], ["M", "Maga"], ["W", "Druida"],
 	["g", "Goblin"], ["a", "Arqueiro"], ["B", "Chefe"]]
@@ -31,18 +31,16 @@ var cat_item := {}          # modo -> indice do item ativo na categoria
 var spawn_key := "K"
 var glb_list: Array = []
 var selected_key = null     # Vector3i da peca selecionada (instancia)
-var selected_tile = null    # Vector3i do tile base selecionado (editável por casa)
 var _pending_stair = null   # primeira celula do par de escada
 
 var edits := {"props": [], "glbs": [], "floors": [], "stairs": [],
-	"spawns": {}, "unit_removed": [], "unit_rot": {}, "base_tiles": {}}
+	"spawns": {}, "unit_removed": [], "unit_rot": {}}
 var _placed := {}           # Vector3i -> {node, kind, data, fit}
 var _floor_overrides := {}  # Vector3i -> {node, data} (troca de piso)
 var _spawn_marks := {}
 var _ui: CanvasLayer = null
 var _cursor_quad: MeshInstance3D = null
 var _hover_cell = null
-var _last_drag_cell = null   # evita repintar mesma casa 60×/s ao arrastar
 var _icon_cache := {}       # id -> ImageTexture
 var _icon_queue: Array = []
 
@@ -67,20 +65,8 @@ func _input(event: InputEvent) -> void:
 		if hov != null:
 			_dbg_gui(hov)
 			return
-		var c2: Variant = _pick_cell(event.position)
-		_update_hover(c2)
+		_update_hover(_pick_cell(event.position))
 		_dbg_event(event)
-		# Arraste para pintar rio/tileset 1 a 1 (segure LMB e arraste) — só troca se mudar de casa
-		if (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 \
-				and mode in ["gtile", "floor"] \
-				and c2 != null and c2 != _last_drag_cell:
-			_last_drag_cell = c2
-			_apply_tool(c2)
-		elif (event.button_mask & MOUSE_BUTTON_MASK_LEFT) == 0:
-			_last_drag_cell = null
-	elif event is InputEventMouseButton and not event.pressed \
-			and event.button_index == MOUSE_BUTTON_LEFT:
-		_last_drag_cell = null
 	elif event is InputEventMouseButton and event.pressed \
 			and (event.button_index == MOUSE_BUTTON_LEFT
 					or event.button_index == MOUSE_BUTTON_RIGHT):
@@ -96,24 +82,10 @@ func _input(event: InputEvent) -> void:
 				var pc: Variant = _pick_piece(event.position)
 				if pc != null:
 					selected_unit = null
-					selected_tile = null
 					_select(pc)
 					_refresh_transform_ui()
 					_set_status("Peca reselecionada em %s." % str(pc))
 					return
-				# Tentar selecionar tile base editável
-				var tc: Variant = _pick_base_tile(event.position)
-				if tc != null:
-					selected_unit = null
-					_select(null)
-					selected_tile = tc
-					_refresh_transform_ui()
-					_set_status("Tile base selecionado em %s — Q/E gira, escolha outro tileset para trocar." % str(tc))
-					return
-				# Clicou no chão vazio → desseleciona
-				if selected_tile != null:
-					selected_tile = null
-					_refresh_transform_ui()
 			_apply_tool(c)
 		else:
 			if _dup_src != null:
@@ -281,14 +253,12 @@ func _cat_items(mode_name: String) -> Array:
 	return []
 
 ## GLBs que sao tiles de chao (substituem o gramado da casa):
-## QUALQUER tile em src/assets/tilesets/ (tile_*.glb, agua*.glb, etc.)
-## — troque a hora que quiser, todos aparecem aqui e no Battlemat.
+## pasta terrenos/tileset ou arquivos começando com "agua".
 func _glb_tiles() -> Array:
 	var out: Array = []
 	for p in glb_list:
-		var f: String = str(p).get_file().to_lower()
-		if str(p).find("assets/tilesets/") != -1 \
-				or f.begins_with("tile_") or f.begins_with("agua"):
+		if p.find("terrenos/tileset") != -1 \
+				or p.get_file().to_lower().begins_with("agua"):
 			out.append(p)
 	return out
 
@@ -352,25 +322,6 @@ func _pick_piece(screen_pos: Vector2):
 	if col is Node and (col as Node).has_meta("ed_data"):
 		var d: Dictionary = (col as Node).get_meta("ed_data")
 		return Vector3i(d["c"][0], d["c"][1], d["c"][2])
-	if col is Node and (col as Node).has_meta("tile_cell"):
-		var c: Vector3i = (col as Node).get_meta("tile_cell")
-		return c
-	return null
-
-## Pick só para tiles base (para rotação/troca individual)
-func _pick_base_tile(screen_pos: Vector2):
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return null
-	var space: PhysicsDirectSpaceState3D = get_viewport().get_world_3d().direct_space_state
-	var from := cam.project_ray_origin(screen_pos)
-	var q := PhysicsRayQueryParameters3D.create(from, from + cam.project_ray_normal(screen_pos) * 300.0, 4)
-	var hit = space.intersect_ray(q)
-	if hit.is_empty():
-		return null
-	var col = hit.get("collider")
-	if col is Node and (col as Node).has_meta("tile_cell"):
-		return (col as Node).get_meta("tile_cell")
 	return null
 
 func _find_bodies(n: Node) -> Array:
@@ -511,22 +462,6 @@ func _rotate_selected(delta_deg: float) -> void:
 		_set_status("Unidade %s girada (%d graus)." % [selected_unit.id,
 				int(rad_to_deg(selected_unit.rotation.y))])
 		return
-	if selected_tile != null and env != null and env.has_method("rotate_base_tile"):
-		var cur := 0.0
-		if env._base_tiles.has(selected_tile):
-			var holder: Node3D = env._base_tiles[selected_tile]
-			if is_instance_valid(holder):
-				cur = rad_to_deg(holder.rotation.y)
-		var nxt := fposmod(cur + delta_deg, 360.0)
-		env.rotate_base_tile(selected_tile, nxt)
-		if not edits.has("base_tiles"):
-			edits["base_tiles"] = {}
-		var bkey := "%d,%d,%d" % [selected_tile.x, selected_tile.y, selected_tile.z]
-		if not edits["base_tiles"].has(bkey):
-			edits["base_tiles"][bkey] = {}
-		edits["base_tiles"][bkey]["rot"] = nxt
-		_set_status("Tile base %s girado para %d° (Q/E)." % [selected_tile, int(nxt)])
-		return
 	var e = _sel_entry()
 	if e == null:
 		return
@@ -602,22 +537,7 @@ func _apply_tool(c) -> void:
 				_place_glb(glb_list[_active_item("glb")], c)
 		"gtile":
 			if not _glb_tiles().is_empty():
-				var gpath: String = _cat_items("gtile")[_active_item("gtile")]
-				# Novo tilemap editável: troca o tile base da casa (1 a 1, rotacionável)
-				if env != null and env.has_method("swap_base_tile") and env._base_tiles.has(c):
-					var cur_glb: String = str(env._base_tiles[c].get_meta("tile_glb", ""))
-					if cur_glb == gpath:
-						return # já é esse tileset, evita spam ao arrastar
-					if env.swap_base_tile(c, gpath):
-						if not edits.has("base_tiles"):
-							edits["base_tiles"] = {}
-						var bk := "%d,%d,%d" % [c.x, c.y, c.z]
-						if not edits["base_tiles"].has(bk):
-							edits["base_tiles"][bk] = {}
-						edits["base_tiles"][bk]["glb"] = gpath
-						_set_status("Tile %s → %s (arraste p/ pintar rio)" % [c, gpath.get_file()])
-					return
-				_place_gtile(gpath, c)
+				_place_gtile(_cat_items("gtile")[_active_item("gtile")], c)
 		"stairs":
 			_stairs_click(c)
 		"erase":
@@ -964,25 +884,12 @@ func _model_aabb(inst: Node3D) -> AABB:
 			st[1] = true
 	return st[0] if st[1] else AABB(Vector3.ZERO, Vector3.ONE)
 
-## Tile GLB (agua/rio/terreno): cobre a casa INTEIRA e esconde o gramado por baixo.
-## Troca 1 a 1: se a casa já tem um tile, sobrescreve (para desenhar rio arrastando).
+## Tile GLB (agua/rio): cobre a casa INTEIRA e esconde o gramado por baixo.
 func _place_gtile(path: String, c: Vector3i) -> void:
-	if c == null or not BoardGrid.tiles.has(c):
-		return
-	# Se já tem tile/peca, permite sobrescrever tile por tile (fluxo de rio)
 	if _placed.has(c):
-		var ex = _placed[c]
-		if ex["kind"] == "gtile":
-			# Mesmo tile já está lá → nada a fazer (evita spam ao arrastar)
-			if str(ex["data"].get("p","")) == path:
-				return
-			# Troca: apaga o antigo sem registrar undo extra, depois cai no place
-			_erase_at(c, false)
-		else:
-			EventBus.log_msg.emit("Celula ocupada por outra peca.", "#ff6b6b")
-			return
+		EventBus.log_msg.emit("Celula ja ocupada pelo editor.", "#ff6b6b")
+		return
 	if not BoardGrid.is_walkable(c):
-		# Após apagar gtile antigo, walkable volta a true; se ainda false é parede/buraco
 		EventBus.log_msg.emit("So sobre casas andaveis.", "#ff6b6b")
 		return
 	var ps: PackedScene = load(path)
@@ -1275,7 +1182,6 @@ func save_edits() -> void:
 	out["unit_rot"] = edits["unit_rot"]
 	out["unit_scl"] = edits.get("unit_scl", {})
 	out["mat_glb"] = edits.get("mat_glb", "")
-	out["base_tiles"] = edits.get("base_tiles", {})
 	var f := FileAccess.open("user://" + _save_path(), FileAccess.WRITE)
 	if f == null:
 		EventBus.log_msg.emit("Editor: falha ao salvar!", "#ff6b6b")
@@ -1310,8 +1216,6 @@ func load_edits() -> void:
 		edits["unit_scl"] = {}
 	if not edits.has("mat_glb"):
 		edits["mat_glb"] = ""
-	if not edits.has("base_tiles"):
-		edits["base_tiles"] = {}
 
 ## Reaplica edicoes salvas por cima do mapa recem-gerado (instancias).
 func apply_edits_to(environment: Node) -> void:
@@ -1353,24 +1257,12 @@ func apply_edits_to(environment: Node) -> void:
 	if mat != "" and ResourceLoader.exists(mat) \
 			and environment.has_method("set_battle_mat"):
 		environment.set_battle_mat.call_deferred(mat)
-	# Tiles base editáveis por casa (rotação/troca via tilesets/)
-	for k in edits.get("base_tiles", {}).keys():
-		var v: Dictionary = edits["base_tiles"][k]
-		var parts := str(k).split(",")
-		if parts.size() != 3:
-			continue
-		var c := Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))
-		if v.has("glb") and environment.has_method("swap_base_tile"):
-			environment.swap_base_tile(c, str(v["glb"]))
-		if v.has("rot") and environment.has_method("rotate_base_tile"):
-			environment.rotate_base_tile(c, float(v["rot"]))
 	var total: int = int(edits.get("props", []).size()) \
 			+ int(edits.get("glbs", []).size()) \
 			+ int(edits.get("gtiles", []).size()) \
 			+ int(edits.get("floors", []).size()) \
 			+ int(edits.get("stairs", []).size()) \
-			+ int(edits["spawns"].size()) \
-			+ int(edits.get("base_tiles", {}).size())
+			+ int(edits["spawns"].size())
 	if total > 0:
 		EventBus.log_msg.emit("Edicoes de mapa carregadas (%d)." % total, "#7fd4ff")
 
@@ -1544,7 +1436,7 @@ func _build_ui() -> void:
 	_add_label(vb, "cat_glb", "modelos GLB")
 	var hint := Label.new()
 	hint.name = "glb_hint"
-	hint.text = "Tilesets: .glb em src/assets/tilesets/ | Modelos: src/assets/editor/ → RECARREGAR"
+	hint.text = "Coloque .glb em src/assets/editor e clique RECARREGAR"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", Color.html("8a8f9c"))
@@ -1560,37 +1452,6 @@ func _build_ui() -> void:
 		b.pressed.connect(func() -> void:
 			mode = "glb"; cat_item["glb"] = i; _refresh_ui())
 		vb.add_child(b)
-	_add_label(vb, "cat_gtile", ">>> TILESET POR CELULA - CLIQUE OU ARRASTE <<<")
-	var _gtile_list := _glb_tiles()
-	print("[EDITOR] _build_ui gtile list: ", _gtile_list.size(), " ", _gtile_list)
-	for i in _gtile_list.size():
-		var b := Button.new()
-		b.name = "item_gtile_%d" % i
-		# Força texto visível (branco sobre fundo escuro) e altura mínima
-		b.custom_minimum_size = Vector2(280, 28)
-		b.add_theme_color_override("font_color", Color.WHITE)
-		b.add_theme_color_override("font_hover_color", Color.YELLOW)
-		b.add_theme_font_size_override("font_size", 13)
-		b.text = _gtile_list[i].get_file()
-		b.pressed.connect(func() -> void:
-			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
-			# Se um tile base já está selecionado, troca na hora
-			if selected_tile != null and env != null and env.has_method("swap_base_tile"):
-				var gpath: String = _glb_tiles()[i]
-				if env.swap_base_tile(selected_tile, gpath):
-					if not edits.has("base_tiles"):
-						edits["base_tiles"] = {}
-					var bk := "%d,%d,%d" % [selected_tile.x, selected_tile.y, selected_tile.z]
-					if not edits["base_tiles"].has(bk):
-						edits["base_tiles"][bk] = {}
-					edits["base_tiles"][bk]["glb"] = gpath
-					_set_status("Tile %s → %s" % [selected_tile, gpath.get_file()]))
-		vb.add_child(b)
-	if _gtile_list.is_empty():
-		var empty := Label.new()
-		empty.text = "NENHUM TILESET ENCONTRADO em src/assets/tilesets/ — verifique .glb"
-		empty.add_theme_color_override("font_color", Color.RED)
-		vb.add_child(empty)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
 		var b := Button.new()
@@ -1671,6 +1532,13 @@ func _build_ui() -> void:
 	vb.add_child(bb)
 	_add_label(vb, "hint", "Clique: usar ferramenta | Direito: apagar\n" +
 			"Q/E gira | G troca modo | Esc: desselecionar")
+	var gen_b := Button.new()
+	gen_b.text = "GERAR GRID (raycast — bake)"
+	gen_b.pressed.connect(func() -> void:
+		if env != null and env.has_method("bake_grid"):
+			env.bake_grid()
+			_set_status("Grid gerado por raycast (%d células)." % BoardGrid.tiles.size()))
+	vb.add_child(gen_b)
 	var save_b := Button.new()
 	save_b.text = "SALVAR MAPA"
 	save_b.pressed.connect(save_edits)
@@ -1691,18 +1559,16 @@ func _q(n: String) -> Control:
 	return _ui.get_node_or_null(NodePath("ScrollContainer/VB/" + n))
 
 ## ------------------------------------------------------- BATTLEMAT GLB ---
-## Candidatos = QUALQUER tile em src/assets/tilesets/ (tile_*.glb,
-## agua*.glb, etc.). Solte novos .glb em tilesets/ e clique
-## RECARREGAR ASSETS — aparecem AQUI (mapa inteiro) e em Tiles de rio
-## (por célula). É a mesma biblioteca, troque a hora que quiser.
+## Candidatos = qualquer .glb na pasta de assets cujo arquivo comece com
+## "tile_" (ex.: tile_bosque.glb). Solte novos tiles_*.glb em
+## src/assets/editor e clique RECARREGAR ASSETS para lista-los aqui.
 
 func _mat_candidates() -> Array:
-	# Mesma biblioteca de _glb_tiles(): battlemat e por-célula compartilham
+	# APENAS mats de mapa inteiro (convencao tile_*.glb). Tiles por casa
+	# (agua/rio) ficam no modo "Tiles de rio (GLB)", nao aqui!
 	var out: Array = []
 	for p in glb_list:
-		var f: String = str(p).get_file().to_lower()
-		if str(p).find("assets/tilesets/") != -1 \
-				or f.begins_with("tile_") or f.begins_with("agua"):
+		if p.get_file().begins_with("tile_"):
 			out.append(p)
 	return out
 
@@ -1754,7 +1620,7 @@ func _refresh_ui() -> void:
 					% glb_list[_active_item("glb")].get_file()
 		elif mode == "gtile":
 			var gt: Array = _glb_tiles()
-			t = "VAI COLOCAR: %s (tileset por celula — troca 1 a 1, arraste p/ pintar rio)" % (
+			t = "VAI COLOCAR: %s (tile de rio — grama some)" % (
 					gt[_active_item("gtile")].get_file()
 					if not gt.is_empty() else "nenhum tile encontrado")
 		elif mode == "stairs":
@@ -1822,12 +1688,12 @@ func _rebuild_placed_box() -> void:
 		if b is Button:
 			b.text = ("[x] " if mode == m[0] else "[  ] ") + m[1]
 	for cat in [["structure", CAT_WALLS], ["obstacle", CAT_OBSTACLES],
-			["prop", CAT_PROPS], ["floor", CAT_FLOORS], ["glb", glb_list], ["gtile", _glb_tiles()]]:
+			["prop", CAT_PROPS], ["floor", CAT_FLOORS], ["glb", glb_list]]:
 		for i in cat[1].size():
 			var b: Control = _q("item_%s_%d" % [cat[0], i])
 			if b is Button:
 				var id = cat[1][i]
-				var label: String = id.get_file() if cat[0] in ["glb", "gtile"] else str(id)
+				var label: String = id.get_file() if cat[0] == "glb" else str(id)
 				var mark: bool = mode == cat[0] and _active_item(cat[0]) == i
 				b.text = ("[x] " if mark else "[  ] ") + label
 				if _icon_cache.has(label):
@@ -1852,18 +1718,12 @@ func _rebuild_placed_box() -> void:
 func _refresh_transform_ui() -> void:
 	var l: Control = _q("tf_sel")
 	var e = _sel_entry()
-	var has_tile := selected_tile != null
-	var has := e != null or selected_unit != null or has_tile
+	var has := e != null or selected_unit != null
 	var hl: Control = _q("tf_h")
 	if l is Label:
 		if selected_unit != null:
 			l.text = "personagem: %s @ %s" % [selected_unit.id,
 					str(selected_unit.grid_pos)]
-		elif has_tile:
-			var glb: String = ""
-			if env != null and env._base_tiles.has(selected_tile):
-				glb = str(env._base_tiles[selected_tile].get_meta("tile_glb", "")).get_file()
-			l.text = "tile base: %s @ %s" % [glb if glb != "" else "?", str(selected_tile)]
 		else:
 			l.text = "selecionado: %s em %s" % [
 					e["data"].get("id", e["data"].get("p", "?")).get_file()
@@ -1896,7 +1756,7 @@ func _refresh_transform_ui() -> void:
 			sld.visible = show_ax
 			if has and sld is HSlider:
 				sld.set_value_no_signal(e["data"].get("adv", [1, 1, 1])[ax])
-	if has and e != null:
+	if has:
 		var sld: Control = _q("tf_s")
 		if sld is HSlider:
 			sld.set_value_no_signal(e["data"].get("s", 1.0))

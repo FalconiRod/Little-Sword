@@ -120,7 +120,9 @@ func load_map(id: String) -> bool:
 				push_warning("[MAPA %s] Escada: célula do par inválida ou bloqueada: %s"
 						% [map_id, cel])
 
-	# PARTE 2: porta precisa de eixo de passagem livre dos DOIS lados.
+	# Bake por raycast (PROMPT DEFINITIVO): única fonte de verdade do BoardGrid
+	call_deferred("bake_grid")
+	# PARTE 2: porta precisa de eixo de passagem livre dos DOIS lados (validada de novo após bake).
 	_validate_doors()
 
 	_setup_atmosphere(def.get("outdoor", false))
@@ -128,6 +130,13 @@ func load_map(id: String) -> bool:
 	set_active_floor(0)
 	EventBus.log_msg.emit("Mapa: %s" % map_name, "#c9a227")
 	return true
+
+func bake_grid() -> void:
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	BoardGrid.bake_from_physics(self, map_bounds(), floors_n)
+	_validate_doors()
+	EventBus.log_msg.emit("Grid gerado por raycast (%d células)." % BoardGrid.tiles.size(), "#8fdc7f")
 
 ## Visual da escada: coluna espiral na célula base + marcador âmbar na
 ## célula do topo. A travessia em si é try_cross_stairs (transição).
@@ -397,56 +406,35 @@ func _build_tile_multimeshes_glb(glb: String) -> bool:
 		var cells: Array = _sheet_cells[f]
 		if cells.is_empty():
 			continue
-		# NOVO: cada casa é um Node3D individual editável (rotação/troca por celula)
-		# Mantém performance: 900 tiles × ~2 tris = 1.8k tris, leve. Cada tile pode ser
-		# selecionado no editor (Q/E gira) e trocado por outro .glb de tilesets/.
-		for c in cells:
-			var holder := Node3D.new()
-			holder.name = "Tile_%d_%d_%d" % [c.x, c.y, c.z]
-			holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
-					BoardGrid.world_pos(c).y,
-					c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
-			holder.set_meta("tile_cell", c)
-			holder.set_meta("tile_glb", glb)
-			var mi := MeshInstance3D.new()
-			mi.mesh = mesh
-			mi.transform = base * xf
-			holder.add_child(mi)
-			# Colisão para picking do editor (raycast layer 4)
-			var body := StaticBody3D.new()
-			body.collision_layer = 4
-			body.collision_mask = 0
-			body.set_meta("tile_cell", c)
-			var shape := BoxShape3D.new()
-			shape.size = Vector3(BoardGrid.TILE * 0.92, 0.3, BoardGrid.TILE * 0.92)
-			var cs := CollisionShape3D.new()
-			cs.shape = shape
-			body.add_child(cs)
-			holder.add_child(body)
-			_floor_nodes[f].add_child(holder)
-			_base_tiles[c] = holder
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = cells.size()
+		for i in cells.size():
+			var c: Vector3i = cells[i]
+			var t := Transform3D(Basis(),
+					Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
+							BoardGrid.world_pos(c).y,
+							c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
+			mm.set_instance_transform(i, t * base * xf)
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "BoardTiles%d" % f
+		mmi.multimesh = mm
+		_floor_nodes[f].add_child(mmi)
 	inst.free()
-	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s) — %d tiles editáveis."
-			% [glb.get_file(), _base_tiles.size()], "#8a8f9c")
+	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s)."
+			% glb.get_file(), "#8a8f9c")
 	return true
 
 ## Base do tile GLB guardada p/ manipulacao por celula (editor de mapa).
 var _tile_base := Transform3D.IDENTITY
 var _tile_xf := Transform3D.IDENTITY
-var _base_tiles := {}  # Vector3i -> Node3D (tile base editável por celula)
 
-## Esconde/restaura o tile base de UMA celula: suporta tanto MultiMesh antigo
-## quanto tiles individuais novos (editáveis).
+## Esconde/restaura o tile base de UMA celula (MultiMesh): escondida,
+## a instancia desce -999 (fora da vista); restaurada, volta ao padrao.
 func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
 	if c.z >= _floor_nodes.size():
 		return
-	# Novo: tiles individuais
-	if _base_tiles.has(c):
-		var holder: Node3D = _base_tiles[c]
-		if is_instance_valid(holder):
-			holder.visible = not hidden
-		return
-	# Legado: MultiMesh (saves antigos)
 	var mmi := _floor_nodes[c.z].get_node_or_null("BoardTiles%d" % c.z)
 	if mmi == null:
 		return
@@ -460,89 +448,21 @@ func set_sheet_cell_hidden(c: Vector3i, hidden: bool) -> void:
 					c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5))
 	mm.set_instance_transform(idx, t * _tile_base * _tile_xf)
 
-## Gira um tile base individual (Q/E no editor)
-func rotate_base_tile(c: Vector3i, deg: float) -> void:
-	if not _base_tiles.has(c):
-		return
-	var holder: Node3D = _base_tiles[c]
-	if is_instance_valid(holder):
-		holder.rotation.y = deg_to_rad(deg)
-
-## Troca o tileset de UMA casa (pasta raiz tilesets/)
-func swap_base_tile(c: Vector3i, new_glb: String) -> bool:
-	if not _base_tiles.has(c):
-		return false
-	var holder: Node3D = _base_tiles[c]
-	if not is_instance_valid(holder):
-		return false
-	var packed: PackedScene = load(new_glb)
-	if packed == null:
-		return false
-	var inst := packed.instantiate()
-	var meshes: Array = []
-	_collect_meshes(inst, Transform3D.IDENTITY, meshes)
-	if meshes.is_empty():
-		inst.free()
-		return false
-	var entry: Array = meshes[0]
-	var mesh: Mesh = entry[0]
-	var xf: Transform3D = entry[1]
-	var aabb := mesh.get_aabb()
-	var span: float = maxf(aabb.size.x, aabb.size.z)
-	if span <= 0.0001:
-		inst.free()
-		return false
-	var s := BoardGrid.TILE / span
-	var base := Transform3D(Basis.from_scale(Vector3(s, s, s)),
-			Vector3(-(aabb.position.x + aabb.size.x * 0.5) * s,
-					-aabb.end.y * s,
-					-(aabb.position.z + aabb.size.z * 0.5) * s))
-	# Troca o MeshInstance
-	for ch in holder.get_children():
-		if ch is MeshInstance3D:
-			(ch as MeshInstance3D).mesh = mesh
-			(ch as MeshInstance3D).transform = base * xf
-			break
-	holder.set_meta("tile_glb", new_glb)
-	# Garante alinhamento ao grid 2,4 (recentraliza e mantém topo em y=0)
-	holder.position = Vector3(c.x * BoardGrid.TILE + BoardGrid.TILE * 0.5,
-			BoardGrid.world_pos(c).y,
-			c.y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
-	# Atualiza walkable: agua/buraco bloqueia, grama libera
-	var is_water := new_glb.to_lower().contains("agua") or new_glb.to_lower().contains("water")
-	BoardGrid.set_tile(c, not is_water, false, BoardGrid.elev_at(c))
-	inst.free()
-	return true
-
 func _find_first_glb(dir_path: String) -> String:
 	if dir_path == "":
 		return ""
-	# Prioridade: tile_bosque.glb é o padrão leve (711KB); agua*.glb tem 48MB
-	# e trava se for usado como battlemat repetido 900×. Só use agua se
-	# o usuário trocar manualmente pelo editor.
-	if dir_path == "res://src/assets/tilesets":
-		var pref := dir_path.path_join("tile_bosque.glb")
-		if FileAccess.file_exists(pref):
-			return pref
 	var d := DirAccess.open(dir_path)
 	if d == null:
 		return ""
 	d.list_dir_begin()
 	var fname := d.get_next()
-	var fallback := ""
 	while fname != "":
 		if not d.current_is_dir() and fname.to_lower().ends_with(".glb"):
-			var p := dir_path.path_join(fname)
-			# Evita agua gigante como padrão automático
-			if fname.to_lower().begins_with("agua"):
-				if fallback == "":
-					fallback = p
-			else:
-				d.list_dir_end()
-				return p
+			d.list_dir_end()
+			return dir_path.path_join(fname)
 		fname = d.get_next()
 	d.list_dir_end()
-	return fallback
+	return ""
 
 func _collect_meshes(n: Node, xf: Transform3D, out: Array) -> void:
 	var local := xf
@@ -881,16 +801,15 @@ const MAPS := {
 	# impressa do usuário com grade de 50×50 células (v2 da arte,
 	# 5908²px ≈ 118px/célula); o mapa 30×30 cabe inteiro numa folha só
 	# (sem costuras). Árvores/rochas são miniaturas EM CIMA da folha.
-		"bosque_30": {
+	"bosque_30": {
 		"name": "Bosque das Sombras — 30×30",
 		"outdoor": true,
 		"proc": {"w": 30, "h": 30, "seed": 20260823},
 		"floors": [],
 		"sheet": {"tex": "res://src/assets/piso bosque/bosque.jpg",
 			"cells_per_sheet": 50.0, "grid": true},
-		# Battlemat: qualquer tile_*.glb / agua*.glb em src/assets/tilesets/.
-		# Troque a hora que quiser pelo editor (Battlemat) ou por célula
-		# (Tiles de rio). Enquanto não houver GLB, usa a folha texturizada.
-		"tile_glb": "res://src/assets/tilesets",
+		# GLB de UMA casa: solte o arquivo nesta pasta; enquanto não houver,
+		# o piso texturizado acima é usado.
+		"tile_glb": "res://src/assets/piso bosque",
 	},
 }

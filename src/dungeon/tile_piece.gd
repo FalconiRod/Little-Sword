@@ -118,8 +118,9 @@ static func _add(parent: Node3D, mesh: Mesh, mat: Material, pos: Vector3) -> Mes
 
 static func _floor(root: Node3D, col: Color, rough := 0.9) -> void:
 	var b := BoxMesh.new()
-	b.size = Vector3(1.98, 0.12, 1.98)
+	b.size = Vector3(BoardGrid.TILE - 0.02, 0.12, BoardGrid.TILE - 0.02)
 	_add(root, b, _mat(col, Color(), 0.0, 0.05, rough), Vector3(0, -0.06, 0))
+	_add_floor_collision(root)
 
 ## Agua rasa de rio: leito escuro + lamina translucida azulada com brilho.
 static func _water(root: Node3D) -> void:
@@ -172,11 +173,23 @@ static func _moss(root: Node3D) -> void:
 
 static func _wall(root: Node3D) -> void:
 	var b := BoxMesh.new()
-	b.size = Vector3(2.0, 1.6, 2.0)
+	b.size = Vector3(BoardGrid.TILE, 1.6, BoardGrid.TILE)
 	_add(root, b, _mat(Color.html("4a4a56"), Color(), 0.0, 0.08, 0.85), Vector3(0, 0.68, 0))
 	var cap := BoxMesh.new()
-	cap.size = Vector3(2.06, 0.12, 2.06)
+	cap.size = Vector3(BoardGrid.TILE + 0.06, 0.12, BoardGrid.TILE + 0.06)
 	_add(root, cap, _mat(Color.html("585866"), Color(), 0.0, 0.15, 0.75), Vector3(0, 1.52, 0))
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.set_meta("walkable", false)
+	body.set_meta("blocks_los", true)
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(BoardGrid.TILE, 1.6, BoardGrid.TILE)
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	cs.position = Vector3(0, 0.68, 0)
+	body.add_child(cs)
+	root.add_child(body)
 
 static func _pillar(root: Node3D) -> void:
 	var c := CylinderMesh.new()
@@ -274,3 +287,17 @@ static func _torch(root: Node3D) -> void:
 	flame.height = 0.22
 	_add(root, flame, _mat(Color.html("ffb454"), Color.html("ff9d2e"), 3.4, 0.1, 0.4),
 			Vector3(0, 1.68, 0.28))
+
+static func _add_floor_collision(root: Node3D) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.set_meta("walkable", true)
+	body.set_meta("is_floor", true)
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(BoardGrid.TILE, 0.1, BoardGrid.TILE)
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	cs.position = Vector3(0, -0.05, 0)
+	body.add_child(cs)
+	root.add_child(body)

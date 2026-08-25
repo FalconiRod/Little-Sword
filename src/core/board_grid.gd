@@ -3,7 +3,7 @@ extends Node
 ## Cada casa guarda walkable/bloqueio-de-visão/elevação; escadas ligam
 ## andares diferentes. Peças ocupam exatamente uma casa (regra de mesa).
 
-const TILE := 2.4   ## 2,4 cm impressos por casa (D17 / folha bosque)
+const TILE := 2.0
 const FLOOR_H := 7.0   ## separação vertical entre andares (visual de mesa)
 const ELEV_H := 0.55   ## altura por nível de elevação (plataformas)
 
@@ -201,3 +201,49 @@ func path_from_reachable(reach: Dictionary, dest: Vector3i) -> Array:
 		path.push_front(cur)
 		cur = reach["came"][cur]
 	return path
+
+## PROMPT DEFINITIVO — Bake por raycast (fonte única de verdade)
+func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
+	tiles.clear()
+	_surface.clear()
+	var space: PhysicsDirectSpaceState3D = env.get_world_3d().direct_space_state
+	if space == null:
+		push_warning("BoardGrid.bake: sem space")
+		return
+	var min_x: int = int(floor(map_bounds.position.x / TILE))
+	var min_y: int = int(floor(map_bounds.position.y / TILE))
+	var max_x: int = int(ceil((map_bounds.position.x + map_bounds.size.x) / TILE)) - 1
+	var max_y: int = int(ceil((map_bounds.position.y + map_bounds.size.y) / TILE)) - 1
+	for f in floors_n:
+		for x in range(min_x, max_x + 1):
+			for y in range(min_y, max_y + 1):
+				var c := Vector3i(x, y, f)
+				var center := Vector3(x * TILE + TILE * 0.5, 0, y * TILE + TILE * 0.5)
+				var from := Vector3(center.x, f * FLOOR_H + 8.0, center.z)
+				var to := Vector3(center.x, f * FLOOR_H - 4.0, center.z)
+				var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+				q.collide_with_bodies = true
+				var hit: Dictionary = space.intersect_ray(q)
+				if hit.is_empty():
+					set_tile(c, false, true, 0)
+					continue
+				var pos: Vector3 = hit["position"]
+				var col: Object = hit["collider"]
+				var walkable := true
+				var blocks_los := false
+				if col is Node and (col as Node).has_meta("walkable"):
+					walkable = bool((col as Node).get_meta("walkable"))
+				if col is Node and (col as Node).has_meta("blocks_los"):
+					blocks_los = bool((col as Node).get_meta("blocks_los"))
+				var h: float = pos.y - f * FLOOR_H
+				var elev: int = clampi(int(round(h / ELEV_H)), 0, 8)
+				var clearance_from := pos + Vector3(0, 0.1, 0)
+				var clearance_to := pos + Vector3(0, 1.8, 0)
+				var q2 := PhysicsRayQueryParameters3D.create(clearance_from, clearance_to, 1)
+				q2.collide_with_bodies = true
+				var hit2: Dictionary = space.intersect_ray(q2)
+				if not hit2.is_empty():
+					walkable = false
+				set_tile(c, walkable, blocks_los, elev)
+				if h > 0.01:
+					set_surface(c, h - elev * ELEV_H)
