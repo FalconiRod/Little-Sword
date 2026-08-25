@@ -19,6 +19,7 @@ name="Little Sword - Tactical Board RPG REFEITO"
 [autoload]
 
 BoardGrid="*res://src/core/board_grid.gd"
+DiceManager="*res://src/autoload/dice_manager.gd"
 
 [display]
 

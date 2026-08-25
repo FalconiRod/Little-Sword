@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://main_refeito_fase1"]
+[gd_scene load_steps=5 format=3 uid="uid://main_refeito_fase1"]
 
 [ext_resource type="Script" path="res://src/scenes/main.gd" id="1"]
 [ext_resource type="Script" path="res://src/board/board.gd" id="2"]
 [ext_resource type="Script" path="res://src/editor/map_editor.gd" id="3"]
+[ext_resource type="Script" path="res://src/movement/movement_manager.gd" id="4"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1")
@@ -12,6 +13,9 @@ script = ExtResource("2")
 width = 10
 height = 10
 floors_n = 1
+
+[node name="MovementManager" type="Node" parent="." groups=["movement"]]
+script = ExtResource("4")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.5, -0.7, 0.5, 0, 0.7, 0.7, -0.866, -0.35, 0.35, 0, 8, 0)
@@ -82,7 +86,7 @@ text = "BoardGrid: aguardando bake..."
 
 [node name="Hint" type="Label" parent="CanvasLayer/MapEditor/Panel/VBox"]
 layout_mode = 2
-text = "G: gerar grid | R: reset camera | Arraste: orbita | Roda: zoom"
+text = "G: grid | T: urso | R: camera | Click: mover (pulando)"
 
 [node name="InfoLabel" type="Label" parent="CanvasLayer"]
 layout_mode = 3

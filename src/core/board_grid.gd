@@ -353,7 +353,7 @@ func neighbors(cell: Vector3i) -> Array[Vector3i]:
 				out.append(n)
 	return out
 
-func compute_reachable(start: Vector3i, max_steps: int) -> Dictionary:
+func compute_reachable(start: Vector3i, max_steps: int, ignore_units: bool = true) -> Dictionary:
 	var dist: Dictionary = {start: 0}
 	var came: Dictionary = {start: start}
 	var frontier: Array[Vector3i] = [start]
@@ -365,10 +365,24 @@ func compute_reachable(start: Vector3i, max_steps: int) -> Dictionary:
 		for n: Vector3i in neighbors(cur):
 			if dist.has(n):
 				continue
+			if not ignore_units and occupied.has(n):
+				continue
+			if has_wall_between(cur, n):
+				continue
 			dist[n] = d + 1
 			came[n] = cur
 			frontier.append(n)
 	return {"dist": dist, "came": came}
+
+func path_from_reachable(reach: Dictionary, dest: Vector3i) -> Array:
+	if not reach["dist"].has(dest):
+		return []
+	var path: Array = []
+	var cur: Vector3i = dest
+	while cur != reach["came"][cur]:
+		path.push_front(cur)
+		cur = reach["came"][cur] as Vector3i
+	return path
 
 func has_line_of_sight(a: Vector3i, b: Vector3i) -> bool:
 	if a.z != b.z:
