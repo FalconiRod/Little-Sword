@@ -1566,15 +1566,21 @@ func _build_ui() -> void:
 	for i in _gtile_list.size():
 		var b := Button.new()
 		b.name = "item_gtile_%d" % i
-		# Força texto visível (branco sobre fundo escuro) e altura mínima
+		# Mostra pasta + arquivo para diferenciar duplicatas + nome custom se houver
+		var full := _gtile_list[i]
+		var fname: String = full.get_file()
+		var custom: String = str(edits.get("tileset_names", {}).get(full, ""))
+		var label: String = (custom + "  (" + fname + ")") if custom != "" else fname
+		# Se for de original/, prefixa
+		if full.find("original/") != -1:
+			label = "[ORI] " + label
 		b.custom_minimum_size = Vector2(280, 28)
 		b.add_theme_color_override("font_color", Color.WHITE)
 		b.add_theme_color_override("font_hover_color", Color.YELLOW)
 		b.add_theme_font_size_override("font_size", 13)
-		b.text = _gtile_list[i].get_file()
+		b.text = label
 		b.pressed.connect(func() -> void:
 			mode = "gtile"; cat_item["gtile"] = i; _refresh_ui()
-			# Se um tile base já está selecionado, troca na hora
 			if selected_tile != null and env != null and env.has_method("swap_base_tile"):
 				var gpath: String = _glb_tiles()[i]
 				if env.swap_base_tile(selected_tile, gpath):
@@ -1591,6 +1597,34 @@ func _build_ui() -> void:
 		empty.text = "NENHUM TILESET ENCONTRADO em src/assets/tilesets/ — verifique .glb"
 		empty.add_theme_color_override("font_color", Color.RED)
 		vb.add_child(empty)
+	# Renomear tileset dentro do jogo (nome custom, não renomeia arquivo no disco)
+	_add_label(vb, "tileset_rename_title", "Renomear tileset selecionado (só no editor):")
+	var rename_row := HBoxContainer.new()
+	vb.add_child(rename_row)
+	var rename_edit := LineEdit.new()
+	rename_edit.name = "tileset_rename"
+	rename_edit.placeholder_text = "Novo nome (ex: Água Clara)"
+	rename_edit.custom_minimum_size = Vector2(180, 24)
+	rename_row.add_child(rename_edit)
+	var rename_btn := Button.new()
+	rename_btn.text = "RENOMEAR"
+	rename_btn.pressed.connect(func() -> void:
+		var idx: int = cat_item.get("gtile", 0)
+		var list: Array = _glb_tiles()
+		if idx < 0 or idx >= list.size():
+			_set_status("Selecione um tileset primeiro.")
+			return
+		var path: String = list[idx]
+		var new_name: String = rename_edit.text.strip_edges()
+		if new_name == "":
+			_set_status("Digite um nome.")
+			return
+		if not edits.has("tileset_names"):
+			edits["tileset_names"] = {}
+		edits["tileset_names"][path] = new_name
+		_refresh_ui()
+		_set_status("Tileset renomeado: %s → %s" % [path.get_file(), new_name]))
+	rename_row.add_child(rename_btn)
 	_add_label(vb, "cat_spawns", "spawns (clique = marca)")
 	for sk in SPAWN_KEYS:
 		var b := Button.new()
@@ -1962,6 +1996,7 @@ func _render_icon_scene(id: String) -> Texture2D:
 
 func _scan_glbs() -> void:
 	glb_list.clear()
+	var seen := {}
 	var stack: Array = ["res://src/assets", "res://assets/models"]
 	while not stack.is_empty():
 		var dir_path: String = stack.pop_back()
@@ -1975,9 +2010,13 @@ func _scan_glbs() -> void:
 			if d.current_is_dir():
 				stack.append(full)
 			elif fn.get_extension() == "glb":
-				glb_list.append(full)
+				var key: String = fn.to_lower()
+				if not seen.has(key):
+					seen[key] = true
+					glb_list.append(full)
 			fn = d.get_next()
 	glb_list.sort()
+	print("[EDITOR] scan GLB: ", glb_list.size(), " únicos")
 
 ## Reescaneia os .glb sem reiniciar o jogo (fluxo do game designer:
 ## solta arquivos novos em src/assets/editor e clica aqui).
