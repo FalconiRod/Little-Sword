@@ -6,6 +6,7 @@ extends Node3D
 @onready var _camera: Camera3D = $CameraPivot/SpringArm3D/Camera3D
 @onready var _label_info: Label = $CanvasLayer/InfoLabel
 @onready var _movement: Node = $MovementManager
+@onready var _btn_roll: Button = $CanvasLayer/BtnRoll
 
 var _selected_unit: Node = null
 var _reachable: Dictionary = {}
@@ -26,9 +27,12 @@ func _ready() -> void:
 	print("[Main] _ready board=", _board, " editor=", _editor, " pivot=", _camera_pivot)
 	if _editor and _editor.has_method("bind_board") and _board:
 		_editor.call("bind_board", _board)
+	if _btn_roll:
+		_btn_roll.pressed.connect(_on_roll_pressed)
+		_btn_roll.visible = false
 	_update_camera()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique unidade→mover/atacar | A/D/F | G/T"
+		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique unidade | Rolar Dados | A/D/F | G/T"
 	print_rich("[color=cyan][Main][/color] FASE 7 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
 	await get_tree().create_timer(0.2).timeout
 	if has_node("/root/TurnManager"):
@@ -57,9 +61,11 @@ func _ready() -> void:
 			print("[Main] HEADLESS movimento cavaleiro ", cav.get("grid_pos"))
 			_select_unit(cav)
 			await get_tree().create_timer(0.2).timeout
+			_on_roll_pressed()
+			await get_tree().create_timer(0.2).timeout
 			var dest: Vector3i = Vector3i(1,4,0)
 			var d: Dictionary = _reachable.get("dist", {}) as Dictionary
-			print("[Main] HEADLESS dest ", dest, " reachable ", d.has(dest))
+			print("[Main] HEADLESS dest ", dest, " reachable ", d.has(dest), " roll ", _last_roll, " steps ", _last_steps)
 			if d.has(dest):
 				var path: Array = []
 				if _movement and _movement.has_method("get_movement_path"):
@@ -314,10 +320,47 @@ func _get_cell_under_mouse() -> Variant:
 		return bg.call("world_to_cell", hit, af)
 	return null
 
+func _get_unit_via_ray() -> Node:
+	if _camera == null:
+		return null
+	var mouse: Vector2 = get_viewport().get_mouse_position()
+	var origin: Vector3 = _camera.project_ray_origin(mouse)
+	var dir: Vector3 = _camera.project_ray_normal(mouse)
+	var to: Vector3 = origin + dir * 100.0
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if space == null:
+		return null
+	var q: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(origin, to, 8)
+	q.collide_with_areas = true
+	q.collide_with_bodies = false
+	var hit: Dictionary = space.intersect_ray(q)
+	if hit.is_empty():
+		return null
+	var col: Object = hit["collider"] as Object
+	if col is Node:
+		var n: Node = col as Node
+		# PickArea -> parent BoardUnit
+		if n.has_method("get_parent"):
+			var p: Node = n.get_parent() as Node
+			if p and p.get_script() and String(p.get_script().resource_path).ends_with("board_unit.gd"):
+				return p
+			# se for Area3D direta, pega parent
+			if p and p.get("grid_pos") != null:
+				return p
+		# fallback: se col for próprio BoardUnit (caso tenha StaticBody)
+		if n.get("grid_pos") != null:
+			return n
+	return null
+
 func _get_unit_at_cell(cell: Vector3i) -> Node:
+	var via_ray: Node = _get_unit_via_ray()
+	if via_ray:
+		return via_ray
 	var bg: Node = get_node_or_null("/root/BoardGrid")
 	if bg and bg.has_method("unit_at"):
-		return bg.call("unit_at", cell) as Node
+		var u: Node = bg.call("unit_at", cell) as Node
+		if u:
+			return u
 	for child: Node in _board.get_children():
 		if child.get_script() and child.get_script().resource_path.ends_with("board_unit.gd"):
 			if child.get("grid_pos") == cell:
@@ -411,6 +454,38 @@ func _do_attack(att: Node, def: Node) -> void:
 func _select_unit(unit: Node) -> void:
 	_selected_unit = unit
 	var def: Resource = unit.get("definition") as Resource
+	_last_roll = 0
+	_last_steps = 0
+	_reachable = {}
+	_clear_highlights()
+	# destaca seleção sem movimento ainda
+	var bg: Node = get_node_or_null("/root/BoardGrid")
+	var w: Vector3 = bg.call("grid_to_world", unit.get("grid_pos") as Vector3i) as Vector3 if bg else Vector3.ZERO
+	var m: Node3D = MeshInstance3D.new()
+	var pl: PlaneMesh = PlaneMesh.new()
+	pl.size = Vector2(1.8,1.8)
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.95,0.85,0.25,0.75)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	pl.material = mat
+	(m as MeshInstance3D).mesh = pl
+	m.position = w + Vector3(0,0.03,0)
+	m.rotation.x = deg_to_rad(-90)
+	add_child(m)
+	_highlights.append(m)
+	if _btn_roll:
+		_btn_roll.visible = true
+		_btn_roll.text = "Rolar Dados (%s)" % String(def.get("display_name"))
+	if _label_info:
+		_label_info.text = "%s selecionado | clique Rolar Dados para sortear movimento" % String(def.get("display_name"))
+	print("[Main] selecionou ", def.get("display_name"), " aguarde Rolar Dados")
+
+func _on_roll_pressed() -> void:
+	if _selected_unit == null:
+		print("[Main] nenhum selecionado para rolar")
+		return
+	var def: Resource = _selected_unit.get("definition") as Resource
 	var is_hero: bool = int(def.get("faction")) == 0
 	var steps: int = 0
 	var roll: int = 0
@@ -425,7 +500,7 @@ func _select_unit(unit: Node) -> void:
 	_last_steps = steps
 	var bg: Node = get_node_or_null("/root/BoardGrid")
 	if bg and bg.has_method("compute_reachable"):
-		_reachable = bg.call("compute_reachable", unit.get("grid_pos"), steps, false) as Dictionary
+		_reachable = bg.call("compute_reachable", _selected_unit.get("grid_pos") as Vector3i, steps, false) as Dictionary
 	else:
 		_reachable = {}
 	_show_highlights(_reachable)
@@ -436,14 +511,18 @@ func _select_unit(unit: Node) -> void:
 		label = "%s (inimigo) %d casas | clique destino" % [def.get("display_name"), steps]
 	if _label_info:
 		_label_info.text = label
-	print("[Main] selecionou ", def.get("display_name"), " roll ", roll, " steps ", steps, " reachable ", (_reachable["dist"] as Dictionary).size() if _reachable.has("dist") else 0)
+	if _btn_roll:
+		_btn_roll.visible = false
+	print("[Main] rolou ", def.get("display_name"), " roll ", roll, " steps ", steps, " reachable ", (_reachable["dist"] as Dictionary).size() if _reachable.has("dist") else 0)
 
 func _clear_selection() -> void:
 	_selected_unit = null
 	_reachable = {}
 	_clear_highlights()
+	if _btn_roll:
+		_btn_roll.visible = false
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique→mover/atacar | A/D/F | G/T"
+		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique unidade → Rolar Dados | A/D/F | G/T"
 	print("[Main] seleção limpa")
 
 func _show_highlights(reach: Dictionary) -> void:

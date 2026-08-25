@@ -101,3 +101,18 @@ grow_horizontal = 2
 grow_vertical = 0
 text = "Little Sword REFEITO — FASE 1"
 horizontal_alignment = 1
+
+[node name="BtnRoll" type="Button" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_top = 0.0
+anchor_right = 0.5
+anchor_bottom = 0.0
+offset_left = -90.0
+offset_top = 12.0
+offset_right = 90.0
+offset_bottom = 44.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "Rolar Dados"
