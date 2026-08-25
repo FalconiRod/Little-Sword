@@ -25,14 +25,17 @@ func _get_tile() -> float:
 
 func _ready() -> void:
 	print("[Main] _ready board=", _board, " editor=", _editor, " pivot=", _camera_pivot)
-	if _editor and _editor.has_method("bind_board") and _board:
-		_editor.call("bind_board", _board)
+	if _editor:
+		_editor.visible = false
+		print("[Main] editor oculto (F1 para mostrar)")
+		if _editor.has_method("bind_board") and _board:
+			_editor.call("bind_board", _board)
 	if _btn_roll:
 		_btn_roll.pressed.connect(_on_roll_pressed)
 		_btn_roll.visible = false
 	_update_camera()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 8 | HUD ordem topo | Retratos | Ações | Log | Dados"
+		_label_info.text = "Little Sword REFEITO — FASE 8 | F1: Editor | Clique unidade → Rolar Dados → destino verde"
 	print_rich("[color=cyan][Main][/color] FASE 8 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
 	await get_tree().create_timer(0.2).timeout
 	if has_node("/root/TurnManager"):
@@ -77,6 +80,7 @@ func _ready() -> void:
 				print("[Main] HEADLESS pos final ", cav.get("grid_pos"), " esperado ", dest, " ok ", cav.get("grid_pos") == dest)
 		# teste editor: coloca Mureta em (3,3)
 		if _editor and _editor.has_method("handle_board_click"):
+			_editor.visible = true
 			print("[Main] HEADLESS editor teste colocando Mureta em (3,3)")
 			var before: int = int(_editor.get("_placed").size()) if "_placed" in _editor else -1
 			var filtered: Array = _editor.get("_filtered") as Array
@@ -109,9 +113,15 @@ func _ready() -> void:
 					break
 		if cav2 and gob:
 			var bg2: Node = get_node_or_null("/root/BoardGrid")
-			# teleporta gob para adjacente (2,4) se livre
-			var target_cell: Vector3i = Vector3i(2,4,0)
-			if bg2 and bg2.has_method("is_walkable") and bool(bg2.call("is_walkable", target_cell)) and not bg2.call("unit_at", target_cell):
+			# teleporta gob para célula adjacente livre ao cavaleiro
+			var cav_pos: Vector3i = cav2.get("grid_pos") as Vector3i
+			var target_cell: Vector3i = Vector3i(-1,-1,-1)
+			for off: Vector3i in [Vector3i(1,0,0), Vector3i(-1,0,0), Vector3i(0,1,0), Vector3i(0,-1,0)]:
+				var cand: Vector3i = cav_pos + off
+				if bg2 and bg2.has_method("is_walkable") and bool(bg2.call("is_walkable", cand)) and not bg2.call("unit_at", cand):
+					target_cell = cand
+					break
+			if target_cell.x != -1 and bg2:
 				var old: Vector3i = gob.get("grid_pos") as Vector3i
 				bg2.call("clear_cell", old)
 				gob.set("grid_pos", target_cell)
@@ -190,7 +200,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
-		if ke.keycode == KEY_G:
+		if ke.keycode == KEY_F1:
+			if _editor:
+				_editor.visible = not _editor.visible
+				print("[Main] editor visivel ", _editor.visible)
+				if _label_info:
+					_label_info.text = "Editor %s (F1)" % ("ON" if _editor.visible else "OFF")
+			return
+		elif ke.keycode == KEY_G:
 			print("[Main] G _unhandled_input")
 			_trigger_regenerate()
 		elif ke.keycode == KEY_T:
@@ -224,7 +241,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
-		if ke.keycode == KEY_G:
+		if ke.keycode == KEY_F1:
+			if _editor:
+				_editor.visible = not _editor.visible
+			return
+		elif ke.keycode == KEY_G:
 			print("[Main] G _input")
 			_trigger_regenerate()
 		elif ke.keycode == KEY_T:

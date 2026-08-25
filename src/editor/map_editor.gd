@@ -385,6 +385,8 @@ func _on_remove() -> void:
 
 # — API para Main chamar ao clicar no tabuleiro
 func handle_board_click(cell: Vector3i) -> bool:
+	if not visible:
+		return false
 	print("[MapEditor] handle_board_click ", cell, " modo=", _chk_edit_mode.button_pressed if _chk_edit_mode else false, " catalog=", _selected_catalog)
 	if _chk_edit_mode == null or not _chk_edit_mode.button_pressed:
 		return false
