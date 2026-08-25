@@ -421,6 +421,23 @@ func _build_tile_multimeshes_glb(glb: String) -> bool:
 		mmi.name = "BoardTiles%d" % f
 		mmi.multimesh = mm
 		_floor_nodes[f].add_child(mmi)
+		var body := StaticBody3D.new()
+		body.collision_layer = 1
+		body.set_meta("walkable", true)
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(cells.size() * BoardGrid.TILE, 0.1, BoardGrid.TILE)
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		var avg_x := 0.0
+		var avg_y := 0.0
+		for c in cells:
+			avg_x += c.x
+			avg_y += c.y
+		avg_x /= cells.size()
+		avg_y /= cells.size()
+		cs.position = Vector3(avg_x * BoardGrid.TILE + BoardGrid.TILE * 0.5, -0.05, avg_y * BoardGrid.TILE + BoardGrid.TILE * 0.5)
+		body.add_child(cs)
+		_floor_nodes[f].add_child(body)
 	inst.free()
 	EventBus.log_msg.emit("Tabuleiro montado casa a casa (%s)."
 			% glb.get_file(), "#8a8f9c")
@@ -534,6 +551,17 @@ func _build_sheet_floors(cfg: Dictionary) -> void:
 		mi.material_override = mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_floor_nodes[f].add_child(mi)
+		var body := StaticBody3D.new()
+		body.collision_layer = 1
+		body.set_meta("walkable", true)
+		var shape := BoxShape3D.new()
+		var bounds := map_bounds()
+		shape.size = Vector3(bounds.size.x, 0.1, bounds.size.y)
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		cs.position = Vector3(bounds.position.x + bounds.size.x * 0.5, -0.05, bounds.position.y + bounds.size.y * 0.5)
+		body.add_child(cs)
+		_floor_nodes[f].add_child(body)
 	EventBus.log_msg.emit("Mesa forrada com folhas de %d×%d células."
 			% [int(cps), int(cps)], "#8a8f9c")
 
