@@ -256,7 +256,12 @@ func _handle_left_click() -> void:
 		return
 	var cell: Vector3i = cell_var as Vector3i
 	print("[Main] clique cell ", cell)
-	# se já movendo, ignora
+	# prioridade: editor em modo edição
+	if _editor and _editor.has_method("handle_board_click"):
+		var handled: bool = _editor.call("handle_board_click", cell) as bool
+		if handled:
+			print("[Main] editor consumiu clique ", cell)
+			return
 	if _selected_unit and _selected_unit.get_meta("is_moving") == true:
 		return
 	var unit_at: Node = _get_unit_at_cell(cell)
@@ -266,16 +271,13 @@ func _handle_left_click() -> void:
 		else:
 			print("[Main] nenhum unidade em ", cell)
 	else:
-		# já tem seleção
 		if unit_at == _selected_unit:
 			_clear_selection()
 			return
 		if unit_at != null:
-			# trocar seleção
 			_clear_selection()
 			_select_unit(unit_at)
 			return
-		# tenta mover para célula vazia
 		if _reachable.has("dist") and (_reachable["dist"] as Dictionary).has(cell):
 			_move_selected_to(cell)
 		else:
