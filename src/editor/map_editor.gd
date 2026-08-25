@@ -253,8 +253,14 @@ func _refresh_results_list() -> void:
 		_list_results.set_item_custom_bg_color(idx, Color(col.r, col.g, col.b, 0.25))
 		_list_results.set_item_tooltip(idx, "%s | %s | %s" % [e["name"], e["type"], ", ".join(e["funcs"])])
 	if _filtered.size() > 0 and _selected_catalog == -1:
-		_list_results.select(0)
-		_on_result_selected(0)
+		var pref: int = 0
+		for i: int in range(_filtered.size()):
+			var ee: Dictionary = _filtered[i] as Dictionary
+			if String(ee["name"]).contains("Mureta") or String(ee["name"]).contains("Obstáculo Grande"):
+				pref = i
+				break
+		_list_results.select(pref)
+		_on_result_selected(pref)
 
 func _refresh_placed_list() -> void:
 	if _list_placed == null:

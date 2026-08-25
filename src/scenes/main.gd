@@ -62,10 +62,31 @@ func _ready() -> void:
 					path = _movement.call("get_movement_path", _reachable, dest) as Array
 				print("[Main] HEADLESS path ", path)
 				_move_selected_to(dest)
-				# aguarda movimento pulo (0.28 por célula + pausa)
 				var wait: float = float(path.size()) * 0.35 + 0.5
 				await get_tree().create_timer(wait).timeout
 				print("[Main] HEADLESS pos final ", cav.get("grid_pos"), " esperado ", dest, " ok ", cav.get("grid_pos") == dest)
+		# teste editor: coloca Mureta em (3,3)
+		if _editor and _editor.has_method("handle_board_click"):
+			print("[Main] HEADLESS editor teste colocando Mureta em (3,3)")
+			# seleciona Mureta no catalogo (filtra Obstáculo)
+			var before: int = int(_editor.get("_placed").size()) if "_placed" in _editor else -1
+			# força seleção de Mureta: procura no catalog
+			var filtered: Array = _editor.get("_filtered") as Array
+			var idx_mureta: int = -1
+			for i: int in range(filtered.size()):
+				var e: Dictionary = filtered[i] as Dictionary
+				if String(e["name"]).contains("Mureta"):
+					idx_mureta = i
+					break
+			if idx_mureta != -1:
+				_editor.call("_on_result_selected", idx_mureta)
+				var handled: bool = _editor.call("handle_board_click", Vector3i(3,3,0)) as bool
+				await get_tree().create_timer(0.3).timeout
+				var after: int = int(_editor.get("_placed").size()) if "_placed" in _editor else -1
+				print("[Main] HEADLESS editor placed before ", before, " after ", after, " handled ", handled)
+				# testa reseleção
+				var handled2: bool = _editor.call("handle_board_click", Vector3i(3,3,0)) as bool
+				print("[Main] HEADLESS editor reselecao ", handled2, " selected_placed ", _editor.get("_selected_placed"))
 		get_tree().quit()
 
 func _print_debug_info() -> void:
