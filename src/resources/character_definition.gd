@@ -11,6 +11,7 @@ enum Faction { HERO, GOBLIN, BOSS }
 @export var dex: int = 10
 @export var intel: int = 10
 @export var move_fixed: int = 0
+@export var attack_range: int = 1
 @export var skill_name: String = ""
 @export var skill_desc: String = ""
 @export var capsule_color: Color = Color(0.20, 0.45, 0.85)
@@ -36,6 +37,7 @@ static func create_cavaleiro() -> Resource:
 	d.set("dex", 12)
 	d.set("intel", 10)
 	d.set("move_fixed", 0)
+	d.set("attack_range", 1)
 	d.set("skill_name", "Investida")
 	d.set("capsule_color", Color(0.20, 0.45, 0.85))
 	return d
@@ -50,6 +52,7 @@ static func create_maga() -> Resource:
 	d.set("dex", 14)
 	d.set("intel", 16)
 	d.set("move_fixed", 0)
+	d.set("attack_range", 6)
 	d.set("skill_name", "Missil Ardente")
 	d.set("capsule_color", Color(0.25, 0.60, 0.85))
 	return d
@@ -64,6 +67,7 @@ static func create_druida() -> Resource:
 	d.set("dex", 13)
 	d.set("intel", 14)
 	d.set("move_fixed", 0)
+	d.set("attack_range", 1)
 	d.set("skill_name", "Fúria do Urso")
 	d.set("skill_desc", "Transformação temporária (troca stats/visual)")
 	d.set("capsule_color", Color(0.30, 0.65, 0.35))
@@ -75,6 +79,7 @@ static func create_druida() -> Resource:
 	bear.set("str", 17)
 	bear.set("dex", 10)
 	bear.set("intel", 10)
+	bear.set("attack_range", 1)
 	bear.set("skill_name", "Garra")
 	bear.set("capsule_color", Color(0.55, 0.42, 0.20))
 	bear.set("capsule_height", 2.1)
@@ -92,6 +97,7 @@ static func create_goblin_guerreiro() -> Resource:
 	d.set("dex", 10)
 	d.set("intel", 8)
 	d.set("move_fixed", 4)
+	d.set("attack_range", 1)
 	d.set("skill_name", "Corte")
 	d.set("capsule_color", Color(0.80, 0.25, 0.22))
 	return d
@@ -106,6 +112,7 @@ static func create_goblin_arqueiro() -> Resource:
 	d.set("dex", 14)
 	d.set("intel", 8)
 	d.set("move_fixed", 5)
+	d.set("attack_range", 6)
 	d.set("skill_name", "Tiro")
 	d.set("capsule_color", Color(0.85, 0.35, 0.25))
 	return d
@@ -120,6 +127,7 @@ static func create_boss() -> Resource:
 	d.set("dex", 10)
 	d.set("intel", 12)
 	d.set("move_fixed", 4)
+	d.set("attack_range", 1)
 	d.set("skill_name", "Esmagar / Golpe Especial")
 	d.set("capsule_color", Color(0.55, 0.25, 0.78))
 	d.set("capsule_height", 2.4)

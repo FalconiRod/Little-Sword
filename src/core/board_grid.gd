@@ -29,9 +29,10 @@ var _floors_n: int = 1
 # {
 #   walkable: bool,
 #   blocks_los: bool,
-#   height: float,     # altura exata do hit (y mundial)
-#   elev: int,         # nível discreto derivado de height
-#   has_floor: bool    # se raycast acertou algo
+#   cover: int,        # 0 none, 2 meia, 99 total
+#   height: float,
+#   elev: int,
+#   has_floor: bool
 # }
 
 func reset() -> void:
@@ -241,12 +242,18 @@ func cell_data(cell: Vector3i) -> Dictionary:
 # ESCRITA MANUAL (usado só por testes ou fallback)
 # ------------------------------------------------------------------ #
 
-func set_tile(cell: Vector3i, walkable: bool, blocks_los_flag: bool = false, elev: int = 0, height: float = 0.0) -> void:
+func set_tile(cell: Vector3i, walkable: bool, blocks_los_flag: bool = false, elev: int = 0, height: float = 0.0, cover: int = 0) -> void:
 	var floor_base: float = float(cell.z) * FLOOR_H
 	var h: float = height if height != 0.0 else floor_base + float(elev) * ELEV_H
+	var cur_cover: int = cover
+	if _cells.has(cell):
+		var cur: Dictionary = _cells[cell] as Dictionary
+		if cur.has("cover"):
+			cur_cover = maxi(cur_cover, int(cur.get("cover", 0)))
 	_cells[cell] = {
 		"walkable": walkable,
 		"blocks_los": blocks_los_flag,
+		"cover": cur_cover,
 		"height": h,
 		"elev": elev,
 		"has_floor": walkable or blocks_los_flag or h != floor_base,
@@ -326,8 +333,10 @@ func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 				var h: float = pos.y
 				var rel_h: float = h - base_y
 				var elev: int = clampi(int(round(rel_h / ELEV_H)), 0, 8)
-
-				# Checa espaço livre acima (margem andável) — também captura blocks_los de obstáculo
+				var cover: int = 0
+				if col is Node and (col as Node).has_meta("cover_bonus"):
+					cover = int((col as Node).get_meta("cover_bonus"))
+				# Checa espaço livre acima (margem andável) — também captura blocks_los/cover de obstáculo
 				var clearance_from: Vector3 = pos + Vector3(0, 0.1, 0)
 				var clearance_to: Vector3 = pos + Vector3(0, WALKABLE_CLEARANCE, 0)
 				var q2: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(clearance_from, clearance_to, 1)
@@ -337,14 +346,18 @@ func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 				if not hit2.is_empty():
 					walkable = false
 					var col2: Object = hit2["collider"] as Object
-					if col2 is Node and (col2 as Node).has_meta("blocks_los"):
-						if bool((col2 as Node).get_meta("blocks_los")):
+					if col2 is Node:
+						if col2.has_meta("blocks_los") and bool(col2.get_meta("blocks_los")):
 							blocks_los_flag = true
-					# se obstáculo tem cover_bonus, já está em blocks_los
+						if col2.has_meta("cover_bonus"):
+							cover = maxi(cover, int(col2.get_meta("cover_bonus")))
+						if col2.has_meta("cover"):
+							cover = maxi(cover, int(col2.get_meta("cover")))
 
 				_cells[cell] = {
 					"walkable": walkable,
 					"blocks_los": blocks_los_flag,
+					"cover": cover,
 					"height": h,
 					"elev": elev,
 					"has_floor": true,

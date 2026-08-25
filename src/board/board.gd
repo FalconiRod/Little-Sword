@@ -364,19 +364,22 @@ func bake_grid() -> void:
 		for col: Node in _columns:
 			var cell_c: Vector3i = col.get("cell") as Vector3i
 			var d_c: Dictionary = bg.call("cell_data", cell_c) as Dictionary
-			bg.call("set_tile", cell_c, false, true, int(d_c.get("elev", 0)), float(d_c.get("height", 0.0)))
+			bg.call("set_tile", cell_c, false, true, int(d_c.get("elev", 0)), float(d_c.get("height", 0.0)), 99)
 		for o: Node in _obstacles:
 			var cell: Vector3i = o.get("cell") as Vector3i
 			var def: Resource = o.get("definition") as Resource
 			if def:
 				var blocks_mov: bool = bool(def.call("blocks_movement"))
 				var blocks_los: bool = bool(def.call("blocks_line_of_sight"))
+				var cover: int = int(def.call("cover_bonus")) if def.has_method("cover_bonus") else 0
 				var d: Dictionary = bg.call("cell_data", cell) as Dictionary
 				var walk: bool = bool(d.get("walkable", true)) if d.has("walkable") else true
 				if blocks_mov:
 					walk = false
 				var los: bool = blocks_los or bool(d.get("blocks_los", false))
-				bg.call("set_tile", cell, walk, los, int(d.get("elev", 0)), float(d.get("height", 0.0)))
+				var cur_cover: int = int(d.get("cover", 0)) if d.has("cover") else 0
+				cover = maxi(cover, cur_cover)
+				bg.call("set_tile", cell, walk, los, int(d.get("elev", 0)), float(d.get("height", 0.0)), cover)
 		var stats: String = bg.call("bake_stats") as String
 		print_rich("[color=green][Board][/color] ", stats)
 		if bg.has_method("validate_door_rule"):

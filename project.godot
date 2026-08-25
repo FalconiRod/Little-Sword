@@ -20,6 +20,9 @@ name="Little Sword - Tactical Board RPG REFEITO"
 
 BoardGrid="*res://src/core/board_grid.gd"
 DiceManager="*res://src/autoload/dice_manager.gd"
+CombatSystem="*res://src/combat/combat_system.gd"
+TurnManager="*res://src/autoload/turn_manager.gd"
+EnemyAI="*res://src/ai/enemy_ai.gd"
 
 [display]
 

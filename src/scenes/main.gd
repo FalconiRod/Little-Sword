@@ -28,9 +28,13 @@ func _ready() -> void:
 		_editor.call("bind_board", _board)
 	_update_camera()
 	if _label_info and _board:
-		var af: int = int(_board.get("active_floor")) if _board.get("active_floor") != null else 0
-		_label_info.text = "Little Sword REFEITO — FASE 5 | TILE=%.1f | %dx%d | Andar %d | Clique→mover | G/T/PgUp/Dn" % [_get_tile(), _board.get("width"), _board.get("height"), af]
-	print_rich("[color=cyan][Main][/color] FASE 5 gaveta (escadas removidas) — FASE 4 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
+		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique unidade→mover/atacar | A/D/F | G/T"
+	print_rich("[color=cyan][Main][/color] FASE 7 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
+	await get_tree().create_timer(0.2).timeout
+	if has_node("/root/TurnManager"):
+		var tm: Node = get_node("/root/TurnManager")
+		if tm.has_method("setup"):
+			tm.call("setup", _board)
 	_print_debug_info()
 	# screenshot debug após 0.5s + re-log de camera após física
 	await get_tree().create_timer(0.5).timeout
@@ -68,9 +72,7 @@ func _ready() -> void:
 		# teste editor: coloca Mureta em (3,3)
 		if _editor and _editor.has_method("handle_board_click"):
 			print("[Main] HEADLESS editor teste colocando Mureta em (3,3)")
-			# seleciona Mureta no catalogo (filtra Obstáculo)
 			var before: int = int(_editor.get("_placed").size()) if "_placed" in _editor else -1
-			# força seleção de Mureta: procura no catalog
 			var filtered: Array = _editor.get("_filtered") as Array
 			var idx_mureta: int = -1
 			for i: int in range(filtered.size()):
@@ -84,9 +86,45 @@ func _ready() -> void:
 				await get_tree().create_timer(0.3).timeout
 				var after: int = int(_editor.get("_placed").size()) if "_placed" in _editor else -1
 				print("[Main] HEADLESS editor placed before ", before, " after ", after, " handled ", handled)
-				# testa reseleção
 				var handled2: bool = _editor.call("handle_board_click", Vector3i(3,3,0)) as bool
 				print("[Main] HEADLESS editor reselecao ", handled2, " selected_placed ", _editor.get("_selected_placed"))
+		# teste combate: cavaleiro vs goblin adjacente
+		var cav2: Node = _get_unit_at_cell(Vector3i(1,4,0))
+		if cav2 == null:
+			cav2 = _get_unit_at_cell(Vector3i(1,1,0))
+		var gob: Node = _get_unit_at_cell(Vector3i(8,1,0))
+		if gob == null:
+			# procura qualquer goblin
+			var units: Array = _board.call("get_units") as Array if _board.has_method("get_units") else []
+			for u: Node in units:
+				var d: Resource = u.get("definition") as Resource
+				if int(d.get("faction")) == 1:
+					gob = u
+					break
+		if cav2 and gob:
+			var bg2: Node = get_node_or_null("/root/BoardGrid")
+			# teleporta gob para adjacente (2,4) se livre
+			var target_cell: Vector3i = Vector3i(2,4,0)
+			if bg2 and bg2.has_method("is_walkable") and bool(bg2.call("is_walkable", target_cell)) and not bg2.call("unit_at", target_cell):
+				var old: Vector3i = gob.get("grid_pos") as Vector3i
+				bg2.call("clear_cell", old)
+				gob.set("grid_pos", target_cell)
+				gob.global_position = bg2.call("grid_to_world", target_cell) as Vector3
+				bg2.call("place", gob, target_cell)
+				print("[Main] HEADLESS teleport gob ", old, " -> ", target_cell)
+			var combat: Node = get_node_or_null("/root/CombatSystem")
+			if combat and combat.has_method("can_attack") and bool(combat.call("can_attack", cav2, gob)):
+				print("[Main] HEADLESS combate cavaleiro -> goblin")
+				var res: Dictionary = combat.call("attack", cav2, gob, {}) as Dictionary
+				print("[Main] HEADLESS combate result hit ", res.get("hit"), " dmg ", res.get("dmg"), " hp gob ", gob.get("current_hp"))
+				# testa flanqueio: coloca maga em (1,5) oposta?
+				# testa cobertura: mureta em (3,3) não afeta este combate
+			else:
+				print("[Main] HEADLESS não pode atacar ", cav2.get("grid_pos"), " -> ", gob.get("grid_pos"))
+		# testa TurnManager
+		var tm: Node = get_node_or_null("/root/TurnManager")
+		if tm:
+			print("[Main] HEADLESS TurnManager ordem ", tm.get("order").size() if tm.get("order") != null else 0, " current ", tm.call("current_unit").get("definition").get("display_name") if tm.call("current_unit") else "null")
 		get_tree().quit()
 
 func _print_debug_info() -> void:
@@ -152,6 +190,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif ke.keycode == KEY_T:
 			print("[Main] T druida transform")
 			_trigger_druida()
+		elif ke.keycode == KEY_D:
+			_is_defending = true
+			print("[Main] Defender +4 CA até próximo turno")
+			if _label_info:
+				_label_info.text = "Defendendo +4 CA"
+		elif ke.keycode == KEY_F:
+			_is_dispersar = true
+			print("[Main] Dispersar — próximo movimento sem oportunidade")
+			if _label_info:
+				_label_info.text = "Dispersar — sem ataque de oportunidade"
+		elif ke.keycode == KEY_A:
+			print("[Main] Atacar — clique em inimigo adjacente")
 		elif ke.keycode == KEY_PAGEUP or ke.keycode == KEY_KP_ADD:
 			_change_floor(1)
 		elif ke.keycode == KEY_PAGEDOWN or ke.keycode == KEY_KP_SUBTRACT:
@@ -194,8 +244,11 @@ func _trigger_regenerate() -> void:
 		_print_debug_info()
 		if _editor and _editor.has_method("_update_stats"):
 			_editor.call("_update_stats")
+		var tm: Node = get_node_or_null("/root/TurnManager")
+		if tm and tm.has_method("setup"):
+			tm.call("setup", _board)
 		if _label_info and _board:
-			_label_info.text = "Little Sword REFEITO — FASE 1 | TILE=%.1f | Board %dx%d | OK %s" % [_get_tile(), _board.get("width"), _board.get("height"), Time.get_time_string_from_system()]
+			_label_info.text = "Little Sword REFEITO — FASE 7 | TILE=%.1f | Board %dx%d | OK %s" % [_get_tile(), _board.get("width"), _board.get("height"), Time.get_time_string_from_system()]
 		_is_regenerating = false
 		print("[Main] regenerate concluido")
 	callable.call()
@@ -271,13 +324,15 @@ func _get_unit_at_cell(cell: Vector3i) -> Node:
 				return child
 	return null
 
+var _is_defending: bool = false
+var _is_dispersar: bool = false
+
 func _handle_left_click() -> void:
 	var cell_var: Variant = _get_cell_under_mouse()
 	if cell_var == null:
 		return
 	var cell: Vector3i = cell_var as Vector3i
 	print("[Main] clique cell ", cell)
-	# prioridade: editor em modo edição
 	if _editor and _editor.has_method("handle_board_click"):
 		var handled: bool = _editor.call("handle_board_click", cell) as bool
 		if handled:
@@ -285,9 +340,18 @@ func _handle_left_click() -> void:
 			return
 	if _selected_unit and _selected_unit.get_meta("is_moving") == true:
 		return
+	# verifica turno
+	var tm: Node = get_node_or_null("/root/TurnManager")
+	if tm and tm.has_method("is_hero_turn") and not bool(tm.call("is_hero_turn")):
+		print("[Main] não é turno do herói")
+		return
 	var unit_at: Node = _get_unit_at_cell(cell)
 	if _selected_unit == null:
 		if unit_at != null:
+			# só seleciona herói no turno do herói
+			if tm and not _is_hero_unit(unit_at):
+				print("[Main] não é herói")
+				return
 			_select_unit(unit_at)
 		else:
 			print("[Main] nenhum unidade em ", cell)
@@ -296,14 +360,53 @@ func _handle_left_click() -> void:
 			_clear_selection()
 			return
 		if unit_at != null:
+			# ataque?
+			var combat: Node = get_node_or_null("/root/CombatSystem")
+			if combat and combat.has_method("can_attack") and bool(combat.call("can_attack", _selected_unit, unit_at)):
+				_do_attack(_selected_unit, unit_at)
+				return
 			_clear_selection()
-			_select_unit(unit_at)
+			if _is_hero_unit(unit_at):
+				_select_unit(unit_at)
 			return
 		if _reachable.has("dist") and (_reachable["dist"] as Dictionary).has(cell):
 			_move_selected_to(cell)
 		else:
 			print("[Main] destino ", cell, " fora do alcance (", _last_steps, " casas)")
 			_clear_selection()
+
+func _is_hero_unit(u: Node) -> bool:
+	var def: Resource = u.get("definition") as Resource
+	return def and int(def.get("faction")) == 0
+
+func _do_attack(att: Node, def: Node) -> void:
+	var combat: Node = get_node_or_null("/root/CombatSystem")
+	if combat == null:
+		return
+	var opts: Dictionary = {}
+	if _is_defending:
+		opts["defending"] = true
+	var res: Dictionary = combat.call("attack", att, def, opts) as Dictionary
+	_clear_highlights()
+	_selected_unit = null
+	# alerta AI
+	var ai: Node = get_node_or_null("/root/EnemyAI")
+	if ai and ai.has_method("on_attacked"):
+		ai.call("on_attacked", att, def)
+	if int(def.get("current_hp")) <= 0:
+		print("[Main] %s morreu!" % String(def.get("definition").get("display_name")))
+		var bg: Node = get_node_or_null("/root/BoardGrid")
+		if bg and bg.has_method("clear_cell"):
+			bg.call("clear_cell", def.get("grid_pos"))
+		def.queue_free()
+		var tm2: Node = get_node_or_null("/root/TurnManager")
+		if tm2 and tm2.has_method("remove_dead"):
+			tm2.call("remove_dead", def)
+	# passa turno após ataque
+	await get_tree().create_timer(0.4).timeout
+	var tm3: Node = get_node_or_null("/root/TurnManager")
+	if tm3 and tm3.has_method("next_turn"):
+		tm3.call("next_turn")
 
 func _select_unit(unit: Node) -> void:
 	_selected_unit = unit
@@ -340,7 +443,7 @@ func _clear_selection() -> void:
 	_reachable = {}
 	_clear_highlights()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 4 | Clique unidade → destino | G: Grid | T: Urso"
+		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique→mover/atacar | A/D/F | G/T"
 	print("[Main] seleção limpa")
 
 func _show_highlights(reach: Dictionary) -> void:
@@ -398,11 +501,25 @@ func _move_selected_to(dest: Vector3i) -> void:
 	if _movement and _movement.has_method("get_movement_path"):
 		path = _movement.call("get_movement_path", _reachable, dest) as Array
 	else:
-		# fallback via BoardGrid
 		var bg: Node = get_node_or_null("/root/BoardGrid")
 		if bg and bg.has_method("path_from_reachable"):
 			path = bg.call("path_from_reachable", _reachable, dest) as Array
 	print("[Main] movendo ", _selected_unit.get("definition").get("display_name"), " path ", path, " -> ", dest)
+	# oportunidade antes de sair
+	var from: Vector3i = _selected_unit.get("grid_pos") as Vector3i
+	var combat: Node = get_node_or_null("/root/CombatSystem")
+	if combat and combat.has_method("check_opportunity") and not path.is_empty():
+		var first_step: Vector3i = path[0] as Vector3i
+		var opps: Array = combat.call("check_opportunity", _selected_unit, from, first_step, {"dispersar": _is_dispersar}) as Array
+		for opp: Node in opps:
+			print("[Main] oportunidade de ", String(opp.get("definition").get("display_name")))
+			combat.call("attack", opp, _selected_unit, {})
+			if int(_selected_unit.get("current_hp")) <= 0:
+				print("[Main] unidade morreu por oportunidade")
+				_clear_highlights()
+				_selected_unit = null
+				return
+	_is_dispersar = false
 	_clear_highlights()
 	var unit: Node = _selected_unit
 	_selected_unit = null
@@ -410,13 +527,16 @@ func _move_selected_to(dest: Vector3i) -> void:
 		_label_info.text = "Movendo..."
 	if _movement and _movement.has_method("move_unit"):
 		_movement.call("move_unit", unit, path)
-		# aguarda sinal
 		await _movement.movement_finished
 		_print_debug_info()
 		if _label_info:
-			_label_info.text = "Chegou em %s | G: Grid | T: Urso | clique outra unidade" % [str(dest)]
+			_label_info.text = "Chegou em %s | A: atacar | D: defender | F: dispersar | G/T" % [str(dest)]
+		# passa turno após mover (herói)
+		var tm: Node = get_node_or_null("/root/TurnManager")
+		if tm and tm.has_method("next_turn") and _is_hero_unit(unit):
+			await get_tree().create_timer(0.3).timeout
+			tm.call("next_turn")
 	else:
-		# fallback instantâneo
 		unit.set("grid_pos", dest)
 		unit.global_position = get_node("/root/BoardGrid").call("grid_to_world", dest) as Vector3
 		get_node("/root/BoardGrid").call("place", unit, dest)
