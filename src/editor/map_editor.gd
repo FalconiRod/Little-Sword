@@ -286,9 +286,14 @@ func _cat_items(mode_name: String) -> Array:
 func _glb_tiles() -> Array:
 	var out: Array = []
 	for p in glb_list:
+		# Só os 4 da raiz tilesets/ (sem subpastas) — os 4 que funcionam
+		if str(p).begins_with("res://src/assets/tilesets/") and str(p).find("original/") == -1:
+			var depth: int = str(p).trim_prefix("res://src/assets/tilesets/").count("/") 
+			if depth == 0:
+				out.append(p)
+				continue
 		var f: String = str(p).get_file().to_lower()
-		if str(p).find("assets/tilesets/") != -1 \
-				or f.begins_with("tile_") or f.begins_with("agua"):
+		if f.begins_with("tile_") and str(p).find("tilesets/") != -1 and str(p).find("original/") == -1:
 			out.append(p)
 	return out
 
