@@ -30,7 +30,7 @@ func _ready() -> void:
 	if _label_info and _board:
 		var af: int = int(_board.get("active_floor")) if _board.get("active_floor") != null else 0
 		_label_info.text = "Little Sword REFEITO — FASE 5 | TILE=%.1f | %dx%d | Andar %d | Clique→mover | G/T/PgUp/Dn" % [_get_tile(), _board.get("width"), _board.get("height"), af]
-	print_rich("[color=cyan][Main][/color] FASE 5 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
+	print_rich("[color=cyan][Main][/color] FASE 5 gaveta (escadas removidas) — FASE 4 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
 	_print_debug_info()
 	# screenshot debug após 0.5s + re-log de camera após física
 	await get_tree().create_timer(0.5).timeout

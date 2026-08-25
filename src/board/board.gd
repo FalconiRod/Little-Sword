@@ -10,7 +10,7 @@ const CD = preload("res://src/resources/character_definition.gd")
 @export var theme_stone: Resource
 @export var use_checker_pattern: bool = true
 @export var demo_fase2: bool = true
-@export var demo_fase5: bool = true
+@export var demo_fase5: bool = false
 @export var active_floor: int = 0
 
 const TILE_F: float = 2.0
@@ -45,6 +45,8 @@ func _floor_h() -> float:
 func _ready() -> void:
 	if demo_fase5:
 		floors_n = 2
+	else:
+		floors_n = 1
 	if theme_grass == null:
 		theme_grass = _make_grass_theme()
 	if theme_stone == null:
