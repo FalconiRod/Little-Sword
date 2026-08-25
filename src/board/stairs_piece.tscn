@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://stairs_fase5"]
+
+[ext_resource type="Script" path="res://src/board/stairs_piece.gd" id="1"]
+[sub_resource type="BoxMesh" id="Box_house"]
+size = Vector3(4, 14.5, 6)
+
+[node name="StairsPiece" type="Node3D"]
+script = ExtResource("1")
+
+[node name="HouseMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 7.25, 2)
+mesh = SubResource("Box_house")
+
+[node name="StairsMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)

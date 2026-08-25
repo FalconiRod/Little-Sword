@@ -12,7 +12,7 @@ const TILE: float = 2.0
 const FLOOR_H: float = 7.0
 const ELEV_H: float = 0.55
 const WALKABLE_CLEARANCE: float = 1.8
-const RAY_FROM_OFFSET: float = 8.0
+const RAY_FROM_OFFSET: float = 2.5
 const RAY_TO_OFFSET: float = 4.0
 
 ## Dados por célula: Vector3i(col, row, floor) -> CellData
@@ -20,6 +20,8 @@ var _cells: Dictionary = {}  # Vector3i -> Dictionary
 var _walls: Dictionary = {} # String key "x,y,z:dir" -> true
 var _doors: Array = [] # Array[Dictionary {edge:Vector3i, dir:String, state:int, behind:Vector3i}]
 var occupied: Dictionary = {} # Vector3i -> BoardUnit (Fase3)
+var stair_links: Dictionary = {} # Vector3i -> Vector3i bidirecional
+var active_floor_index: int = 0
 var _bounds: Rect2 = Rect2(0, 0, 10, 10)
 var _floors_n: int = 1
 
@@ -37,8 +39,36 @@ func reset() -> void:
 	_walls.clear()
 	_doors.clear()
 	occupied.clear()
+	stair_links.clear()
+	active_floor_index = 0
 	_bounds = Rect2(0, 0, 10, 10)
 	_floors_n = 1
+
+func add_stair_link(a: Vector3i, b: Vector3i) -> void:
+	if a.z == b.z:
+		push_error("Stair precisa andares diferentes %s" % str([a,b]))
+		return
+	if a.z > b.z:
+		var t: Vector3i = a
+		a = b
+		b = t
+	stair_links[a] = b
+	stair_links[b] = a
+
+func stair_pair(cell: Vector3i) -> Vector3i:
+	return stair_links.get(cell, cell)
+
+func try_cross_stairs(cell: Vector3i) -> Variant:
+	var dest: Vector3i = stair_links.get(cell, cell)
+	if dest == cell:
+		return null
+	if not is_walkable(dest):
+		return null
+	# célula atrás da escada no andar destino deve estar livre (regra similar porta)
+	return dest
+
+func set_active_floor(idx: int) -> void:
+	active_floor_index = clampi(idx, 0, max(0, _floors_n -1))
 
 func place(unit: Node, cell: Vector3i) -> void:
 	occupied[cell] = unit
@@ -57,6 +87,7 @@ func is_free(cell: Vector3i) -> bool:
 func clear_walls_doors() -> void:
 	_walls.clear()
 	_doors.clear()
+	stair_links.clear()
 
 func _wall_key(cell: Vector3i, dir: String) -> String:
 	return "%d,%d,%d:%s" % [cell.x, cell.y, cell.z, dir]
@@ -346,11 +377,14 @@ func neighbors(cell: Vector3i) -> Array[Vector3i]:
 	for off: Vector3i in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0)]:
 		var n: Vector3i = cell + off
 		if is_walkable(n):
-			# Elevação pequena (diff <=1) é auto-transponível
 			var ea: int = int((_cells[cell] as Dictionary).get("elev", 0)) if _cells.has(cell) else 0
 			var eb: int = int((_cells[n] as Dictionary).get("elev", 0)) if _cells.has(n) else 0
 			if abs(eb - ea) <= 1:
-				out.append(n)
+				if not has_wall_between(cell, n):
+					out.append(n)
+	var stair: Vector3i = stair_links.get(cell, cell)
+	if stair != cell and is_walkable(stair):
+		out.append(stair)
 	return out
 
 func compute_reachable(start: Vector3i, max_steps: int, ignore_units: bool = true) -> Dictionary:

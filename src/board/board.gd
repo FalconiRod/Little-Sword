@@ -10,6 +10,8 @@ const CD = preload("res://src/resources/character_definition.gd")
 @export var theme_stone: Resource
 @export var use_checker_pattern: bool = true
 @export var demo_fase2: bool = true
+@export var demo_fase5: bool = true
+@export var active_floor: int = 0
 
 const TILE_F: float = 2.0
 const FLOOR_H_F: float = 7.0
@@ -20,6 +22,7 @@ var _doors: Array = []
 var _columns: Array = []
 var _obstacles: Array = []
 var _units: Array = []
+var _stairs: Array = []
 var _regen_count: int = 0
 
 func _get_board_grid() -> Node:
@@ -40,6 +43,8 @@ func _floor_h() -> float:
 	return FLOOR_H_F
 
 func _ready() -> void:
+	if demo_fase5:
+		floors_n = 2
 	if theme_grass == null:
 		theme_grass = _make_grass_theme()
 	if theme_stone == null:
@@ -48,9 +53,16 @@ func _ready() -> void:
 	if demo_fase2:
 		generate_fase2_demo()
 	generate_fase3_units()
+	if demo_fase5:
+		generate_fase5_demo()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	bake_grid()
+	# expõe active_floor no BoardGrid
+	var bg: Node = _get_board_grid()
+	if bg and bg.has_method("set_active_floor"):
+		bg.call("set_active_floor", active_floor)
+	_apply_floor_visibility()
 
 func _make_grass_theme() -> Resource:
 	var t: Resource = load("res://src/resources/floor_theme.gd").new()
@@ -164,6 +176,63 @@ func generate_fase2_demo() -> void:
 
 	print("[Board] Fase2 demo: walls=", _walls.size(), " doors=", _doors.size(), " cols=", _columns.size(), " obs=", _obstacles.size())
 
+func generate_fase5_demo() -> void:
+	var stairs_scene: PackedScene = load("res://src/board/stairs_piece.tscn") as PackedScene
+	var def: Resource = load("res://src/resources/stairs_definition.gd").new()
+	def.set("floors", 2)
+	var n: Node = stairs_scene.instantiate()
+	n.set("bottom_cell", Vector3i(6,0,0))
+	n.set("top_cell", Vector3i(6,0,1))
+	n.set("definition", def)
+	add_child(n)
+	_stairs.append(n)
+	print("[Board] Fase5 casa 2 andares link ", n.get("bottom_cell"), " -> ", n.get("top_cell"))
+	# segundo andar tem chao extra e uma unidade no topo para demo
+	# (o chao já foi gerado para floors_n=2)
+	# move uma unidade para o topo para testar
+	var bg: Node = _get_board_grid()
+	if bg and bg.has_method("add_stair_link"):
+		# já registrado pelo stairs_piece
+		pass
+	_apply_floor_visibility()
+
+func _apply_floor_visibility_simple() -> void:
+	for child: Node in get_children():
+		if child.get("cell") != null:
+			var c: Vector3i = child.get("cell") as Vector3i
+			var mesh: Node = child.get_node_or_null("MeshInstance3D") as Node
+			if mesh and mesh.has_method("get_active_material"):
+				pass
+			# se for FloorPiece/Prop/Column/Unit
+			if c.z == active_floor:
+				child.visible = true
+				if child.has_node("MeshInstance3D"):
+					var mi: MeshInstance3D = child.get_node("MeshInstance3D") as MeshInstance3D
+					if mi and mi.mesh and mi.mesh.surface_get_material(0):
+						var mat: StandardMaterial3D = mi.mesh.surface_get_material(0) as StandardMaterial3D
+						if mat:
+							mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+							mat.albedo_color.a = 1.0
+			elif c.z < active_floor:
+				child.visible = true
+				# andares abaixo semi-transparente
+				if child.has_node("MeshInstance3D"):
+					var mi2: MeshInstance3D = child.get_node("MeshInstance3D") as MeshInstance3D
+					if mi2 and mi2.mesh and mi2.mesh.surface_get_material(0):
+						var mat2: StandardMaterial3D = mi2.mesh.surface_get_material(0) as StandardMaterial3D
+						if mat2:
+							mat2.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+							mat2.albedo_color.a = 0.35
+			else:
+				# andar acima invisível (ou 0.15 se quiser ver)
+				child.visible = false
+		elif child.get("grid_pos") != null:
+			var c2: Vector3i = child.get("grid_pos") as Vector3i
+			child.visible = (c2.z == active_floor)
+		elif child.get("bottom_cell") != null:
+			# escada sempre visível
+			child.visible = true
+
 func generate_fase3_units() -> void:
 	var unit_scene: PackedScene = load("res://src/units/board_unit.tscn") as PackedScene
 	var defs: Array = [
@@ -262,6 +331,10 @@ func clear_board() -> void:
 		if is_instance_valid(u as Object):
 			(u as Node).queue_free()
 	_units.clear()
+	for s: Variant in _stairs:
+		if is_instance_valid(s as Object):
+			(s as Node).queue_free()
+	_stairs.clear()
 	var bg: Node = _get_board_grid()
 	if bg:
 		if bg.has_method("clear_walls_doors"):
@@ -321,6 +394,67 @@ func bake_grid() -> void:
 	else:
 		push_warning("[Board] BoardGrid nao encontrado para bake")
 
+func set_active_floor(idx: int) -> void:
+	active_floor = clampi(idx, 0, floors_n-1)
+	var bg: Node = _get_board_grid()
+	if bg and bg.has_method("set_active_floor"):
+		bg.call("set_active_floor", active_floor)
+	_apply_floor_visibility()
+	print("[Board] active_floor -> ", active_floor)
+
+func _apply_floor_visibility() -> void:
+	for child: Node in get_children():
+		var has_cell: bool = child.get("cell") != null
+		var has_grid: bool = child.get("grid_pos") != null
+		var has_bottom: bool = child.get("bottom_cell") != null
+		if has_cell:
+			var c: Vector3i = child.get("cell") as Vector3i
+			if c.z == active_floor:
+				child.visible = true
+				_set_alpha(child, 1.0)
+			elif c.z < active_floor:
+				child.visible = true
+				_set_alpha(child, 0.35)
+			else:
+				child.visible = false
+		elif has_grid:
+			var c2: Vector3i = child.get("grid_pos") as Vector3i
+			child.visible = (c2.z == active_floor)
+		elif has_bottom:
+			# escada/casa sempre visível mas com alpha conforme andar
+			child.visible = true
+			var sc: Vector3i = child.get("bottom_cell") as Vector3i
+			if sc.z == active_floor:
+				_set_alpha(child, 1.0)
+			else:
+				_set_alpha(child, 0.45)
+		elif child.get("edge_cell") != null:
+			var ec: Vector3i = child.get("edge_cell") as Vector3i
+			child.visible = (ec.z == active_floor)
+
+func _set_alpha(node: Node, alpha: float) -> void:
+	var mi: MeshInstance3D = node.get_node_or_null("MeshInstance3D") as MeshInstance3D
+	if mi == null:
+		mi = node.get_node_or_null("HouseMesh") as MeshInstance3D
+	if mi and mi.mesh:
+		var mat: StandardMaterial3D = mi.mesh.surface_get_material(0) as StandardMaterial3D
+		if mat:
+			if alpha < 0.99:
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			else:
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			mat.albedo_color.a = alpha
+	# também tenta StairsMesh
+	var sm: MeshInstance3D = node.get_node_or_null("StairsMesh") as MeshInstance3D
+	if sm and sm.mesh:
+		var m2: StandardMaterial3D = sm.mesh.surface_get_material(0) as StandardMaterial3D
+		if m2:
+			if alpha < 0.99:
+				m2.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			else:
+				m2.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			m2.albedo_color.a = alpha
+
 func regenerate_and_bake() -> void:
 	_regen_count += 1
 	print("[Board] regenerate_and_bake #", _regen_count)
@@ -328,9 +462,15 @@ func regenerate_and_bake() -> void:
 	if demo_fase2:
 		generate_fase2_demo()
 	generate_fase3_units()
+	if demo_fase5:
+		generate_fase5_demo()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	bake_grid()
+	var bg2: Node = _get_board_grid()
+	if bg2 and bg2.has_method("set_active_floor"):
+		bg2.call("set_active_floor", active_floor)
+	_apply_floor_visibility()
 	print("[Board] regen #", _regen_count, " concluido - xadrez invertido")
 
 func get_pieces() -> Array:

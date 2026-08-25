@@ -28,8 +28,9 @@ func _ready() -> void:
 		_editor.call("bind_board", _board)
 	_update_camera()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 4 | TILE=%.1f | %dx%d | Clique unidade → destino | G/T" % [_get_tile(), _board.get("width"), _board.get("height")]
-	print_rich("[color=cyan][Main][/color] FASE 4 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"))
+		var af: int = int(_board.get("active_floor")) if _board.get("active_floor") != null else 0
+		_label_info.text = "Little Sword REFEITO — FASE 5 | TILE=%.1f | %dx%d | Andar %d | Clique→mover | G/T/PgUp/Dn" % [_get_tile(), _board.get("width"), _board.get("height"), af]
+	print_rich("[color=cyan][Main][/color] FASE 5 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
 	_print_debug_info()
 	# screenshot debug após 0.5s + re-log de camera após física
 	await get_tree().create_timer(0.5).timeout
@@ -130,6 +131,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif ke.keycode == KEY_T:
 			print("[Main] T druida transform")
 			_trigger_druida()
+		elif ke.keycode == KEY_PAGEUP or ke.keycode == KEY_KP_ADD:
+			_change_floor(1)
+		elif ke.keycode == KEY_PAGEDOWN or ke.keycode == KEY_KP_SUBTRACT:
+			_change_floor(-1)
 		elif ke.keycode == KEY_R:
 			print("[Main] R pressionado")
 			_yaw = -45.0
@@ -148,6 +153,10 @@ func _input(event: InputEvent) -> void:
 		elif ke.keycode == KEY_T:
 			print("[Main] T _input")
 			_trigger_druida()
+		elif ke.keycode == KEY_PAGEUP:
+			_change_floor(1)
+		elif ke.keycode == KEY_PAGEDOWN:
+			_change_floor(-1)
 
 func _trigger_regenerate() -> void:
 	if _is_regenerating:
@@ -169,6 +178,24 @@ func _trigger_regenerate() -> void:
 		_is_regenerating = false
 		print("[Main] regenerate concluido")
 	callable.call()
+
+func _change_floor(delta: int) -> void:
+	if _board == null or not _board.has_method("set_active_floor"):
+		return
+	var cur: int = int(_board.get("active_floor")) if _board.get("active_floor") != null else 0
+	var nxt: int = cur + delta
+	_board.call("set_active_floor", nxt)
+	# camera fade (exponencial já em update_camera, aqui só log)
+	var bg: Node = get_node_or_null("/root/BoardGrid")
+	var af: int = int(bg.get("active_floor_index")) if bg and bg.get("active_floor_index") != null else nxt
+	print("[Main] andar -> ", af)
+	if _label_info and _board:
+		_label_info.text = "Andar %d | G/T/PgUp/Dn | clique para mover" % [af]
+	# retrato fade simulado: modula InfoLabel
+	if _label_info:
+		var tw: Tween = create_tween()
+		_label_info.modulate.a = 0.3
+		tw.tween_property(_label_info, "modulate:a", 1.0, 0.25)
 
 func _trigger_druida() -> void:
 	if _board == null:
@@ -196,16 +223,21 @@ func _get_cell_under_mouse() -> Variant:
 	var mouse: Vector2 = get_viewport().get_mouse_position()
 	var origin: Vector3 = _camera.project_ray_origin(mouse)
 	var dir: Vector3 = _camera.project_ray_normal(mouse)
-	# interseção com plano y=0 (chão)
 	if abs(dir.y) < 0.001:
 		return null
-	var t: float = -origin.y / dir.y
+	var bg: Node = get_node_or_null("/root/BoardGrid")
+	var af: int = int(bg.get("active_floor_index")) if bg and bg.get("active_floor_index") != null else 0
+	var floor_y: float = float(af) * 7.0
+	var t: float = (floor_y - origin.y) / dir.y
+	if t < 0:
+		# tenta chão 0
+		t = -origin.y / dir.y
+		af = 0
 	if t < 0:
 		return null
 	var hit: Vector3 = origin + dir * t
-	var bg: Node = get_node_or_null("/root/BoardGrid")
 	if bg and bg.has_method("world_to_cell"):
-		return bg.call("world_to_cell", hit, 0)
+		return bg.call("world_to_cell", hit, af)
 	return null
 
 func _get_unit_at_cell(cell: Vector3i) -> Node:
