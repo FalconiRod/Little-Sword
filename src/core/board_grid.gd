@@ -225,7 +225,9 @@ func bake_from_physics(env: Node3D, map_bounds: Rect2, floors_n: int) -> void:
 				q.collide_with_bodies = true
 				var hit: Dictionary = space.intersect_ray(q)
 				if hit.is_empty():
-					set_tile(c, false, true, 0)
+					# Fallback: se raycast não acertou chão com colisão, usa o tile manual anterior se existir
+					# (para mapas sem colisão real ainda, ex: bosque_30 com folha)
+					set_tile(c, true, false, 0)
 					continue
 				var pos: Vector3 = hit["position"]
 				var col: Object = hit["collider"]
