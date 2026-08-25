@@ -1567,7 +1567,7 @@ func _build_ui() -> void:
 		var b := Button.new()
 		b.name = "item_gtile_%d" % i
 		# Mostra pasta + arquivo para diferenciar duplicatas + nome custom se houver
-		var full := _gtile_list[i]
+		var full: String = _gtile_list[i]
 		var fname: String = full.get_file()
 		var custom: String = str(edits.get("tileset_names", {}).get(full, ""))
 		var label: String = (custom + "  (" + fname + ")") if custom != "" else fname
