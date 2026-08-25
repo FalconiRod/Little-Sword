@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://main_refeito_fase1"]
+[gd_scene load_steps=7 format=3 uid="uid://main_refeito_fase1"]
 
 [ext_resource type="Script" path="res://src/scenes/main.gd" id="1"]
 [ext_resource type="Script" path="res://src/board/board.gd" id="2"]
 [ext_resource type="Script" path="res://src/editor/map_editor.gd" id="3"]
 [ext_resource type="Script" path="res://src/movement/movement_manager.gd" id="4"]
 [ext_resource type="PackedScene" path="res://src/ui/hud.tscn" id="5"]
+[ext_resource type="Script" path="res://src/camera/tactical_camera.gd" id="6"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1")
@@ -25,6 +26,7 @@ shadow_enabled = true
 
 [node name="CameraPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 10)
+script = ExtResource("6")
 
 [node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
 spring_length = 18.0

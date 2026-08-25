@@ -14,10 +14,6 @@ var _highlights: Array[Node3D] = []
 var _last_roll: int = 0
 var _last_steps: int = 0
 
-var _yaw: float = -45.0
-var _pitch: float = -50.0
-var _dist: float = 18.0
-
 func _get_tile() -> float:
 	if has_node("/root/BoardGrid") and get_node("/root/BoardGrid").get("TILE") != null:
 		return float(get_node("/root/BoardGrid").get("TILE"))
@@ -33,7 +29,6 @@ func _ready() -> void:
 	if _btn_roll:
 		_btn_roll.pressed.connect(_on_roll_pressed)
 		_btn_roll.visible = false
-	_update_camera()
 	if _label_info and _board:
 		_label_info.text = "Little Sword REFEITO — FASE 8 | F1: Editor | Clique unidade → Rolar Dados → destino verde"
 	print_rich("[color=cyan][Main][/color] FASE 8 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
@@ -177,27 +172,9 @@ func _take_debug_screenshot() -> void:
 var _is_regenerating: bool = false
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		# só orbita se não está movendo unidade e arrasto > 5px
-		var mm: InputEventMouseMotion = event as InputEventMouseMotion
-		if mm.relative.length() > 2.0:
-			_yaw -= mm.relative.x * 0.3
-			_pitch = clamp(_pitch - mm.relative.y * 0.3, -85.0, -15.0)
-			_update_camera()
-			return
-	elif event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
-			_dist = max(6.0, _dist - 1.0)
-			_update_camera()
-			return
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-			_dist = min(35.0, _dist + 1.0)
-			_update_camera()
-			return
-		elif mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			_handle_left_click()
-			return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_handle_left_click()
+		return
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
 		if ke.keycode == KEY_F1:
@@ -231,10 +208,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_change_floor(-1)
 		elif ke.keycode == KEY_R:
 			print("[Main] R pressionado")
-			_yaw = -45.0
-			_pitch = -50.0
-			_dist = 18.0
-			_update_camera()
+			if _camera_pivot and _camera_pivot.has_method("recenter_on_target"):
+				_camera_pivot.call("recenter_on_target")
 		elif ke.keycode == KEY_P:
 			_take_debug_screenshot()
 
@@ -645,10 +620,11 @@ func _focus_on_unit(unit: Node) -> void:
 	if unit == null or _camera_pivot == null:
 		return
 	var pos: Vector3 = unit.global_position
-	# move pivot to unit com tween
-	var tw: Tween = create_tween()
-	tw.tween_property(_camera_pivot, "global_position", Vector3(pos.x, _camera_pivot.global_position.y, pos.z), 0.35)
-	# fade retrato
+	if _camera_pivot.has_method("focus_on_world"):
+		_camera_pivot.call("focus_on_world", pos)
+	else:
+		var tw: Tween = create_tween()
+		tw.tween_property(_camera_pivot, "global_position", Vector3(pos.x, _camera_pivot.global_position.y, pos.z), 0.35)
 	var hud: Node = get_tree().get_first_node_in_group("hud") as Node
 	if hud:
 		var fade: Control = hud.get_node_or_null("PortraitFade") as Control
@@ -659,13 +635,3 @@ func _focus_on_unit(unit: Node) -> void:
 			tw2.tween_property(fade, "modulate:a", 0.4, 0.15)
 			tw2.tween_property(fade, "modulate:a", 0.0, 0.15)
 
-func _update_camera() -> void:
-	if _camera_pivot == null:
-		return
-	_camera_pivot.rotation.y = deg_to_rad(_yaw)
-	_camera_pivot.rotation.x = deg_to_rad(_pitch)
-	var arm: SpringArm3D = _camera_pivot.get_node_or_null("SpringArm3D") as SpringArm3D
-	if arm:
-		arm.spring_length = _dist
-	if _camera and arm == null:
-		_camera.position = Vector3(0, 0, _dist)
