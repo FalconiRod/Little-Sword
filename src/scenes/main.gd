@@ -559,14 +559,15 @@ func _show_highlights(reach: Dictionary) -> void:
 		var world: Vector3 = bg.call("grid_to_world", cell) as Vector3 if bg else Vector3(float(cell.x)*2+1,0,float(cell.y)*2+1)
 		var marker: Node3D = MeshInstance3D.new()
 		var plane: PlaneMesh = PlaneMesh.new()
-		plane.size = Vector2(1.6, 1.6)
+		plane.size = Vector2(1.75, 1.75)
 		var mat: StandardMaterial3D = StandardMaterial3D.new()
-		mat.albedo_color = Color(0.30, 0.85, 0.35, 0.55)
+		mat.albedo_color = Color(0.15, 0.78, 0.95, 0.85)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		plane.material = mat
 		(marker as MeshInstance3D).mesh = plane
-		marker.position = world + Vector3(0, 0.02, 0)
+		marker.position = world + Vector3(0, 0.08, 0)
 		marker.rotation.x = deg_to_rad(-90)
 		add_child(marker)
 		_highlights.append(marker)
