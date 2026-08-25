@@ -30,9 +30,14 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	_print_debug_info()
 	_take_debug_screenshot()
-	# em headless, encerra após screenshot para validar
-	if OS.has_feature("headless"):
-		await get_tree().create_timer(0.3).timeout
+	# em headless, testa G automaticamente
+	if DisplayServer.get_name() == "headless":
+		print("[Main] HEADLESS test: simulando G")
+		_trigger_regenerate()
+		await get_tree().create_timer(0.5).timeout
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		print("[Main] HEADLESS test G concluido, quit")
 		get_tree().quit()
 
 func _print_debug_info() -> void:
@@ -66,6 +71,8 @@ func _take_debug_screenshot() -> void:
 	var err: int = img.save_png(path)
 	print("[Main] screenshot salvo=", path, " err=", err)
 
+var _is_regenerating: bool = false
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		var mm: InputEventMouseMotion = event as InputEventMouseMotion
@@ -80,20 +87,48 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_dist = min(35.0, _dist + 1.0)
 			_update_camera()
-	elif event is InputEventKey and event.pressed:
+	elif event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
 		if ke.keycode == KEY_G:
-			print("[Main] G pressionado")
-			if _board and _board.has_method("regenerate_and_bake"):
-				await _board.call("regenerate_and_bake")
-				_print_debug_info()
+			print("[Main] G _unhandled_input")
+			_trigger_regenerate()
 		elif ke.keycode == KEY_R:
+			print("[Main] R pressionado")
 			_yaw = -45.0
 			_pitch = -50.0
 			_dist = 18.0
 			_update_camera()
 		elif ke.keycode == KEY_P:
 			_take_debug_screenshot()
+
+func _input(event: InputEvent) -> void:
+	# Fallback extra para garantir que G chega
+	if event is InputEventKey and event.pressed and not event.echo:
+		var ke: InputEventKey = event as InputEventKey
+		if ke.keycode == KEY_G:
+			print("[Main] G _input")
+			_trigger_regenerate()
+
+func _trigger_regenerate() -> void:
+	if _is_regenerating:
+		return
+	if _board == null or not _board.has_method("regenerate_and_bake"):
+		return
+	_is_regenerating = true
+	print("[Main] G TRIGGER regenerate_and_bake")
+	if _label_info:
+		_label_info.text = "Regenerando grid..."
+	# chama async sem bloquear caller
+	var callable: Callable = func() -> void:
+		await _board.call("regenerate_and_bake")
+		_print_debug_info()
+		if _editor and _editor.has_method("_update_stats"):
+			_editor.call("_update_stats")
+		if _label_info and _board:
+			_label_info.text = "Little Sword REFEITO — FASE 1 | TILE=%.1f | Board %dx%d | OK %s" % [_get_tile(), _board.get("width"), _board.get("height"), Time.get_time_string_from_system()]
+		_is_regenerating = false
+		print("[Main] regenerate concluido")
+	callable.call()
 
 func _update_camera() -> void:
 	if _camera_pivot == null:
