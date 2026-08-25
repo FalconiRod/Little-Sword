@@ -568,7 +568,6 @@ func _show_highlights(reach: Dictionary) -> void:
 		plane.material = mat
 		(marker as MeshInstance3D).mesh = plane
 		marker.position = world + Vector3(0, 0.08, 0)
-		marker.rotation.x = deg_to_rad(-90)
 		add_child(marker)
 		_highlights.append(marker)
 	# destaca origem em amarelo
@@ -582,10 +581,10 @@ func _show_highlights(reach: Dictionary) -> void:
 		mat2.albedo_color = Color(0.95,0.85,0.25,0.75)
 		mat2.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat2.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat2.cull_mode = BaseMaterial3D.CULL_DISABLED
 		pl2.material = mat2
 		(m2 as MeshInstance3D).mesh = pl2
-		m2.position = w + Vector3(0,0.03,0)
-		m2.rotation.x = deg_to_rad(-90)
+		m2.position = w + Vector3(0,0.09,0)
 		add_child(m2)
 		_highlights.append(m2)
 
