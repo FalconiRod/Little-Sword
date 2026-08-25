@@ -1,0 +1,99 @@
+[gd_scene load_steps=4 format=3 uid="uid://main_refeito_fase1"]
+
+[ext_resource type="Script" path="res://src/scenes/main.gd" id="1"]
+[ext_resource type="Script" path="res://src/board/board.gd" id="2"]
+[ext_resource type="Script" path="res://src/editor/map_editor.gd" id="3"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Board" type="Node3D" parent="." groups=["board"]]
+script = ExtResource("2")
+width = 10
+height = 10
+floors_n = 1
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.5, -0.7, 0.5, 0, 0.7, 0.7, -0.866, -0.35, 0.35, 0, 8, 0)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 10)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+spring_length = 18.0
+collision_mask = 1
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+current = true
+fov = 55.0
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="MapEditor" type="Control" parent="CanvasLayer" groups=["map_editor"]]
+layout_mode = 3
+anchors_preset = 1
+anchor_left = 1.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = -260.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 180.0
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("3")
+
+[node name="Panel" type="Panel" parent="CanvasLayer/MapEditor"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/MapEditor/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+
+[node name="Title" type="Label" parent="CanvasLayer/MapEditor/Panel/VBox"]
+layout_mode = 2
+text = "Painel de Edicao — FASE 1"
+horizontal_alignment = 1
+
+[node name="BtnGenerate" type="Button" parent="CanvasLayer/MapEditor/Panel/VBox"]
+layout_mode = 2
+text = "Gerar Grid"
+
+[node name="LabelStats" type="Label" parent="CanvasLayer/MapEditor/Panel/VBox"]
+layout_mode = 2
+text = "BoardGrid: aguardando bake..."
+
+[node name="Hint" type="Label" parent="CanvasLayer/MapEditor/Panel/VBox"]
+layout_mode = 2
+text = "G: gerar grid | R: reset camera | Arraste: orbita | Roda: zoom"
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -32.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Little Sword REFEITO — FASE 1"
+horizontal_alignment = 1
