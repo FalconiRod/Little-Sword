@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://main_refeito_fase1"]
+[gd_scene load_steps=6 format=3 uid="uid://main_refeito_fase1"]
 
 [ext_resource type="Script" path="res://src/scenes/main.gd" id="1"]
 [ext_resource type="Script" path="res://src/board/board.gd" id="2"]
 [ext_resource type="Script" path="res://src/editor/map_editor.gd" id="3"]
 [ext_resource type="Script" path="res://src/movement/movement_manager.gd" id="4"]
+[ext_resource type="PackedScene" path="res://src/ui/hud.tscn" id="5"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1")
@@ -110,9 +111,11 @@ anchor_top = 0.0
 anchor_right = 0.5
 anchor_bottom = 0.0
 offset_left = -90.0
-offset_top = 12.0
+offset_top = 80.0
 offset_right = 90.0
-offset_bottom = 44.0
+offset_bottom = 112.0
 grow_horizontal = 2
 grow_vertical = 2
 text = "Rolar Dados"
+
+[node name="HUD" parent="CanvasLayer" instance=ExtResource("5")]

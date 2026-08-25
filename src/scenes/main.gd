@@ -32,8 +32,8 @@ func _ready() -> void:
 		_btn_roll.visible = false
 	_update_camera()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 7 | D20 vs CA | Clique unidade | Rolar Dados | A/D/F | G/T"
-	print_rich("[color=cyan][Main][/color] FASE 7 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
+		_label_info.text = "Little Sword REFEITO — FASE 8 | HUD ordem topo | Retratos | Ações | Log | Dados"
+	print_rich("[color=cyan][Main][/color] FASE 8 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"), " floors=", _board.get("floors_n"))
 	await get_tree().create_timer(0.2).timeout
 	if has_node("/root/TurnManager"):
 		var tm: Node = get_node("/root/TurnManager")
@@ -619,6 +619,24 @@ func _move_selected_to(dest: Vector3i) -> void:
 		unit.set("grid_pos", dest)
 		unit.global_position = get_node("/root/BoardGrid").call("grid_to_world", dest) as Vector3
 		get_node("/root/BoardGrid").call("place", unit, dest)
+
+func _focus_on_unit(unit: Node) -> void:
+	if unit == null or _camera_pivot == null:
+		return
+	var pos: Vector3 = unit.global_position
+	# move pivot to unit com tween
+	var tw: Tween = create_tween()
+	tw.tween_property(_camera_pivot, "global_position", Vector3(pos.x, _camera_pivot.global_position.y, pos.z), 0.35)
+	# fade retrato
+	var hud: Node = get_tree().get_first_node_in_group("hud") as Node
+	if hud:
+		var fade: Control = hud.get_node_or_null("PortraitFade") as Control
+		if fade:
+			fade.visible = true
+			fade.modulate.a = 0.0
+			var tw2: Tween = create_tween()
+			tw2.tween_property(fade, "modulate:a", 0.4, 0.15)
+			tw2.tween_property(fade, "modulate:a", 0.0, 0.15)
 
 func _update_camera() -> void:
 	if _camera_pivot == null:
