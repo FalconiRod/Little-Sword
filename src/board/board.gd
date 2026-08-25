@@ -1,6 +1,8 @@
 extends Node3D
 class_name Board
 
+const CD = preload("res://src/resources/character_definition.gd")
+
 @export var width: int = 10
 @export var height: int = 10
 @export var floors_n: int = 1
@@ -17,6 +19,7 @@ var _walls: Array = []
 var _doors: Array = []
 var _columns: Array = []
 var _obstacles: Array = []
+var _units: Array = []
 var _regen_count: int = 0
 
 func _get_board_grid() -> Node:
@@ -44,6 +47,7 @@ func _ready() -> void:
 	generate_board()
 	if demo_fase2:
 		generate_fase2_demo()
+	generate_fase3_units()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	bake_grid()
@@ -160,6 +164,34 @@ func generate_fase2_demo() -> void:
 
 	print("[Board] Fase2 demo: walls=", _walls.size(), " doors=", _doors.size(), " cols=", _columns.size(), " obs=", _obstacles.size())
 
+func generate_fase3_units() -> void:
+	var unit_scene: PackedScene = load("res://src/units/board_unit.tscn") as PackedScene
+	var defs: Array = [
+		[CD.create_cavaleiro(), Vector3i(1,1,0)],
+		[CD.create_maga(), Vector3i(1,2,0)],
+		[CD.create_druida(), Vector3i(1,8,0)],
+		[CD.create_goblin_guerreiro(), Vector3i(8,1,0)],
+		[CD.create_goblin_arqueiro(), Vector3i(8,8,0)],
+		[CD.create_boss(), Vector3i(5,8,0)],
+	]
+	for pair: Array in defs:
+		var def: Resource = pair[0] as Resource
+		var cell: Vector3i = pair[1] as Vector3i
+		var u: Node = unit_scene.instantiate()
+		u.set("definition", def)
+		u.set("grid_pos", cell)
+		add_child(u)
+		_units.append(u)
+		# registra no BoardGrid occupied (se existir)
+		var bg: Node = _get_board_grid()
+		if bg and bg.has_method("place"):
+			bg.call("place", u, cell)
+		print("[Board] unit ", def.get("display_name"), " em ", cell, " HP", def.get("hp_max"), " CA", def.get("ca"))
+	# demo transformação druida após 2s
+	var druida: Node = _units[2] as Node
+	if druida:
+		print("[Board] Druida transformação demo: pressione T para transformar/reverter")
+
 func _add_wall(cell: Vector3i, dir: String, scene: PackedScene) -> void:
 	var n: Node = scene.instantiate()
 	n.set("edge_cell", cell)
@@ -226,14 +258,26 @@ func clear_board() -> void:
 		if is_instance_valid(o as Object):
 			(o as Node).queue_free()
 	_obstacles.clear()
+	for u: Variant in _units:
+		if is_instance_valid(u as Object):
+			(u as Node).queue_free()
+	_units.clear()
+	var bg: Node = _get_board_grid()
+	if bg:
+		if bg.has_method("clear_walls_doors"):
+			bg.call("clear_walls_doors")
+		if bg.has_method("reset"):
+			# limpa occupied mas mantém bounds — reset completo faz no bake
+			var occupied: Dictionary = bg.get("occupied") if "occupied" in bg else {}
+			if occupied is Dictionary:
+				occupied.clear()
 	# remove órfãos restantes
 	for child: Node in get_children():
-		var path: String = child.get_script().resource_path if child.get_script() else ""
-		if path.ends_with("floor_piece.gd") or path.ends_with("wall_piece.gd") or path.ends_with("door_piece.gd") or path.ends_with("column_piece.gd") or path.ends_with("prop_obstacle.gd"):
+		if child.get_script() == null:
+			continue
+		var path: String = child.get_script().resource_path
+		if path.ends_with("floor_piece.gd") or path.ends_with("wall_piece.gd") or path.ends_with("door_piece.gd") or path.ends_with("column_piece.gd") or path.ends_with("prop_obstacle.gd") or path.ends_with("board_unit.gd"):
 			child.queue_free()
-	var bg: Node = _get_board_grid()
-	if bg and bg.has_method("clear_walls_doors"):
-		bg.call("clear_walls_doors")
 
 func bake_grid() -> void:
 	var tile: float = _tile()
@@ -283,6 +327,7 @@ func regenerate_and_bake() -> void:
 	generate_board()
 	if demo_fase2:
 		generate_fase2_demo()
+	generate_fase3_units()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	bake_grid()
@@ -290,6 +335,9 @@ func regenerate_and_bake() -> void:
 
 func get_pieces() -> Array:
 	return _pieces
+
+func get_units() -> Array:
+	return _units
 
 func map_bounds() -> Rect2:
 	var tile: float = _tile()

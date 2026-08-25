@@ -19,6 +19,7 @@ const RAY_TO_OFFSET: float = 4.0
 var _cells: Dictionary = {}  # Vector3i -> Dictionary
 var _walls: Dictionary = {} # String key "x,y,z:dir" -> true
 var _doors: Array = [] # Array[Dictionary {edge:Vector3i, dir:String, state:int, behind:Vector3i}]
+var occupied: Dictionary = {} # Vector3i -> BoardUnit (Fase3)
 var _bounds: Rect2 = Rect2(0, 0, 10, 10)
 var _floors_n: int = 1
 
@@ -35,8 +36,23 @@ func reset() -> void:
 	_cells.clear()
 	_walls.clear()
 	_doors.clear()
+	occupied.clear()
 	_bounds = Rect2(0, 0, 10, 10)
 	_floors_n = 1
+
+func place(unit: Node, cell: Vector3i) -> void:
+	occupied[cell] = unit
+	if unit.has_method("place_at"):
+		unit.set("grid_pos", cell)
+
+func clear_cell(cell: Vector3i) -> void:
+	occupied.erase(cell)
+
+func unit_at(cell: Vector3i) -> Node:
+	return occupied.get(cell, null)
+
+func is_free(cell: Vector3i) -> bool:
+	return is_walkable(cell) and not occupied.has(cell)
 
 func clear_walls_doors() -> void:
 	_walls.clear()

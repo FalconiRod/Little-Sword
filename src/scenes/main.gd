@@ -21,8 +21,8 @@ func _ready() -> void:
 		_editor.call("bind_board", _board)
 	_update_camera()
 	if _label_info and _board:
-		_label_info.text = "Little Sword REFEITO — FASE 1 | TILE=%.1f | Board %dx%d | G: Gerar Grid" % [_get_tile(), _board.get("width"), _board.get("height")]
-	print_rich("[color=cyan][Main][/color] FASE 1 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"))
+		_label_info.text = "Little Sword REFEITO — FASE 3 | TILE=%.1f | Board %dx%d | G: Grid | T: Druida Urso" % [_get_tile(), _board.get("width"), _board.get("height")]
+	print_rich("[color=cyan][Main][/color] FASE 3 pronta. TILE=", _get_tile(), " Board ", _board.get("width"), "x", _board.get("height"))
 	_print_debug_info()
 	# screenshot debug após 0.5s + re-log de camera após física
 	await get_tree().create_timer(0.5).timeout
@@ -92,6 +92,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if ke.keycode == KEY_G:
 			print("[Main] G _unhandled_input")
 			_trigger_regenerate()
+		elif ke.keycode == KEY_T:
+			print("[Main] T druida transform")
+			_trigger_druida()
 		elif ke.keycode == KEY_R:
 			print("[Main] R pressionado")
 			_yaw = -45.0
@@ -102,12 +105,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_take_debug_screenshot()
 
 func _input(event: InputEvent) -> void:
-	# Fallback extra para garantir que G chega
 	if event is InputEventKey and event.pressed and not event.echo:
 		var ke: InputEventKey = event as InputEventKey
 		if ke.keycode == KEY_G:
 			print("[Main] G _input")
 			_trigger_regenerate()
+		elif ke.keycode == KEY_T:
+			print("[Main] T _input")
+			_trigger_druida()
 
 func _trigger_regenerate() -> void:
 	if _is_regenerating:
@@ -129,6 +134,28 @@ func _trigger_regenerate() -> void:
 		_is_regenerating = false
 		print("[Main] regenerate concluido")
 	callable.call()
+
+func _trigger_druida() -> void:
+	if _board == null:
+		return
+	# procura druida (terceiro unit ou por nome)
+	var units: Array = _board.get("_units") as Array if "_units" in _board else []
+	for u: Node in _board.get_children():
+		if u.get_script() and u.get_script().resource_path.ends_with("board_unit.gd"):
+			var d: Resource = u.get("definition") as Resource
+			if d and String(d.get("display_name")).contains("Rowan"):
+				if u.has_method("transform_toggle"):
+					u.call("transform_toggle")
+					print("[Main] druida toggle feito")
+				return
+	# fallback via _units array
+	for u: Variant in units:
+		var n: Node = u as Node
+		if n and n.has_method("transform_toggle"):
+			var d: Resource = n.get("definition") as Resource
+			if d and String(d.get("display_name")).contains("Rowan"):
+				n.call("transform_toggle")
+				return
 
 func _update_camera() -> void:
 	if _camera_pivot == null:
