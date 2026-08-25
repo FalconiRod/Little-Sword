@@ -44,7 +44,33 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	_print_debug_info()
 	_take_debug_screenshot()
-	# em headless, testa G + movimento
+	# testes Fase 10 via args
+	var uargs: PackedStringArray = OS.get_cmdline_user_args()
+	if uargs.size() > 0:
+		var has_test: bool = false
+		for a: String in uargs:
+			if a in ["--demo","--clicktest","--skilltest","--stairtest","--combattest","--alltests"]:
+				has_test = true
+				break
+		if has_test:
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			var tr: Node = load("res://src/testing/test_runner.gd").new()
+			tr.setup(_board)
+			add_child(tr)
+			if "--demo" in uargs: tr.call("run_demo")
+			if "--clicktest" in uargs: tr.call("run_clicktest")
+			if "--skilltest" in uargs: tr.call("run_skilltest")
+			if "--stairtest" in uargs: tr.call("run_stairtest")
+			if "--combattest" in uargs: tr.call("run_combattest")
+			if "--alltests" in uargs or ("--demo" in uargs and uargs.size()==1):
+				# se só --demo sem outros, roda demo apenas; --alltests roda tudo
+				if "--alltests" in uargs:
+					tr.call("run_all")
+			await get_tree().create_timer(0.5).timeout
+			get_tree().quit()
+			return
+	# em headless sem args, testa G + movimento (legado)
 	if DisplayServer.get_name() == "headless":
 		print("[Main] HEADLESS test: simulando G")
 		_trigger_regenerate()

@@ -69,19 +69,20 @@ func take_damage(amt: int) -> void:
 	_apply_visual()
 
 func transform_toggle() -> void:
-	var def: Resource = definition
+	if _is_transformed:
+		definition = _base_def
+		_is_transformed = false
+		print("[BoardUnit] Reverteu -> ", _base_def.get("display_name"))
+		_apply_visual()
+		return
+	var def: Resource = _base_def
 	var alt: Resource = def.get("alternate_form") as Resource
 	if alt == null:
 		print("[BoardUnit] ", def.get("display_name"), " sem alternate_form")
 		return
-	if not _is_transformed:
-		definition = alt
-		_is_transformed = true
-		print("[BoardUnit] Transformou -> ", alt.get("display_name"))
-	else:
-		definition = _base_def
-		_is_transformed = false
-		print("[BoardUnit] Reverteu -> ", _base_def.get("display_name"))
+	definition = alt
+	_is_transformed = true
+	print("[BoardUnit] Transformou -> ", alt.get("display_name"))
 	_apply_visual()
 
 func revert_if_transformed() -> void:
